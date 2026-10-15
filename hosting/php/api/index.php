@@ -52,6 +52,10 @@ try {
         $m = get_media($p['id']);
         if (!$m || $m['status'] !== 'ready') throw new HttpError('Introuvable', 404);
         stream_media($m);
+    } elseif ($route === '/legal' && $isGet) {
+        // Pages légales publiques (vérifiées par TikTok, Meta et Google sans connexion).
+        $kick = false;
+        json_out(legal_info());
     } elseif ($route === '/cron') {
         $secret = (string) ($_GET['secret'] ?? '');
         if ($secret === '' || !hash_equals(cron_secret(), $secret)) throw new HttpError('Non autorisé', 401);

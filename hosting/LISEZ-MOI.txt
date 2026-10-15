@@ -10,6 +10,8 @@ décide ensuite qui d'autre peut se connecter (chacun dans son propre espace).
 Adresse de l'application :      {{SITE}}{{BASE}}/
 Adresse de retour (Twitch,
 Google, TikTok et Meta) :       {{SITE}}{{BASE}}/api/callback.php
+Conditions d'utilisation :      {{SITE}}{{BASE}}/conditions/
+Politique de confidentialité :  {{SITE}}{{BASE}}/confidentialite/
 
 Contenu de l'archive :
   - le dossier "{{FOLDER}}"  -> à déposer dans le dossier de votre site ;
@@ -105,6 +107,17 @@ Rangé hors du dossier public, il n'est jamais accessible depuis le navigateur.
       TikTok    : TikTok for Developers > Login Kit + Content Posting API
       Instagram : Meta for Developers > produit Instagram (compte professionnel)
 - Adresse de retour à déclarer chez chacun : {{SITE}}{{BASE}}/api/callback.php
+- Pages légales (en français, publiques) demandées par TikTok, Meta et Google.
+  D'abord, dans l'application : Paramètres > "Pages légales" > indiquez le nom du
+  service, l'éditeur (votre nom ou société) et un e-mail de contact. Puis collez :
+      Conditions d'utilisation (Terms of Service URL) :
+          {{SITE}}{{BASE}}/conditions/
+      Politique de confidentialité (Privacy Policy URL) :
+          {{SITE}}{{BASE}}/confidentialite/
+      Instructions de suppression des données (Meta) :
+          {{SITE}}{{BASE}}/confidentialite/#suppression
+  TikTok : "App details" · Meta : Paramètres de l'app > Général ·
+  Google : Écran de consentement OAuth (page d'accueil : {{SITE}}{{BASE}}/).
 - Publications PHOTO sur TikTok : dans TikTok for Developers > "URL properties",
   ajoutez et vérifiez le préfixe {{SITE}}{{BASE}}/ (TikTok télécharge les photos
   depuis votre site).

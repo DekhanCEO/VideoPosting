@@ -79,7 +79,32 @@ function public_settings(?array $user = null): array
         'canManageApps' => $admin,
         'cronUrl' => $admin ? $url . '/api/index.php?r=' . rawurlencode('/cron') . '&secret=' . cron_secret($app) : null,
         'env' => $admin ? vp_env_info() : null,
+        'legal' => legal_info($app),
     ];
+}
+
+/** Informations des pages légales (publiques : aucune donnée sensible). */
+function legal_info(?array $app = null): array
+{
+    $l = ($app ?? app_read())['legal'] ?? [];
+    return [
+        'serviceName' => trim((string) ($l['serviceName'] ?? '')) ?: 'VideoPosting',
+        'editor' => trim((string) ($l['editor'] ?? '')),
+        'email' => trim((string) ($l['email'] ?? '')),
+    ];
+}
+
+function apply_legal_patch(array $l): void
+{
+    $email = trim(str_limit($l['email'] ?? '', 160));
+    if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) throw new HttpError('Adresse e-mail invalide.', 422);
+    app_update(function (array &$a) use ($l, $email) {
+        $cur = legal_info($a);
+        if (array_key_exists('serviceName', $l)) $cur['serviceName'] = trim(str_limit($l['serviceName'], 80)) ?: 'VideoPosting';
+        if (array_key_exists('editor', $l)) $cur['editor'] = trim(str_limit($l['editor'], 160));
+        if (array_key_exists('email', $l)) $cur['email'] = $email;
+        $a['legal'] = $cur;
+    });
 }
 
 function apply_settings_patch(array $p, array $user): void
@@ -97,6 +122,11 @@ function apply_settings_patch(array $p, array $user): void
             }
             apply_credentials_patch($s, $p['credentials'] ?? []);
         });
+    }
+    // Pages légales : communes à toute l'installation, réservées à l'administrateur.
+    if (isset($p['legal']) && is_array($p['legal'])) {
+        if ($user['role'] !== 'admin') throw new HttpError('Seul l\'administrateur peut modifier les pages légales.', 403);
+        apply_legal_patch($p['legal']);
     }
     db_update(function (array &$d) use ($p) {
         $s = &$d['settings'];

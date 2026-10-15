@@ -177,6 +177,49 @@
     scrollbar-width: thin;
     scrollbar-color: var(--border-strong) transparent;
   }
+  /* Texte des pages légales (conditions, confidentialité). */
+  .legal-prose {
+    line-height: 1.75;
+    color: color-mix(in srgb, var(--fg) 86%, var(--muted));
+  }
+  .legal-prose p,
+  .legal-prose ul,
+  .legal-prose ol {
+    margin-top: 0.85rem;
+  }
+  .legal-prose ul,
+  .legal-prose ol {
+    padding-left: 1.25rem;
+  }
+  .legal-prose ul {
+    list-style: disc;
+  }
+  .legal-prose ol {
+    list-style: decimal;
+  }
+  .legal-prose li {
+    margin-top: 0.45rem;
+    padding-left: 0.25rem;
+  }
+  .legal-prose li::marker {
+    color: var(--accent);
+  }
+  .legal-prose strong {
+    font-weight: 600;
+    color: var(--fg);
+  }
+  .legal-prose a {
+    color: var(--accent);
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--accent) 35%, transparent);
+    text-underline-offset: 3px;
+  }
+  .legal-prose a:hover {
+    text-decoration-color: var(--accent);
+  }
+  .legal-prose .not-prose a {
+    text-decoration: none;
+  }
   .ig-gradient {
     background-image: radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285aeb 90%);
   }

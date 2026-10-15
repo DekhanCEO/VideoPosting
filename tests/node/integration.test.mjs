@@ -243,6 +243,22 @@ test("annonces Discord : webhooks, message de test, liens envoyés à la publica
   assert.deepEqual((await json("/api/discord/webhooks")).data.map((h) => h.name), ["Annonces", "Récap"]);
 });
 
+test("pages légales : publiques, pré-rendues, informations de l'éditeur", async () => {
+  for (const [path, title] of [["/conditions", "Conditions d&#x27;utilisation"], ["/confidentialite", "Politique de confidentialité"]]) {
+    const res = await fetch(BASE + path);
+    assert.equal(res.status, 200, path);
+    const html = await res.text();
+    assert.ok(html.includes(title), `${path} : titre`);
+    assert.ok(html.includes("YouTube"), `${path} : texte pré-rendu`);
+  }
+  assert.ok((await (await fetch(`${BASE}/confidentialite`)).text()).includes('id="suppression"'), "ancre des instructions de suppression (Meta)");
+  assert.deepEqual((await json("/api/legal")).data, { serviceName: "VideoPosting", editor: "", email: "" });
+  assert.equal((await json("/api/settings", { method: "PUT", json: { legal: { email: "faux" } } })).status, 422);
+  const saved = await json("/api/settings", { method: "PUT", json: { legal: { editor: "Malabop", email: "contact@malabop.fr" } } });
+  assert.deepEqual(saved.data.legal, { serviceName: "VideoPosting", editor: "Malabop", email: "contact@malabop.fr" });
+  assert.deepEqual((await json("/api/legal")).data, saved.data.legal);
+});
+
 test("synchronisation des statistiques", async () => {
   const sync = await json("/api/analytics/sync", { method: "POST" });
   assert.ok(sync.data.reports.every((r) => r.ok), JSON.stringify(sync.data));

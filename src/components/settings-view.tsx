@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 import { PageContainer, PageHeader } from "./app-shell";
 import { ChipsInput } from "./composer/fields";
 import { DiscordCard } from "./discord-settings";
+import { LegalCard } from "./legal-settings";
 import { PlatformBadge } from "./icons";
 import { Badge, Button, Card, CardHeader, CopyField, ExternalA, Field, Input, Segmented, Select, Skeleton, Steps, Switch, buttonClass } from "./ui";
 
@@ -93,11 +94,13 @@ function ApiCard({ platform, settings, highlight }: { platform: PlatformId; sett
       <>Créez un projet sur <A href="https://console.cloud.google.com/projectcreate">Google Cloud Console</A>.</>,
       <>Activez <strong>YouTube Data API v3</strong> et <strong>YouTube Analytics API</strong> dans « API et services ».</>,
       <>Configurez l&apos;écran de consentement OAuth (type Externe) et ajoutez votre adresse e-mail comme utilisateur test.</>,
+      <>Dans l&apos;écran de consentement, indiquez la page d&apos;accueil et les liens des <a href="#legal" className="text-accent underline">pages légales</a> (confidentialité, conditions d&apos;utilisation).</>,
       <>Créez un <strong>ID client OAuth</strong> de type « Application Web » avec l&apos;URI de redirection ci-dessous.</>,
       <>Copiez l&apos;ID client et le code secret dans les champs ci-dessus.</>,
     ],
     tiktok: [
       <>Créez une application sur <A href="https://developers.tiktok.com/apps">TikTok for Developers</A>.</>,
+      <>Dans « App details », renseignez la <i>Terms of Service URL</i> et la <i>Privacy Policy URL</i> (section <a href="#legal" className="text-accent underline">Pages légales</a>).</>,
       <>Ajoutez les produits <strong>Login Kit</strong> et <strong>Content Posting API</strong> (activez « Direct Post »).</>,
       <>Demandez les autorisations : user.info.basic, user.info.profile, user.info.stats, video.list, video.publish, video.upload.</>,
       <>Dans Login Kit, ajoutez l&apos;URI de redirection ci-dessous (HTTPS obligatoire, utilisez un tunnel en local).</>,
@@ -114,6 +117,7 @@ function ApiCard({ platform, settings, highlight }: { platform: PlatformId; sett
             <>Ajoutez <strong>Facebook Login for Business</strong> et <strong>Instagram API (connexion Facebook)</strong>.</>,
             <>Ajoutez l&apos;URI de redirection ci-dessous dans « URI de redirection OAuth valides ».</>,
             <>Votre compte Instagram professionnel doit être lié à une Page Facebook.</>,
+            <>Dans Paramètres → Général, indiquez les URL des conditions, de la confidentialité et des instructions de suppression des données (<a href="#legal" className="text-accent underline">Pages légales</a>).</>,
             <>Copiez l&apos;ID et la clé secrète de l&apos;app (Paramètres → Général).</>,
           ]
         : [
@@ -121,6 +125,7 @@ function ApiCard({ platform, settings, highlight }: { platform: PlatformId; sett
             <>Ajoutez le produit <strong>Instagram</strong> → « Configuration de l&apos;API avec connexion Instagram ».</>,
             <>Dans « Business login settings », ajoutez l&apos;URI de redirection ci-dessous.</>,
             <>Tant que l&apos;app est en développement, ajoutez votre compte Instagram comme testeur (Rôles).</>,
+            <>Dans Paramètres → Général, indiquez les URL des conditions, de la confidentialité et des instructions de suppression des données (<a href="#legal" className="text-accent underline">Pages légales</a>).</>,
             <>Copiez l&apos;« ID de l&apos;app Instagram » et sa clé secrète.</>,
           ],
   };
@@ -488,6 +493,7 @@ const NAV = [
   { id: "youtube", label: "API YouTube" },
   { id: "instagram", label: "API Instagram" },
   { id: "discord", label: "Discord" },
+  { id: "legal", label: "Pages légales" },
   { id: "hashtags", label: "Hashtags" },
   { id: "defaults", label: "Valeurs par défaut" },
   { id: "deploy", label: "Serveur & sécurité" },
@@ -560,6 +566,7 @@ export function SettingsView() {
               ),
             )}
             <DiscordCard settings={settings} />
+            <LegalCard settings={settings} />
             <HashtagGroups settings={settings} />
             <Defaults settings={settings} />
             <Deployment settings={settings} />

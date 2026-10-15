@@ -55,6 +55,12 @@ Un tableau de bord suit ensuite vos **statistiques** (abonnés, vues, engagement
 statistiques, revenus). L'administrateur choisit qui peut entrer (lui seul, sur invitation ou tout compte Twitch),
 gère les espaces et configure une seule fois les applications développeur, communes à tous.
 
+**Pages légales** : conditions d'utilisation et politique de confidentialité en français, publiques (`/conditions`,
+`/confidentialite`, ancre `#suppression` pour les instructions de suppression des données demandées par Meta),
+avec le nom du service, l'éditeur et l'e-mail de contact réglables dans **Paramètres → Pages légales**. Elles
+reprennent les mentions exigées par les plateformes (services d'API YouTube, règles de confidentialité de Google et
+utilisation limitée, conditions TikTok, Instagram, Twitch et Discord, révocation des accès).
+
 **Autres** : thème clair / sombre, interface responsive (mobile), groupes de hashtags, valeurs par défaut,
 mot de passe facultatif pour la version serveur Node.js (`APP_PASSWORD`).
 
@@ -151,6 +157,13 @@ Chaque carte de la page Paramètres contient un guide pas à pas. En résumé :
 | YouTube | [Google Cloud Console](https://console.cloud.google.com/) | YouTube Data API v3, YouTube Analytics API, ID client OAuth « Application Web » | Projet non audité : vidéos envoyées en privé. Quota par défaut 10 000 unités/jour (un envoi ≈ 1 600). |
 | TikTok | [TikTok for Developers](https://developers.tiktok.com/apps) | Login Kit, Content Posting API (Direct Post), scopes `user.info.basic`, `user.info.profile`, `user.info.stats`, `video.list`, `video.publish`, `video.upload` | Avant l'audit TikTok, publication directe uniquement en « Moi uniquement ». |
 | Instagram | [Meta for Developers](https://developers.facebook.com/apps) | Produit Instagram (connexion Instagram) **ou** Facebook Login for Business | Compte professionnel requis. Connexion Instagram : Instagram télécharge la vidéo depuis `PUBLIC_URL`. Via Facebook : envoi direct, Page Facebook liée nécessaire. 100 publications / 24 h. |
+
+### Pages légales
+TikTok (« App details »), Meta (Paramètres de l'app → Général) et Google (écran de consentement OAuth) demandent
+l'adresse des conditions d'utilisation et de la politique de confidentialité. Renseignez l'éditeur et l'e-mail de
+contact dans **Paramètres → Pages légales**, puis copiez les adresses affichées (`<PUBLIC_URL>/conditions`,
+`<PUBLIC_URL>/confidentialite`, `<PUBLIC_URL>/confidentialite#suppression`). Ces pages et `GET /api/legal` sont
+accessibles sans connexion. Relisez les textes (`src/components/legal/`) et adaptez-les à votre situation si besoin.
 
 ### Discord
 Dans Discord : **Paramètres du salon → Intégrations → Webhooks → Nouveau webhook → Copier l'URL du webhook**, puis

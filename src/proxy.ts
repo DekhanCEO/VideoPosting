@@ -1,8 +1,19 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/session";
 
-/** Chemins accessibles sans session : connexion et URLs vidéo signées lues par Instagram. */
-const PUBLIC_PATHS = [/^\/login$/, /^\/api\/session$/, /^\/api\/media\/[^/]+\/public$/, /^\/api\/cron$/];
+/**
+ * Chemins accessibles sans session : connexion, pages légales (vérifiées par TikTok, Meta et Google)
+ * et URLs vidéo signées lues par Instagram.
+ */
+const PUBLIC_PATHS = [
+  /^\/login$/,
+  /^\/conditions\/?$/,
+  /^\/confidentialite\/?$/,
+  /^\/api\/session$/,
+  /^\/api\/legal$/,
+  /^\/api\/media\/[^/]+\/public$/,
+  /^\/api\/cron$/,
+];
 
 export async function proxy(request: NextRequest) {
   const password = process.env.APP_PASSWORD;

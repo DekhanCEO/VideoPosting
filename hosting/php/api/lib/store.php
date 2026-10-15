@@ -97,6 +97,8 @@ function empty_app(): array
         // owner : administrateurs uniquement · invite : + pseudos Twitch autorisés · open : tout compte Twitch
         'access' => ['mode' => 'owner', 'allowed' => []],
         'users' => [],
+        // Éditeur et contact affichés sur les pages légales publiques (conditions, confidentialité).
+        'legal' => ['serviceName' => 'VideoPosting', 'editor' => '', 'email' => ''],
     ];
 }
 

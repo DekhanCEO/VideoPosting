@@ -1,6 +1,7 @@
 import "server-only";
 import crypto from "node:crypto";
 import { z } from "zod";
+import { legalInfo } from "../legal";
 import { revenueEstimates } from "../revenue-estimates";
 import { PLATFORM_IDS, type PublicSettings } from "../types";
 import { getCredentials, getPublicUrl, isPubliclyReachable, redirectUri } from "./config";
@@ -38,6 +39,7 @@ export function toPublicSettings(req?: Request): PublicSettings {
     passwordProtected: !!process.env.APP_PASSWORD,
     hosting: process.env.VP_DESKTOP === "1" ? "desktop" : "node",
     dataDir: process.env.VP_DESKTOP === "1" ? DATA_DIR : undefined,
+    legal: legalInfo(s.legal),
   };
 }
 
@@ -93,6 +95,14 @@ export const settingsPatchSchema = z.object({
     })
     .partial()
     .optional(),
+  legal: z
+    .object({
+      serviceName: z.string().trim().max(80),
+      editor: z.string().trim().max(160),
+      email: z.union([z.literal(""), z.string().trim().max(160).email("Adresse e-mail invalide")]),
+    })
+    .partial()
+    .optional(),
 });
 
 export function applySettingsPatch(patch: z.infer<typeof settingsPatchSchema>) {
@@ -122,6 +132,7 @@ export function applySettingsPatch(patch: z.infer<typeof settingsPatchSchema>) {
     if (patch.monthlyRevenueGoal !== undefined) s.monthlyRevenueGoal = patch.monthlyRevenueGoal;
     if (patch.defaults) s.defaults = { ...s.defaults, ...patch.defaults };
     if (patch.revenueEstimates) s.revenueEstimates = { ...revenueEstimates(s.revenueEstimates), ...patch.revenueEstimates };
+    if (patch.legal) s.legal = legalInfo({ ...legalInfo(s.legal), ...patch.legal });
   });
 }
 

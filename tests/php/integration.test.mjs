@@ -439,6 +439,22 @@ test("annonces Discord : webhooks, message de test, liens envoyés à la publica
   assert.deepEqual((await json(api("/discord/webhooks"))).data.map((h) => h.name), ["Annonces", "Récap"]);
 });
 
+test("pages légales : informations publiques, modifiables par l'administrateur", async () => {
+  const anonymous = browser();
+  const initial = await anonymous.json(api("/legal"));
+  assert.equal(initial.status, 200, "accessible sans connexion (vérifié par TikTok, Meta et Google)");
+  assert.deepEqual(initial.data, { serviceName: "VideoPosting", editor: "", email: "" });
+
+  assert.equal((await json(api("/settings"), { ...PUT, json: { legal: { email: "pas-un-email" } } })).status, 422);
+  const saved = await json(api("/settings"), { ...PUT, json: { legal: { serviceName: "VideoPosting Malabop", editor: "Malabop", email: "contact@malabop.fr" } } });
+  assert.equal(saved.status, 200, JSON.stringify(saved.data));
+  assert.deepEqual(saved.data.legal, { serviceName: "VideoPosting Malabop", editor: "Malabop", email: "contact@malabop.fr" });
+  assert.deepEqual((await anonymous.json(api("/legal"))).data, saved.data.legal);
+  // Nom vide : retour au nom par défaut ; champs non envoyés conservés.
+  const reset = await json(api("/settings"), { ...PUT, json: { legal: { serviceName: "" } } });
+  assert.deepEqual(reset.data.legal, { serviceName: "VideoPosting", editor: "Malabop", email: "contact@malabop.fr" });
+});
+
 test("synchronisation des statistiques", async () => {
   const sync = await json(api("/analytics/sync"), { method: "POST" });
   assert.ok(sync.data.reports.every((r) => r.ok), JSON.stringify(sync.data));
@@ -568,6 +584,9 @@ test("espaces séparés : accès sur invitation, données isolées, droits limit
   assert.equal(forbidden.status, 403);
   assert.equal((await guest.json(api("/admin"))).status, 403);
   assert.equal((await guest.json(api("/admin/access"), { ...PUT, json: { mode: "open" } })).status, 403);
+  // Pages légales : communes à l'installation, visibles mais non modifiables par un membre.
+  assert.equal(settings.legal.email, "contact@malabop.fr");
+  assert.equal((await guest.json(api("/settings"), { ...PUT, json: { legal: { editor: "Pirate" } } })).status, 403);
   // Réglages personnels et comptes propres à l'espace.
   assert.equal((await guest.json(api("/settings"), { ...PUT, json: { currency: "USD" } })).status, 200);
   const connect = await guest.call(api("/auth/youtube/connect"));

@@ -1,4 +1,5 @@
 import type { DiscordWebhook } from "./discord";
+import type { LegalInfo } from "./legal";
 
 export const PLATFORM_IDS = ["tiktok", "youtube", "instagram"] as const;
 export type PlatformId = (typeof PLATFORM_IDS)[number];
@@ -249,6 +250,8 @@ export interface Settings {
   revenueEstimates?: RevenueEstimates;
   /** Annonces Discord (webhooks) de l'espace. */
   discord?: { webhooks: DiscordWebhook[] };
+  /** Informations affichées sur les pages légales publiques. */
+  legal?: LegalInfo;
 }
 
 /**
@@ -306,6 +309,8 @@ export interface PublicSettings {
   twitchAvailable?: boolean;
   /** Fichier .env de l'hébergement (administrateurs) : jamais les valeurs, seulement les clés présentes. */
   env?: { found: boolean; location: "outside" | "data" | null; public: boolean; keys: string[] } | null;
+  /** Éditeur et contact des pages légales (communs à toute l'installation). */
+  legal?: LegalInfo;
 }
 
 export type UserRole = "admin" | "member";

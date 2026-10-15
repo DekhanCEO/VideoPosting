@@ -157,6 +157,14 @@ function SidebarFooter() {
           </button>
         )}
       </div>
+      <div className="flex gap-3 px-3 text-[11px] text-subtle">
+        <Link href="/conditions" className="hover:text-fg">
+          Conditions
+        </Link>
+        <Link href="/confidentialite" className="hover:text-fg">
+          Confidentialité
+        </Link>
+      </div>
     </div>
   );
 }
