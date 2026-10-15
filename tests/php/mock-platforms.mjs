@@ -92,6 +92,15 @@ export function startMock(port) {
     if (p === "/www.googleapis.com/youtube/v3/videos") return send(res, 200, { items: [{ id: "vid123", statistics: { viewCount: "500", likeCount: "40", commentCount: "3" } }] });
     if (p === "/youtubeanalytics.googleapis.com/v2/reports") {
       const metrics = url.searchParams.get("metrics");
+      const dimensions = url.searchParams.get("dimensions");
+      if (dimensions === "video") {
+        state.yt.videoFilter = url.searchParams.get("filters");
+        return send(res, 200, { rows: [["vid123", 25, 7]] });
+      }
+      if (dimensions === "ageGroup,gender") {
+        return send(res, 200, { rows: [["age18-24", "female", 30], ["age18-24", "male", 20], ["age25-34", "female", 25], ["age25-34", "male", 20], ["age25-34", "user_specified", 5]] });
+      }
+      if (dimensions === "country") return send(res, 200, { rows: [["FR", 600], ["BE", 200], ["CA", 200]] });
       if (metrics === "estimatedRevenue") return send(res, 200, { rows: [[new Date().toISOString().slice(0, 10), 12.5]] });
       return send(res, 200, { rows: [[new Date().toISOString().slice(0, 10), 800, 1200, 10, 2]] });
     }
@@ -159,7 +168,16 @@ export function startMock(port) {
       }
       if (rest === "media1") return send(res, 200, { permalink: "https://www.instagram.com/reel/ABC123/" });
       if (rest === "17841400000") return send(res, 200, { followers_count: 3200, media_count: 80 });
-      if (rest === "media1/insights") return send(res, 200, { data: [{ name: "views", values: [{ value: 900 }] }, { name: "likes", values: [{ value: 90 }] }, { name: "comments", values: [{ value: 5 }] }, { name: "shares", values: [{ value: 7 }] }, { name: "saved", values: [{ value: 11 }] }] });
+      if (rest === "17841400000/insights" && url.searchParams.get("metric") === "follower_demographics") {
+        const rows = {
+          age: [["18-24", 1200], ["25-34", 1600], ["35-44", 400]],
+          gender: [["F", 2000], ["M", 1100], ["U", 100]],
+          country: [["FR", 2400], ["BE", 500], ["CH", 300]],
+          city: [["Paris, Île-de-France", 900], ["Lyon, Auvergne-Rhône-Alpes", 300]],
+        }[url.searchParams.get("breakdown")];
+        return send(res, 200, { data: [{ name: "follower_demographics", total_value: { breakdowns: [{ results: rows.map(([k, v]) => ({ dimension_values: [k], value: v })) }] } }] });
+      }
+      if (rest === "media1/insights") return send(res, 200, { data: [{ name: "views", values: [{ value: 900 }] }, { name: "reach", values: [{ value: 700 }] }, { name: "likes", values: [{ value: 90 }] }, { name: "comments", values: [{ value: 5 }] }, { name: "shares", values: [{ value: 7 }] }, { name: "saved", values: [{ value: 11 }] }] });
     }
     send(res, 404, { error: { message: `mock: route inconnue ${req.method} ${p}` } });
   });

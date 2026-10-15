@@ -5,7 +5,9 @@ import type {
   AccountSnapshot,
   AnalyticsRange,
   AnalyticsSummary,
+  AudienceDemographics,
   DailyMetric,
+  MetricTotals,
   PlatformId,
   PlatformSummary,
   Post,
@@ -15,7 +17,8 @@ import type {
 } from "../types";
 import { getUsableAccount } from "./accounts";
 import { getCredentials } from "./config";
-import { DEMO_TOP_POSTS, demoPostMetrics, demoSeries } from "./demo-data";
+import { addToTotals, emptyTotals } from "../influence";
+import { DEMO_AUDIENCE, DEMO_TOP_POSTS, demoPostMetrics, demoSeries } from "./demo-data";
 import { adapters } from "./platforms";
 import type { PlatformAdapter } from "./platforms/types";
 import { incomeBetween } from "./revenue";
@@ -107,6 +110,12 @@ async function runSync(): Promise<SyncReport[]> {
           const existing = d.analytics.daily.find((m) => m.platform === platform && m.date === metric.date && !m.demo);
           if (existing) Object.assign(existing, metric);
           else d.analytics.daily.push({ platform, ...metric });
+        }
+
+        // Audience fournie par l'API : remplace la précédente (y compris une saisie manuelle).
+        const aud = stats.audience;
+        if (aud && (aud.gender || aud.ages || aud.countries?.length)) {
+          d.analytics.audience[platform] = { platform, source: "api", updatedAt: Date.now(), ...aud };
         }
 
         d.analytics.sync[platform] = {
@@ -249,6 +258,7 @@ export function getAnalyticsSummary(range: AnalyticsRange): AnalyticsSummary {
   // Classement des vidéos publiées pendant la période.
   const posts = db().read((d) => d.posts.filter((p) => p.status === "published" || p.status === "partial"));
   const top: TopPost[] = [];
+  const previousTotals: Partial<Record<PlatformId, MetricTotals>> = {};
   let engagementNow = 0;
   let engagementPrev = 0;
   let viewsOfPosts = 0;
@@ -275,12 +285,20 @@ export function getAnalyticsSummary(range: AnalyticsRange): AnalyticsSummary {
       top.push(entry);
     } else if (publishedDay >= prevFrom) {
       engagementPrev += entry.totalEngagement;
+      for (const [p, m] of Object.entries(entry.platforms) as [PlatformId, PostMetrics][]) {
+        addToTotals((previousTotals[p] ??= emptyTotals()), m);
+      }
     }
   }
 
   if (demo && top.length < 3) {
     for (const [i, d] of DEMO_TOP_POSTS.entries()) {
-      if (d.daysAgo >= range) continue;
+      if (d.daysAgo >= range * 2) continue;
+      if (d.daysAgo >= range) {
+        // Période précédente : sert à l'évolution du taux d'influence.
+        for (const p of d.platforms) addToTotals((previousTotals[p] ??= emptyTotals()), demoPostMetrics(`sample-${i}`, p, Date.now() - (d.daysAgo + 5) * 86400_000));
+        continue;
+      }
       const publishedAt = Date.now() - d.daysAgo * 86400_000;
       const entry: TopPost = { postId: `demo-${i}`, title: d.title, publishedAt, totalViews: 0, totalEngagement: 0, platforms: {} };
       for (const p of d.platforms) {
@@ -314,7 +332,20 @@ export function getAnalyticsSummary(range: AnalyticsRange): AnalyticsSummary {
     platforms,
     followersSeries,
     viewsSeries,
-    topPosts: top.slice(0, 10),
+    topPosts: top.slice(0, 100),
     engagementRate: viewsOfPosts > 0 ? engagementNow / viewsOfPosts : null,
+    previousTotals,
+    audience: demo ? demoAudience(connected) : db().read((d) => d.analytics.audience),
   };
+}
+
+/** Mode démo : audience simulée, sauf pour une plateforme dont l'audience a été saisie à la main. */
+function demoAudience(connected: Set<PlatformId>): Partial<Record<PlatformId, AudienceDemographics>> {
+  const saved = db().read((d) => d.analytics.audience);
+  const out: Partial<Record<PlatformId, AudienceDemographics>> = {};
+  for (const p of PLATFORM_ORDER) {
+    if (saved[p]?.source === "manual") out[p] = saved[p];
+    else if (connected.has(p) || connected.size === 0) out[p] = { platform: p, source: "demo", updatedAt: Date.now(), ...DEMO_AUDIENCE[p] };
+  }
+  return out;
 }

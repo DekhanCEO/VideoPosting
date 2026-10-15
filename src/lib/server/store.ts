@@ -6,6 +6,7 @@ import { DEFAULT_SETTINGS_DEFAULTS } from "../captions";
 import type {
   Account,
   AccountSnapshot,
+  AudienceDemographics,
   DailyMetric,
   MediaAsset,
   PlatformId,
@@ -32,6 +33,7 @@ export interface DbShape {
     snapshots: AccountSnapshot[];
     daily: DailyMetric[];
     sync: Partial<Record<PlatformId, SyncState>>;
+    audience: Partial<Record<PlatformId, AudienceDemographics>>;
   };
   revenues: RevenueEntry[];
   demoRevenueSeeded?: boolean;
@@ -69,7 +71,7 @@ function emptyDb(): DbShape {
     accounts: [],
     posts: [],
     media: [],
-    analytics: { snapshots: [], daily: [], sync: {} },
+    analytics: { snapshots: [], daily: [], sync: {}, audience: {} },
     revenues: [],
   };
 }
@@ -95,6 +97,7 @@ function migrate(raw: Partial<DbShape>): DbShape {
       snapshots: raw.analytics?.snapshots ?? [],
       daily: raw.analytics?.daily ?? [],
       sync: raw.analytics?.sync ?? {},
+      audience: raw.analytics?.audience ?? {},
     },
     revenues: raw.revenues ?? [],
     demoRevenueSeeded: raw.demoRevenueSeeded,

@@ -135,4 +135,18 @@ test("synchronisation des statistiques", async () => {
   const a = (await json("/api/analytics?range=28")).data;
   assert.deepEqual(Object.fromEntries(a.platforms.map((p) => [p.platform, p.followers])), { tiktok: 5000, youtube: 1234, instagram: 3200 });
   assert.equal(a.topPosts[0].totalViews, 500 + 1500 + 900);
+  assert.equal(a.topPosts[0].platforms.youtube.shares, 25);
+  assert.equal(a.topPosts[0].platforms.youtube.followersGained, 7);
+  assert.equal(a.topPosts[0].platforms.instagram.reach, 700);
+  assert.ok(Math.abs(a.audience.youtube.gender.female - 0.55) < 1e-9);
+  assert.deepEqual(a.audience.youtube.countries.map((c) => c.code), ["FR", "BE", "CA"]);
+  assert.equal(a.audience.instagram.cities[0].name, "Paris");
+  assert.equal(a.audience.tiktok, undefined);
+
+  const saved = await json("/api/analytics/audience/tiktok", { method: "PUT", json: { gender: { female: 60, male: 40 }, countries: [{ code: "fr", share: 80 }] } });
+  assert.equal(saved.status, 200, JSON.stringify(saved.data));
+  const after = (await json("/api/analytics?range=28")).data;
+  assert.equal(after.audience.tiktok.source, "manual");
+  assert.deepEqual(after.audience.tiktok.countries, [{ code: "FR", share: 0.8 }]);
+  assert.equal((await json("/api/analytics/audience/tiktok", { method: "PUT", json: {} })).status, 422);
 });

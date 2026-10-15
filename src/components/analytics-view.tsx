@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { mutate as globalMutate } from "swr";
-import { AlertTriangle, BarChart3, Eye, FlaskConical, Heart, RefreshCw, Users, Wallet, Film } from "lucide-react";
+import { AlertTriangle, BarChart3, Eye, FlaskConical, Heart, LayoutGrid, RefreshCw, UserRound, Users, Wallet, Film, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api-client";
 import { delta, formatCompact, formatCurrency, formatDate, formatNumber, formatPercent, formatRelative, formatSigned } from "@/lib/format";
@@ -14,7 +14,9 @@ import { mediaUrl } from "@/lib/upload-client";
 import { cn } from "@/lib/utils";
 import { PageContainer, PageHeader } from "./app-shell";
 import { ChartCard, Legend, LineChart, Sparkline, StackedColumns, type ChartSeries } from "./charts";
+import { AudienceView } from "./audience-view";
 import { PlatformBadge } from "./icons";
+import { InfluenceView } from "./influence-view";
 import { DeltaBadge, StatTile } from "./stat-tile";
 import { Badge, Button, ButtonLink, Card, EmptyState, Segmented, Skeleton } from "./ui";
 
@@ -31,6 +33,13 @@ const RANGES: { value: string; label: string }[] = [
   { value: "365", label: "12 mois" },
 ];
 
+type Tab = "overview" | "influence" | "audience";
+const TABS: { value: Tab; label: string; icon: React.ReactNode }[] = [
+  { value: "overview", label: "Vue d'ensemble", icon: <LayoutGrid className="size-4" /> },
+  { value: "influence", label: "Influence", icon: <Zap className="size-4" /> },
+  { value: "audience", label: "Audience", icon: <UserRound className="size-4" /> },
+];
+
 const shortDate = (d: string) => formatDate(d, { day: "numeric", month: "short" });
 const longDate = (d: string) => formatDate(d, { weekday: "long", day: "numeric", month: "long" });
 
@@ -39,6 +48,21 @@ export function AnalyticsView() {
   const { data, isLoading, isValidating, mutate } = useAnalytics(range);
   const { data: settings } = useSettings();
   const [syncing, setSyncing] = useState(false);
+  const [tab, setTab] = useState<Tab>("overview");
+  // Onglet mémorisé dans l'adresse (#influence, #audience) pour pouvoir partager le lien.
+  useEffect(() => {
+    const read = () => {
+      const fromHash = window.location.hash.slice(1);
+      setTab(TABS.some((t) => t.value === fromHash) ? (fromHash as Tab) : "overview");
+    };
+    read();
+    window.addEventListener("hashchange", read);
+    return () => window.removeEventListener("hashchange", read);
+  }, []);
+  const selectTab = (t: Tab) => {
+    setTab(t);
+    history.replaceState(null, "", t === "overview" ? window.location.pathname + window.location.search : `#${t}`);
+  };
 
   const sync = async () => {
     setSyncing(true);
@@ -82,15 +106,35 @@ export function AnalyticsView() {
         }
       />
 
+      <nav className="mt-6 flex gap-1 overflow-x-auto border-b border-border" role="tablist" aria-label="Sections des statistiques">
+        {TABS.map((t) => (
+          <button
+            key={t.value}
+            role="tab"
+            aria-selected={tab === t.value}
+            onClick={() => selectTab(t.value)}
+            className={cn(
+              "-mb-px inline-flex items-center gap-2 border-b-2 px-3.5 py-2.5 text-sm font-medium whitespace-nowrap transition-colors",
+              tab === t.value ? "border-accent text-fg" : "border-transparent text-muted hover:text-fg",
+            )}
+          >
+            <span className={tab === t.value ? "text-accent" : "text-subtle"}>{t.icon}</span>
+            {t.label}
+          </button>
+        ))}
+      </nav>
+
       {/* Filtres : une seule ligne, au-dessus de tout ce qu'ils filtrent */}
-      <div className="mt-6 flex flex-wrap items-center gap-3">
-        <Segmented value={String(range)} onChange={(v) => setRange(Number(v) as AnalyticsRange)} options={RANGES} />
-        {data?.demo && (
-          <Badge tone="warning">
-            <FlaskConical className="size-3" /> Données de démonstration
-          </Badge>
-        )}
-      </div>
+      {(tab !== "audience" || data?.demo) && (
+        <div className="mt-5 flex flex-wrap items-center gap-3">
+          {tab !== "audience" && <Segmented value={String(range)} onChange={(v) => setRange(Number(v) as AnalyticsRange)} options={RANGES} />}
+          {data?.demo && (
+            <Badge tone="warning">
+              <FlaskConical className="size-3" /> Données de démonstration
+            </Badge>
+          )}
+        </div>
+      )}
 
       {isLoading || !data ? (
         <div className="mt-6 space-y-6">
@@ -100,6 +144,14 @@ export function AnalyticsView() {
             ))}
           </div>
           <Skeleton className="h-80 rounded-2xl" />
+        </div>
+      ) : tab === "influence" ? (
+        <div className={cn("mt-6 transition-opacity", isValidating && "opacity-60")}>
+          <InfluenceView data={data} rangeLabel={RANGES.find((r) => r.value === String(range))?.label ?? ""} />
+        </div>
+      ) : tab === "audience" ? (
+        <div className="mt-6">
+          <AudienceView data={data} onChanged={() => void mutate()} />
         </div>
       ) : !hasData ? (
         <Card className="mt-6">
@@ -302,7 +354,7 @@ export function AnalyticsView() {
                     </tr>
                   </thead>
                   <tbody>
-                    {data.topPosts.map((t, i) => {
+                    {data.topPosts.slice(0, 10).map((t, i) => {
                       const real = !t.postId.startsWith("demo-");
                       const title = (
                         <span className="flex items-center gap-3">

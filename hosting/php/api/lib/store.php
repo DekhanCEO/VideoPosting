@@ -130,7 +130,7 @@ function empty_db(): array
         'accounts' => [],
         'posts' => [],
         'media' => [],
-        'analytics' => ['snapshots' => [], 'daily' => [], 'sync' => []],
+        'analytics' => ['snapshots' => [], 'daily' => [], 'sync' => [], 'audience' => []],
         'revenues' => [],
         'demoRevenueSeeded' => false,
         'jobs' => ['lastTokenRefresh' => 0, 'lastStatsSync' => 0],
@@ -143,6 +143,7 @@ function db_migrate(array $d): array
     foreach ($base as $k => $v) if (!array_key_exists($k, $d)) $d[$k] = $v;
     $d['settings'] = array_replace_recursive($base['settings'], $d['settings'] ?? []);
     $d['settings']['hashtagGroups'] = array_values($d['settings']['hashtagGroups'] ?? []);
+    $d['analytics'] = array_replace($base['analytics'], is_array($d['analytics'] ?? null) ? $d['analytics'] : []);
     unset($d['settings']['credentials']);
     return $d;
 }

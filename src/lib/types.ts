@@ -117,6 +117,10 @@ export interface PostMetrics {
   comments: number;
   shares: number;
   saves?: number;
+  /** Abonnés gagnés grâce à la vidéo (YouTube Analytics). */
+  followersGained?: number;
+  /** Comptes uniques touchés (Instagram). */
+  reach?: number;
   updatedAt: number;
 }
 
@@ -370,6 +374,38 @@ export interface TopPost {
   platforms: Partial<Record<PlatformId, PostMetrics & { url?: string }>>;
 }
 
+/* ------------------------------------------------------------------ */
+/* Audience : genre, âge, pays                                         */
+/* ------------------------------------------------------------------ */
+
+export const AGE_BUCKETS = ["13-17", "18-24", "25-34", "35-44", "45-54", "55-64", "65+"] as const;
+export type AgeBucket = (typeof AGE_BUCKETS)[number];
+
+/** Répartition de l'audience d'une plateforme. Toutes les parts sont des fractions (0 → 1). */
+export interface AudienceDemographics {
+  platform: PlatformId;
+  /** api : YouTube Analytics / Instagram Insights · manual : saisie (TikTok Studio…) · demo : simulée. */
+  source: "api" | "manual" | "demo";
+  /** followers : abonnés (Instagram, saisie) · viewers : spectateurs des 90 derniers jours (YouTube). */
+  basis: "followers" | "viewers";
+  updatedAt: number;
+  gender?: { female: number; male: number; other: number };
+  ages?: Partial<Record<AgeBucket, number>>;
+  /** Codes pays ISO 3166-1 alpha-2, du plus représenté au moins représenté. */
+  countries?: { code: string; share: number }[];
+  cities?: { name: string; share: number }[];
+}
+
+/** Totaux des vidéos publiées pendant une période, par plateforme. */
+export interface MetricTotals {
+  videos: number;
+  views: number;
+  likes: number;
+  comments: number;
+  shares: number;
+  saves: number;
+}
+
 export interface AnalyticsSummary {
   range: AnalyticsRange;
   demo: boolean;
@@ -382,8 +418,12 @@ export interface AnalyticsSummary {
   platforms: PlatformSummary[];
   followersSeries: SeriesPoint[];
   viewsSeries: SeriesPoint[];
+  /** Vidéos publiées sur la période (jusqu'à 100), classées par vues cumulées. */
   topPosts: TopPost[];
   engagementRate: number | null;
+  /** Totaux des vidéos de la période précédente (évolution du taux d'influence). */
+  previousTotals?: Partial<Record<PlatformId, MetricTotals>>;
+  audience?: Partial<Record<PlatformId, AudienceDemographics>>;
 }
 
 /* ------------------------------------------------------------------ */

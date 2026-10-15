@@ -487,3 +487,199 @@ export function ChartCard({
     </div>
   );
 }
+
+/* ------------------------------------------------------------------ */
+/* Nuage de points (vues × taux d'influence)                           */
+/* ------------------------------------------------------------------ */
+
+export interface ScatterPoint {
+  key: string;
+  series: string;
+  x: number;
+  y: number;
+  label: string;
+}
+
+/** Nuage de points : abscisse logarithmique (les vues varient de plusieurs ordres de grandeur). */
+export function ScatterPlot({
+  points,
+  series,
+  height = 300,
+  xFormat = (n) => String(n),
+  yFormat = (n) => String(n),
+  xLabel,
+  yLabel,
+  quadrants,
+}: {
+  points: ScatterPoint[];
+  series: ChartSeries[];
+  height?: number;
+  xFormat?: (n: number) => string;
+  yFormat?: (n: number) => string;
+  xLabel?: string;
+  yLabel?: string;
+  /** Repères en pointillés (médianes) et légende du quadrant supérieur droit. */
+  quadrants?: { x: number; y: number; topRight: string };
+}) {
+  const [ref, width] = useWidth<HTMLDivElement>();
+  const [hover, setHover] = useState<string | null>(null);
+  const m = { top: 14, right: 16, bottom: 40, left: 52 };
+  const iw = Math.max(0, width - m.left - m.right);
+  const ih = height - m.top - m.bottom;
+  const colorOf = new Map(series.map((s) => [s.key, s.color]));
+  const nameOf = new Map(series.map((s) => [s.key, s.label]));
+
+  const xs = points.map((p) => Math.max(1, p.x));
+  const lo = Math.floor(Math.log10(xs.length ? Math.min(...xs) : 1));
+  const hi = Math.max(lo + 1, Math.ceil(Math.log10(xs.length ? Math.max(...xs) : 10)));
+  const xTicks = Array.from({ length: hi - lo + 1 }, (_, i) => 10 ** (lo + i));
+  const yTicks = niceTicks(points.length ? Math.max(...points.map((p) => p.y)) : 0.1);
+  const y1 = yTicks[yTicks.length - 1] || 1;
+  const x = (v: number) => ((Math.log10(Math.max(1, v)) - lo) / (hi - lo)) * iw;
+  const y = (v: number) => ih - (v / y1) * ih;
+  const active = points.find((p) => p.key === hover);
+
+  return (
+    <div ref={ref} className="relative w-full" style={{ height }}>
+      {width > 0 && (
+        <svg width={width} height={height} className="overflow-visible" role="img" aria-label={`${yLabel ?? ""} selon ${xLabel ?? ""}`}>
+          <g transform={`translate(${m.left},${m.top})`}>
+            {yTicks.map((t) => (
+              <g key={t}>
+                <line x1={0} x2={iw} y1={y(t)} y2={y(t)} stroke="var(--grid)" strokeWidth={1} />
+                <text x={-10} y={y(t)} dy="0.32em" textAnchor="end" className="fill-subtle text-[10px] tabular-nums">
+                  {yFormat(t)}
+                </text>
+              </g>
+            ))}
+            {xTicks.map((t, i) => (
+              <text key={t} x={x(t)} y={ih + 18} textAnchor={i === 0 ? "start" : i === xTicks.length - 1 ? "end" : "middle"} className="fill-subtle text-[10px] tabular-nums">
+                {xFormat(t)}
+              </text>
+            ))}
+            <line x1={0} x2={iw} y1={ih} y2={ih} stroke="var(--axis)" strokeWidth={1} />
+            {xLabel && (
+              <text x={iw} y={ih + 34} textAnchor="end" className="fill-muted text-[11px]">
+                {xLabel} →
+              </text>
+            )}
+            {yLabel && (
+              <text x={0} y={-4} className="fill-muted text-[11px]">
+                ↑ {yLabel}
+              </text>
+            )}
+            {quadrants && points.length > 2 && (
+              <g>
+                <line x1={x(quadrants.x)} x2={x(quadrants.x)} y1={0} y2={ih} stroke="var(--axis)" strokeDasharray="3 4" strokeWidth={1} />
+                <line x1={0} x2={iw} y1={y(quadrants.y)} y2={y(quadrants.y)} stroke="var(--axis)" strokeDasharray="3 4" strokeWidth={1} />
+                <text x={iw - 4} y={12} textAnchor="end" className="fill-muted text-[10px] font-medium">
+                  {quadrants.topRight}
+                </text>
+              </g>
+            )}
+            {points.map((p) => (
+              <circle
+                key={p.key}
+                cx={x(p.x)}
+                cy={y(p.y)}
+                r={hover === p.key ? 7 : 5.5}
+                fill={colorOf.get(p.series)}
+                stroke="var(--surface)"
+                strokeWidth={2}
+                opacity={hover && hover !== p.key ? 0.45 : 1}
+                className="transition-[r,opacity] duration-150"
+              />
+            ))}
+            {/* Zones de survol plus grandes que les points */}
+            {points.map((p) => (
+              <circle
+                key={`hit-${p.key}`}
+                cx={x(p.x)}
+                cy={y(p.y)}
+                r={13}
+                fill="transparent"
+                onPointerEnter={() => setHover(p.key)}
+                onPointerLeave={() => setHover((h) => (h === p.key ? null : h))}
+              />
+            ))}
+          </g>
+        </svg>
+      )}
+      {active && (
+        <Tooltip x={m.left + x(active.x)} y={m.top + y(active.y) - 10} width={width}>
+          <p className="mb-1 max-w-56 truncate font-medium text-fg">{active.label}</p>
+          <TooltipRow color={colorOf.get(active.series) ?? "var(--accent)"} shape="rect" label={nameOf.get(active.series) ?? ""} value={yFormat(active.y)} />
+          <p className="mt-0.5 text-muted tabular-nums">{xFormat(active.x)} vues</p>
+        </Tooltip>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Répartitions (parts d'un total)                                     */
+/* ------------------------------------------------------------------ */
+
+/** Liste de parts (âges, pays…) : libellé, barre proportionnelle à la plus grande part, pourcentage. */
+export function ShareList({
+  items,
+  color = "var(--accent)",
+  format,
+}: {
+  items: { key: string; label: ReactNode; share: number; icon?: ReactNode; muted?: boolean }[];
+  color?: string;
+  format: (share: number) => string;
+}) {
+  const max = Math.max(0.0001, ...items.map((i) => i.share));
+  return (
+    <ul className="space-y-2.5">
+      {items.map((item) => (
+        <li key={item.key} className="grid grid-cols-[minmax(0,9rem)_1fr_3.25rem] items-center gap-3 text-sm sm:grid-cols-[minmax(0,11rem)_1fr_3.5rem]">
+          <span className={cn("flex min-w-0 items-center gap-2", item.muted && "text-muted")}>
+            {item.icon}
+            <span className="truncate">{item.label}</span>
+          </span>
+          <span className="h-2 rounded-full bg-surface-2">
+            <span
+              className="block h-full rounded-full transition-[width] duration-500"
+              style={{ width: `${(item.share / max) * 100}%`, background: item.muted ? "var(--axis)" : color }}
+            />
+          </span>
+          <span className="text-right font-semibold tabular-nums">{format(item.share)}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Barre unique 100 % (ex. genre) : segments séparés par 2 px, valeurs et libellés dans la légende. */
+export function ShareBar({
+  parts,
+  format,
+  height = 12,
+}: {
+  parts: { key: string; label: string; share: number; color: string }[];
+  format: (share: number) => string;
+  height?: number;
+}) {
+  const visible = parts.filter((p) => p.share > 0);
+  const total = visible.reduce((n, p) => n + p.share, 0) || 1;
+  return (
+    <div>
+      <div className="flex w-full gap-[2px] overflow-hidden rounded-full" style={{ height }} role="img" aria-label={visible.map((p) => `${p.label} ${format(p.share)}`).join(", ")}>
+        {visible.map((p) => (
+          <span key={p.key} className="h-full first:rounded-l-full last:rounded-r-full" style={{ width: `${(p.share / total) * 100}%`, background: p.color }} title={`${p.label} : ${format(p.share)}`} />
+        ))}
+      </div>
+      <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2">
+        {parts.map((p) => (
+          <span key={p.key} className="inline-flex items-center gap-2 text-sm">
+            <span className="size-2.5 rounded-[3px]" style={{ background: p.color }} />
+            <span className="font-semibold tabular-nums">{format(p.share)}</span>
+            <span className="text-muted">{p.label}</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}

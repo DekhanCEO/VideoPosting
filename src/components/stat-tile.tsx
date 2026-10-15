@@ -61,3 +61,25 @@ export function StatTile({
     </div>
   );
 }
+
+/** Variation en points de pourcentage (ex. taux : 8,1 % → 8,9 % = « +0,8 pt »). */
+export function PointDelta({ value }: { value: number | null }) {
+  if (value === null || !Number.isFinite(value)) return <span className="text-xs text-subtle">—</span>;
+  const pts = value * 100;
+  const up = pts > 0.05;
+  const down = pts < -0.05;
+  const Icon = up ? ArrowUpRight : down ? ArrowDownRight : Minus;
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-xs font-semibold tabular-nums",
+        up && "bg-success/10 text-success",
+        down && "bg-danger/10 text-danger",
+        !up && !down && "bg-surface-2 text-muted",
+      )}
+    >
+      <Icon className="size-3.5" />
+      {`${up ? "+" : down ? "−" : ""}${Math.abs(pts).toLocaleString("fr-FR", { maximumFractionDigits: 1, minimumFractionDigits: 1 })} pt`}
+    </span>
+  );
+}

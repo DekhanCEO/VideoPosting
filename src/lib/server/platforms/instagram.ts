@@ -1,5 +1,5 @@
 import "server-only";
-import type { Account } from "../../types";
+import { AGE_BUCKETS, type Account, type AgeBucket } from "../../types";
 import { isPubliclyReachable, type ResolvedCredentials } from "../config";
 import { PlatformError, form, parseBody, sleep, streamUpload, throwIfAborted } from "../http";
 import { signedMediaUrl } from "../media";
@@ -346,7 +346,7 @@ export const instagram: PlatformAdapter<"instagram"> = {
     for (const id of externalIds) {
       try {
         const insights = await graph<{ data?: { name: string; values?: { value: number }[]; total_value?: { value: number } }[] }>(
-          `${base}/${id}/insights?metric=views,likes,comments,shares,saved&access_token=${token}`,
+          `${base}/${id}/insights?metric=views,reach,likes,comments,shares,saved&access_token=${token}`,
           undefined,
           "Insights indisponibles",
         );
@@ -354,7 +354,14 @@ export const instagram: PlatformAdapter<"instagram"> = {
           const m = insights.data?.find((d) => d.name === name);
           return m?.total_value?.value ?? m?.values?.[0]?.value ?? 0;
         };
-        result.posts![id] = { views: get("views"), likes: get("likes"), comments: get("comments"), shares: get("shares"), saves: get("saved") };
+        result.posts![id] = {
+          views: get("views"),
+          likes: get("likes"),
+          comments: get("comments"),
+          shares: get("shares"),
+          saves: get("saved"),
+          reach: get("reach") || undefined,
+        };
       } catch {
         try {
           const media = await graph<{ like_count?: number; comments_count?: number }>(
@@ -367,6 +374,33 @@ export const instagram: PlatformAdapter<"instagram"> = {
           result.warnings!.push(`Reel ${id} : ${(err as Error).message}`);
         }
       }
+    }
+
+    // Audience des abonnés (comptes professionnels d'au moins 100 abonnés).
+    try {
+      const breakdown = async (dimension: "age" | "gender" | "country" | "city") => {
+        const r = await graph<{ data?: { total_value?: { breakdowns?: { results?: { dimension_values: string[]; value: number }[] }[] } }[] }>(
+          `${base}/${igUserId(account)}/insights?metric=follower_demographics&period=lifetime&metric_type=total_value&breakdown=${dimension}&access_token=${token}`,
+          undefined,
+          "Audience Instagram indisponible (compte professionnel d'au moins 100 abonnés requis)",
+        );
+        return (r.data?.[0]?.total_value?.breakdowns?.[0]?.results ?? []).map((x) => [String(x.dimension_values[0] ?? ""), Number(x.value) || 0] as const);
+      };
+      const shares = (rows: (readonly [string, number])[]) => {
+        const total = rows.reduce((n, [, v]) => n + v, 0);
+        return total ? rows.map(([k, v]) => [k, v / total] as const).sort((a, b) => b[1] - a[1]) : [];
+      };
+      const [age, gender, country, city] = await Promise.all([breakdown("age"), breakdown("gender"), breakdown("country"), breakdown("city")]);
+      const g = Object.fromEntries(shares(gender));
+      result.audience = {
+        basis: "followers",
+        gender: gender.length ? { female: g.F ?? 0, male: g.M ?? 0, other: g.U ?? 0 } : undefined,
+        ages: age.length ? (Object.fromEntries(shares(age).filter(([k]) => (AGE_BUCKETS as readonly string[]).includes(k))) as Partial<Record<AgeBucket, number>>) : undefined,
+        countries: country.length ? shares(country).slice(0, 30).map(([code, share]) => ({ code: code.toUpperCase(), share })) : undefined,
+        cities: city.length ? shares(city).slice(0, 10).map(([name, share]) => ({ name: name.split(",")[0], share })) : undefined,
+      };
+    } catch (err) {
+      result.warnings!.push(`Audience Instagram : ${(err as Error).message}`);
     }
     return result;
   },

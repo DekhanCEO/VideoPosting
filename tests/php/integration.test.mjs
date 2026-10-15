@@ -251,6 +251,49 @@ test("synchronisation des statistiques", async () => {
   assert.equal(a.topPosts[0].totalViews, 500 + 1500 + 900);
   const revenue = (await json(api("/revenue"))).data;
   assert.ok(revenue.entries.some((e) => e.auto && e.amount === 12.5), "revenus YouTube importés");
+
+  // Taux d'influence : partages et abonnés gagnés YouTube (Analytics), portée Instagram.
+  const top = a.topPosts[0].platforms;
+  assert.equal(top.youtube.shares, 25);
+  assert.equal(top.youtube.followersGained, 7);
+  assert.equal(top.instagram.reach, 700);
+  assert.equal(top.instagram.saves, 11);
+  assert.match(mock.state.yt.videoFilter, /^video==vid123$/);
+
+  // Audience : genre, âge et pays (YouTube Analytics, Instagram Insights).
+  const yt = a.audience.youtube;
+  assert.equal(yt.source, "api");
+  assert.equal(yt.basis, "viewers");
+  assert.ok(Math.abs(yt.gender.female - 0.55) < 1e-9 && Math.abs(yt.gender.other - 0.05) < 1e-9);
+  assert.ok(Math.abs(yt.ages["25-34"] - 0.5) < 1e-9);
+  assert.deepEqual(yt.countries.map((c) => c.code), ["FR", "BE", "CA"]);
+  assert.ok(Math.abs(yt.countries[0].share - 0.6) < 1e-9);
+  const ig = a.audience.instagram;
+  assert.equal(ig.basis, "followers");
+  assert.ok(Math.abs(ig.gender.female - 2000 / 3200) < 1e-9);
+  assert.ok(Math.abs(ig.ages["25-34"] - 0.5) < 1e-9);
+  assert.equal(ig.countries[0].code, "FR");
+  assert.equal(ig.cities[0].name, "Paris");
+  assert.equal(a.audience.tiktok, undefined, "TikTok ne fournit pas d'audience par API");
+});
+
+test("audience TikTok saisie à la main", async () => {
+  const bad = await json(api("/analytics/audience/tiktok"), { ...PUT, json: {} });
+  assert.equal(bad.status, 422);
+  const saved = await json(api("/analytics/audience/tiktok"), {
+    ...PUT,
+    json: { gender: { female: 60, male: 38, other: 2 }, ages: { "18-24": 50, "25-34": 30, "13-17": 20 }, countries: [{ code: "fr", share: 70 }, { code: "BE", share: 10 }, { code: "XXX", share: 5 }] },
+  });
+  assert.equal(saved.status, 200, JSON.stringify(saved.data));
+  const a = (await json(api("/analytics", "&range=28"))).data;
+  const tt = a.audience.tiktok;
+  assert.equal(tt.source, "manual");
+  assert.ok(Math.abs(tt.gender.female - 0.6) < 1e-9);
+  assert.deepEqual(Object.keys(tt.ages), ["13-17", "18-24", "25-34"]);
+  assert.deepEqual(tt.countries, [{ code: "FR", share: 0.7 }, { code: "BE", share: 0.1 }]);
+  assert.equal((await json(api("/analytics/audience/tiktok"), DELETE)).status, 200);
+  assert.equal((await json(api("/analytics", "&range=28"))).data.audience.tiktok, undefined);
+  assert.equal((await json(api("/analytics/audience/snapchat"), { ...PUT, json: {} })).status, 404);
 });
 
 test("espaces séparés : accès sur invitation, données isolées, droits limités", async () => {

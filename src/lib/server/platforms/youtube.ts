@@ -1,6 +1,7 @@
 import "server-only";
 import { isYoutubeShort } from "../../platforms";
-import type { Account } from "../../types";
+import { normalize } from "../../influence";
+import type { Account, AgeBucket } from "../../types";
 import { getSettings } from "../store";
 import { PlatformError, form, parseBody, readChunk, sleep, throwIfAborted } from "../http";
 import type { AccountData, PlatformAdapter, StatsResult } from "./types";
@@ -10,6 +11,17 @@ const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const API = "https://www.googleapis.com/youtube/v3";
 const UPLOAD_API = "https://www.googleapis.com/upload/youtube/v3";
 const ANALYTICS_API = "https://youtubeanalytics.googleapis.com/v2/reports";
+
+/** Tranches d'âge de YouTube Analytics → tranches communes. */
+const YT_AGE_GROUPS: Record<string, AgeBucket> = {
+  "age13-17": "13-17",
+  "age18-24": "18-24",
+  "age25-34": "25-34",
+  "age35-44": "35-44",
+  "age45-54": "45-54",
+  "age55-64": "55-64",
+  "age65-": "65+",
+};
 
 const SCOPES = [
   "https://www.googleapis.com/auth/youtube.upload",
@@ -311,9 +323,66 @@ export const youtube: PlatformAdapter<"youtube"> = {
       }
     }
 
-    // YouTube Analytics : vues, durée de visionnage et abonnés par jour.
     const end = new Date();
     const start = new Date(Date.now() - days * 86400_000);
+
+    // Partages et abonnés gagnés par vidéo (absents de l'API Data, fournis par YouTube Analytics).
+    for (let i = 0; i < externalIds.length; i += 200) {
+      const ids = externalIds.slice(i, i + 200);
+      try {
+        const report = await googleFetch<{ rows?: (string | number)[][] }>(
+          `${ANALYTICS_API}?ids=channel==MINE&startDate=2010-01-01&endDate=${isoDate(end)}&dimensions=video&metrics=shares,subscribersGained&filters=video==${ids.join(",")}&sort=-shares&maxResults=200`,
+          { headers },
+          "Partages indisponibles",
+        );
+        for (const [id, shares, gained] of report.rows ?? []) {
+          const m = result.posts![String(id)];
+          if (m) {
+            m.shares = Number(shares);
+            m.followersGained = Number(gained);
+          }
+        }
+      } catch (err) {
+        result.warnings!.push(`Partages YouTube : ${(err as Error).message}`);
+      }
+    }
+
+    // Audience : genre et âge (pourcentage des spectateurs connectés), pays (vues) sur la période.
+    const period = `${ANALYTICS_API}?ids=channel==MINE&startDate=${isoDate(start)}&endDate=${isoDate(end)}`;
+    try {
+      const demo = await googleFetch<{ rows?: (string | number)[][] }>(
+        `${period}&dimensions=ageGroup,gender&metrics=viewerPercentage&sort=gender,ageGroup`,
+        { headers },
+        "Données démographiques indisponibles",
+      );
+      const gender = { female: 0, male: 0, other: 0 };
+      const ages: Partial<Record<AgeBucket, number>> = {};
+      for (const [group, g, pct] of demo.rows ?? []) {
+        const share = Number(pct) / 100;
+        const bucket = YT_AGE_GROUPS[String(group)];
+        if (bucket) ages[bucket] = (ages[bucket] ?? 0) + share;
+        gender[g === "female" ? "female" : g === "male" ? "male" : "other"] += share;
+      }
+      const geo = await googleFetch<{ rows?: (string | number)[][] }>(
+        `${period}&dimensions=country&metrics=views&sort=-views`,
+        { headers },
+        "Pays indisponibles",
+      );
+      const totalViews = (geo.rows ?? []).reduce((n, r) => n + Number(r[1]), 0);
+      const normalizedGender = normalize(gender);
+      result.audience = {
+        basis: "viewers",
+        gender: normalizedGender ? { female: normalizedGender.female ?? 0, male: normalizedGender.male ?? 0, other: normalizedGender.other ?? 0 } : undefined,
+        ages: normalize(ages) ?? undefined,
+        countries: totalViews
+          ? (geo.rows ?? []).slice(0, 30).map(([code, views]) => ({ code: String(code).toUpperCase(), share: Number(views) / totalViews }))
+          : undefined,
+      };
+    } catch (err) {
+      result.warnings!.push(`Audience YouTube : ${(err as Error).message}`);
+    }
+
+    // YouTube Analytics : vues, durée de visionnage et abonnés par jour.
     const base = `${ANALYTICS_API}?ids=channel==MINE&startDate=${isoDate(start)}&endDate=${isoDate(end)}&dimensions=day&sort=day`;
     const byDate = new Map<string, NonNullable<StatsResult["daily"]>[number]>();
     try {

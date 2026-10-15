@@ -51,5 +51,6 @@ require __DIR__ . '/posts.php';
 require __DIR__ . '/worker.php';
 require __DIR__ . '/demo_data.php';
 require __DIR__ . '/revenue.php';
+require __DIR__ . '/audience.php';
 require __DIR__ . '/analytics.php';
 require __DIR__ . '/dashboard.php';

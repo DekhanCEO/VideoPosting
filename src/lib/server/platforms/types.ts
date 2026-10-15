@@ -2,6 +2,7 @@ import "server-only";
 import type {
   Account,
   AccountSnapshot,
+  AudienceDemographics,
   DailyMetric,
   MediaAsset,
   PlatformId,
@@ -38,6 +39,8 @@ export interface StatsResult {
   /** Métriques par identifiant externe de vidéo. */
   posts?: Record<string, Omit<PostMetrics, "updatedAt">>;
   revenueAvailable?: boolean;
+  /** Répartition de l'audience (genre, âge, pays), si la plateforme la fournit. */
+  audience?: Pick<AudienceDemographics, "basis" | "gender" | "ages" | "countries" | "cities">;
   warnings?: string[];
 }
 

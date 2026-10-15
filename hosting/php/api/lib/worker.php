@@ -286,13 +286,28 @@ function worker_run(float $budget, array $spaces): void
 }
 
 /** Tâches périodiques de tous les espaces (appelées par le cron). */
-function run_periodic_jobs_all(): void
+/**
+ * Tâches périodiques de tous les espaces (jetons, statistiques), les plus en retard d'abord.
+ * Avec beaucoup de créateurs, le travail est réparti sur plusieurs appels cron : on s'arrête
+ * avant la limite de durée des scripts de l'hébergement, le reste passe au prochain appel.
+ */
+function run_periodic_jobs_all(float $budget = 40.0): void
 {
+    $start = microtime(true);
     $previous = $GLOBALS['VP_SPACE'];
+    $queue = [];
     foreach (all_space_ids() as $id) {
         use_space($id);
+        if (!is_file(db_file())) continue;
+        $jobs = db_read()['jobs'];
+        $queue[$id] = min((int) ($jobs['lastTokenRefresh'] ?? 0) + 3600000, (int) ($jobs['lastStatsSync'] ?? 0) + 6 * 3600000);
+    }
+    asort($queue);
+    foreach ($queue as $id => $due) {
+        if ($due > now_ms() || microtime(true) - $start > $budget) break;
+        use_space((string) $id);
         try {
-            if (is_file(db_file())) periodic_jobs();
+            periodic_jobs();
         } catch (Throwable $e) {
             error_log('[VideoPosting] espace ' . $id . ' : ' . $e->getMessage());
         }

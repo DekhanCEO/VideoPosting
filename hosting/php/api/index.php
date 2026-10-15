@@ -58,8 +58,9 @@ try {
         $spaces = spaces_with_work();
         json_out(['ok' => true, 'pending' => count($spaces)]);
         finish_request();
-        worker_run(50, $spaces);
-        run_periodic_jobs_all();
+        $t0 = microtime(true);
+        worker_run(40, $spaces);
+        run_periodic_jobs_all(max(10, 50 - (microtime(true) - $t0)));
         exit;
     } else {
         // Routes réservées aux utilisateurs connectés (chacun dans son espace) ---
@@ -185,6 +186,11 @@ try {
         } elseif ($route === '/analytics' && $isGet) {
             $range = (int) ($_GET['range'] ?? 28);
             json_out(analytics_summary(in_array($range, [7, 28, 90, 365], true) ? $range : 28));
+        } elseif (route_match('/analytics/audience/{platform}', $route, $p)) {
+            if (!is_platform($p['platform'])) throw new HttpError('Plateforme inconnue.', 404);
+            if ($method === 'PUT') json_out(save_manual_audience($p['platform'], request_json()));
+            elseif ($method === 'DELETE') { clear_audience($p['platform']); json_out(['ok' => true]); }
+            else throw new HttpError('Méthode non autorisée', 405);
         } elseif ($route === '/analytics/sync' && $method === 'POST') {
             json_out(['reports' => sync_analytics()]);
         } elseif ($route === '/revenue/export' && $isGet) {

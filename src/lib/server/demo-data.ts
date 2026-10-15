@@ -1,7 +1,7 @@
 import "server-only";
 import crypto from "node:crypto";
 import { addDays, isoDay, parseDay } from "../dates";
-import type { AccountSnapshot, DailyMetric, PlatformId, PostMetrics, RevenueEntry } from "../types";
+import type { AccountSnapshot, AudienceDemographics, DailyMetric, PlatformId, PostMetrics, RevenueEntry } from "../types";
 
 /**
  * Données fictives mais cohérentes pour le mode démo : elles sont recalculées
@@ -199,3 +199,60 @@ export function demoRevenueEntries(): RevenueEntry[] {
   }
   return entries;
 }
+
+/** Audience fictive mais réaliste (TikTok plus jeune, YouTube plus masculin, Instagram 18-34 ans). */
+export const DEMO_AUDIENCE: Record<PlatformId, Pick<AudienceDemographics, "basis" | "gender" | "ages" | "countries" | "cities">> = {
+  tiktok: {
+    basis: "followers",
+    gender: { female: 0.58, male: 0.39, other: 0.03 },
+    ages: { "13-17": 0.14, "18-24": 0.41, "25-34": 0.27, "35-44": 0.11, "45-54": 0.05, "55-64": 0.015, "65+": 0.005 },
+    countries: [
+      { code: "FR", share: 0.62 },
+      { code: "BE", share: 0.08 },
+      { code: "CA", share: 0.06 },
+      { code: "CH", share: 0.05 },
+      { code: "MA", share: 0.04 },
+      { code: "DZ", share: 0.03 },
+      { code: "SN", share: 0.02 },
+      { code: "CI", share: 0.02 },
+      { code: "US", share: 0.02 },
+    ],
+  },
+  youtube: {
+    basis: "viewers",
+    gender: { female: 0.36, male: 0.62, other: 0.02 },
+    ages: { "13-17": 0.06, "18-24": 0.29, "25-34": 0.34, "35-44": 0.18, "45-54": 0.08, "55-64": 0.03, "65+": 0.02 },
+    countries: [
+      { code: "FR", share: 0.55 },
+      { code: "CA", share: 0.09 },
+      { code: "BE", share: 0.07 },
+      { code: "CH", share: 0.06 },
+      { code: "US", share: 0.05 },
+      { code: "MA", share: 0.03 },
+      { code: "DE", share: 0.02 },
+      { code: "GB", share: 0.02 },
+    ],
+  },
+  instagram: {
+    basis: "followers",
+    gender: { female: 0.64, male: 0.34, other: 0.02 },
+    ages: { "13-17": 0.05, "18-24": 0.36, "25-34": 0.37, "35-44": 0.14, "45-54": 0.05, "55-64": 0.02, "65+": 0.01 },
+    countries: [
+      { code: "FR", share: 0.68 },
+      { code: "BE", share: 0.07 },
+      { code: "CH", share: 0.06 },
+      { code: "CA", share: 0.05 },
+      { code: "MA", share: 0.03 },
+      { code: "LU", share: 0.02 },
+      { code: "ES", share: 0.02 },
+    ],
+    cities: [
+      { name: "Paris", share: 0.18 },
+      { name: "Lyon", share: 0.07 },
+      { name: "Marseille", share: 0.05 },
+      { name: "Bruxelles", share: 0.04 },
+      { name: "Montréal", share: 0.03 },
+      { name: "Bordeaux", share: 0.03 },
+    ],
+  },
+};

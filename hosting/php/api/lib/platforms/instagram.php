@@ -177,12 +177,12 @@ function instagram_stats(array $a, array $externalIds): array
     $result['snapshot'] = ['followers' => (int) ($me['followers_count'] ?? 0), 'videoCount' => (int) ($me['media_count'] ?? 0)];
     foreach ($externalIds as $id) {
         try {
-            $ins = graph_call('GET', "$base/$id/insights?metric=views,likes,comments,shares,saved&access_token=$token", null, 'Insights indisponibles');
+            $ins = graph_call('GET', "$base/$id/insights?metric=views,reach,likes,comments,shares,saved&access_token=$token", null, 'Insights indisponibles');
             $get = function ($name) use ($ins) {
                 foreach ($ins['data'] ?? [] as $m) if ($m['name'] === $name) return (int) ($m['total_value']['value'] ?? $m['values'][0]['value'] ?? 0);
                 return 0;
             };
-            $result['posts'][$id] = ['views' => $get('views'), 'likes' => $get('likes'), 'comments' => $get('comments'), 'shares' => $get('shares'), 'saves' => $get('saved')];
+            $result['posts'][$id] = array_filter(['views' => $get('views'), 'likes' => $get('likes'), 'comments' => $get('comments'), 'shares' => $get('shares'), 'saves' => $get('saved'), 'reach' => $get('reach') ?: null], fn($v) => $v !== null);
         } catch (PlatformError $e) {
             try {
                 $m = graph_call('GET', "$base/$id?fields=like_count,comments_count&access_token=$token", null, '');
@@ -191,6 +191,28 @@ function instagram_stats(array $a, array $externalIds): array
                 $result['warnings'][] = "Reel $id : " . $e2->getMessage();
             }
         }
+    }
+    // Audience des abonnés (comptes professionnels d'au moins 100 abonnés).
+    try {
+        $breakdown = function (string $dim) use ($base, $a, $token): array {
+            $r = graph_call('GET', "$base/" . ig_user($a) . "/insights?metric=follower_demographics&period=lifetime&metric_type=total_value&breakdown=$dim&access_token=$token", null, 'Audience Instagram indisponible (compte professionnel d\'au moins 100 abonnés requis)');
+            $rows = [];
+            foreach ($r['data'][0]['total_value']['breakdowns'][0]['results'] ?? [] as $x) $rows[(string) ($x['dimension_values'][0] ?? '')] = (float) ($x['value'] ?? 0);
+            return audience_shares($rows);
+        };
+        $age = $breakdown('age');
+        $gender = $breakdown('gender');
+        $country = $breakdown('country');
+        $city = $breakdown('city');
+        $result['audience'] = array_filter([
+            'basis' => 'followers',
+            'gender' => $gender ? ['female' => $gender['F'] ?? 0, 'male' => $gender['M'] ?? 0, 'other' => $gender['U'] ?? 0] : null,
+            'ages' => $age ? array_intersect_key($age, array_flip(AGE_BUCKETS)) ?: null : null,
+            'countries' => $country ? audience_list($country, 30, 'code') : null,
+            'cities' => $city ? audience_list($city, 10, 'name') : null,
+        ], fn($v) => $v !== null);
+    } catch (PlatformError $e) {
+        $result['warnings'][] = 'Audience Instagram : ' . $e->getMessage();
     }
     return $result;
 }

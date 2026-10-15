@@ -59,6 +59,11 @@ function sync_analytics(): array
                     unset($m);
                     if (!$found) $d['analytics']['daily'][] = ['platform' => $platform] + $metric;
                 }
+                // Audience fournie par l'API : remplace la précédente (y compris une saisie manuelle).
+                $aud = $stats['audience'] ?? [];
+                if (!empty($aud['gender']) || !empty($aud['ages']) || !empty($aud['countries'])) {
+                    $d['analytics']['audience'][$platform] = ['platform' => $platform, 'source' => 'api', 'updatedAt' => now_ms()] + $aud;
+                }
                 $d['analytics']['sync'][$platform] = array_filter([
                     'at' => now_ms(),
                     'revenueAvailable' => $stats['revenueAvailable'] ?? null,
@@ -183,6 +188,7 @@ function analytics_summary(int $range): array
     $posters = [];
     foreach ($d['media'] as $m) $posters[$m['id']] = $m['posterId'] ?? null;
     $top = [];
+    $previousTotals = [];
     $engNow = 0;
     $engPrev = 0;
     $viewsOfPosts = 0;
@@ -205,11 +211,28 @@ function analytics_summary(int $range): array
             $top[] = $entry;
         } elseif ($day >= $prevFrom) {
             $engPrev += $entry['totalEngagement'];
+            foreach ($entry['platforms'] as $p => $m) {
+                $t = $previousTotals[$p] ?? ['videos' => 0, 'views' => 0, 'likes' => 0, 'comments' => 0, 'shares' => 0, 'saves' => 0];
+                $t['videos']++;
+                foreach (['views', 'likes', 'comments', 'shares', 'saves'] as $k) $t[$k] += (int) ($m[$k] ?? 0);
+                $previousTotals[$p] = $t;
+            }
         }
     }
     if ($demo && count($top) < 3) {
         foreach (DEMO_TOP_POSTS as $i => [$title, $daysAgo, $plats]) {
-            if ($daysAgo >= $range) continue;
+            if ($daysAgo >= $range * 2) continue;
+            if ($daysAgo >= $range) {
+                // Période précédente : sert à l'évolution du taux d'influence.
+                foreach ($plats as $p) {
+                    $m = demo_post_metrics("sample-$i", $p, now_ms() - ($daysAgo + 5) * 86400000);
+                    $t = $previousTotals[$p] ?? ['videos' => 0, 'views' => 0, 'likes' => 0, 'comments' => 0, 'shares' => 0, 'saves' => 0];
+                    $t['videos']++;
+                    foreach (['views', 'likes', 'comments', 'shares', 'saves'] as $k) $t[$k] += (int) ($m[$k] ?? 0);
+                    $previousTotals[$p] = $t;
+                }
+                continue;
+            }
             $publishedAt = now_ms() - $daysAgo * 86400000;
             $entry = ['postId' => "demo-$i", 'title' => $title, 'publishedAt' => $publishedAt, 'totalViews' => 0, 'totalEngagement' => 0, 'platforms' => []];
             foreach ($plats as $p) {
@@ -240,7 +263,9 @@ function analytics_summary(int $range): array
         'platforms' => $platforms,
         'followersSeries' => $followersSeries,
         'viewsSeries' => $viewsSeries,
-        'topPosts' => array_slice($top, 0, 10),
+        'topPosts' => array_slice($top, 0, 100),
         'engagementRate' => $viewsOfPosts > 0 ? $engNow / $viewsOfPosts : null,
+        'previousTotals' => $previousTotals ?: new stdClass(),
+        'audience' => ($demo ? demo_audience($d['analytics']['audience'], $connected) : $d['analytics']['audience']) ?: new stdClass(),
     ];
 }

@@ -183,7 +183,48 @@ function youtube_stats(array $a, array $externalIds, int $days): array
             $result['posts'][$item['id']] = ['views' => (int) ($st['viewCount'] ?? 0), 'likes' => (int) ($st['likeCount'] ?? 0), 'comments' => (int) ($st['commentCount'] ?? 0), 'shares' => 0];
         }
     }
-    $base = 'https://youtubeanalytics.googleapis.com/v2/reports?ids=channel==MINE&startDate=' . iso_day(now_ms() - $days * 86400000) . '&endDate=' . iso_day() . '&dimensions=day&sort=day';
+    $reports = 'https://youtubeanalytics.googleapis.com/v2/reports?ids=channel==MINE';
+    // Partages et abonnés gagnés par vidéo (absents de l'API Data, fournis par YouTube Analytics).
+    foreach (array_chunk($externalIds, 200) as $ids) {
+        try {
+            $r = google_call('GET', $reports . '&startDate=2010-01-01&endDate=' . iso_day() . '&dimensions=video&metrics=shares,subscribersGained&filters=video==' . implode(',', $ids) . '&sort=-shares&maxResults=200', $auth, null, 'Partages indisponibles');
+            foreach ($r['rows'] ?? [] as $row) {
+                $id = (string) $row[0];
+                if (isset($result['posts'][$id])) {
+                    $result['posts'][$id]['shares'] = (int) $row[1];
+                    $result['posts'][$id]['followersGained'] = (int) $row[2];
+                }
+            }
+        } catch (PlatformError $e) {
+            $result['warnings'][] = 'Partages YouTube : ' . $e->getMessage();
+        }
+    }
+    // Audience : genre et âge (pourcentage des spectateurs connectés), pays (vues) sur la période.
+    $period = $reports . '&startDate=' . iso_day(now_ms() - $days * 86400000) . '&endDate=' . iso_day();
+    try {
+        $r = google_call('GET', $period . '&dimensions=ageGroup,gender&metrics=viewerPercentage&sort=gender,ageGroup', $auth, null, 'Données démographiques indisponibles');
+        $groups = ['age13-17' => '13-17', 'age18-24' => '18-24', 'age25-34' => '25-34', 'age35-44' => '35-44', 'age45-54' => '45-54', 'age55-64' => '55-64', 'age65-' => '65+'];
+        $gender = ['female' => 0.0, 'male' => 0.0, 'other' => 0.0];
+        $ages = [];
+        foreach ($r['rows'] ?? [] as [$group, $g, $pct]) {
+            $share = (float) $pct / 100;
+            if (isset($groups[$group])) $ages[$groups[$group]] = ($ages[$groups[$group]] ?? 0) + $share;
+            $gender[$g === 'female' ? 'female' : ($g === 'male' ? 'male' : 'other')] += $share;
+        }
+        $geo = google_call('GET', $period . '&dimensions=country&metrics=views&sort=-views', $auth, null, 'Pays indisponibles');
+        $countries = [];
+        foreach ($geo['rows'] ?? [] as $row) $countries[strtoupper((string) $row[0])] = (float) $row[1];
+        $g = audience_shares($gender);
+        $result['audience'] = array_filter([
+            'basis' => 'viewers',
+            'gender' => $g ? ['female' => $g['female'] ?? 0, 'male' => $g['male'] ?? 0, 'other' => $g['other'] ?? 0] : null,
+            'ages' => audience_shares($ages) ?: null,
+            'countries' => $countries ? audience_list(audience_shares($countries), 30, 'code') : null,
+        ], fn($v) => $v !== null);
+    } catch (PlatformError $e) {
+        $result['warnings'][] = 'Audience YouTube : ' . $e->getMessage();
+    }
+    $base = $period . '&dimensions=day&sort=day';
     $byDate = [];
     try {
         $r = google_call('GET', $base . '&metrics=views,estimatedMinutesWatched,subscribersGained,subscribersLost', $auth, null, 'YouTube Analytics indisponible');
