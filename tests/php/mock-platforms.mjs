@@ -8,6 +8,7 @@ export function startMock(port) {
     tt: { bytes: [], init: null, statusCalls: 0, hash: null, photoInit: null, photoDownloads: [] },
     ig: { container: null, downloaded: null, hash: null, published: false, statusCalls: 0, images: [], carousel: null, children: 0 },
     twitch: { tokenCalls: [], revoked: [] },
+    discord: { messages: [], failNext: 0 },
     log: [],
   };
   const base = `http://127.0.0.1:${port}`;
@@ -30,6 +31,19 @@ export function startMock(port) {
     const body = await readBody(req);
     state.log.push(`${req.method} ${p}`);
     const form = () => Object.fromEntries(new URLSearchParams(body.toString()));
+
+    // ---- Discord (webhooks) : messages enregistrés ; jeton « gone… » → webhook supprimé ----
+    const dc = p.match(/^\/discord\.com\/api\/webhooks\/(\d+)\/([\w-]+)$/);
+    if (dc && req.method === "POST") {
+      if (dc[2].startsWith("gone")) return send(res, 404, { message: "Unknown Webhook", code: 10015 });
+      if (state.discord.failNext > 0) {
+        state.discord.failNext--;
+        return send(res, 429, { message: "You are being rate limited.", retry_after: 0.2, global: false });
+      }
+      const payload = JSON.parse(body.toString() || "{}");
+      state.discord.messages.push({ id: dc[1], wait: url.searchParams.get("wait"), payload });
+      return send(res, 200, { id: String(state.discord.messages.length), channel_id: "1", content: payload.content });
+    }
 
     // ---- Twitch (connexion à VideoPosting) ----
     // Le code d'autorisation désigne l'utilisateur : « code-<login> » → jeton « tw-<login> ».
@@ -144,6 +158,7 @@ export function startMock(port) {
     }
     if (p === "/open.tiktokapis.com/v2/post/publish/video/init/") {
       state.tt.init = JSON.parse(body.toString());
+      state.tt.bytes = []; // nouvelle session d'envoi
       return send(res, 200, tt({ publish_id: "v_pub_file~1", upload_url: `${base}/upload/tt/1` }));
     }
     if (p === "/upload/tt/1") {

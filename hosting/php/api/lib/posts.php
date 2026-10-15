@@ -14,6 +14,13 @@ function sanitize_post_input(array $in): array
     $platforms = array_values(array_unique(array_filter((array) ($in['platforms'] ?? []), 'is_platform')));
     $scheduledAt = isset($in['scheduledAt']) && is_numeric($in['scheduledAt']) && $in['scheduledAt'] > 0 ? (int) $in['scheduledAt'] : null;
 
+    // Webhooks Discord à prévenir : null = tous ceux qui sont actifs, [] = aucun.
+    $discordIds = null;
+    if (is_array($in['discordWebhookIds'] ?? null)) {
+        $discordIds = [];
+        foreach (array_slice($in['discordWebhookIds'], 0, 20) as $hid) if (is_uuid($hid) && !in_array($hid, $discordIds, true)) $discordIds[] = $hid;
+    }
+
     $imageIds = [];
     foreach (array_slice(is_array($in['imageIds'] ?? null) ? $in['imageIds'] : [], 0, 35) as $img) if (is_uuid($img) && !in_array($img, $imageIds, true)) $imageIds[] = $img;
 
@@ -74,6 +81,7 @@ function sanitize_post_input(array $in): array
             ],
         ],
         'scheduledAt' => $scheduledAt,
+        'discordWebhookIds' => $discordIds,
     ];
 }
 
@@ -174,7 +182,7 @@ function duplicate_post(string $id): array
         $now = now_ms();
         $p = [
             'id' => uuid4(), 'status' => 'draft', 'kind' => $post['kind'] ?? 'video', 'mediaId' => $post['mediaId'] ?? null, 'imageIds' => $post['imageIds'] ?? [],
-            'common' => $post['common'], 'platforms' => $post['platforms'], 'options' => $post['options'],
+            'common' => $post['common'], 'platforms' => $post['platforms'], 'options' => $post['options'], 'discordWebhookIds' => $post['discordWebhookIds'] ?? null,
             'scheduledAt' => null, 'publications' => [], 'createdAt' => $now, 'updatedAt' => $now,
         ];
         $d['posts'][] = $p;

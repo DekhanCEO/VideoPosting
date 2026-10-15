@@ -63,6 +63,7 @@ export const postInputSchema = z.object({
     }),
   }),
   scheduledAt: z.number().int().positive().nullable().optional(),
+  discordWebhookIds: z.array(z.string().uuid()).max(20).nullable().optional(),
 });
 
 export function newPost(input: PostInput, status: PostStatus): Post {
@@ -77,6 +78,7 @@ export function newPost(input: PostInput, status: PostStatus): Post {
     platforms: input.platforms,
     options: input.options,
     scheduledAt: input.scheduledAt ?? null,
+    discordWebhookIds: input.discordWebhookIds ?? null,
     publications: {},
     createdAt: now,
     updatedAt: now,
@@ -101,6 +103,7 @@ export function updatePost(id: string, input: PostInput, status: PostStatus): Po
       platforms: input.platforms,
       options: input.options,
       scheduledAt: input.scheduledAt ?? null,
+      discordWebhookIds: input.discordWebhookIds ?? null,
       status,
       updatedAt: Date.now(),
     });
@@ -136,6 +139,7 @@ export function duplicatePost(id: string): Post {
       platforms: post.platforms,
       options: { ...defaultOptions(getSettings().defaults), ...post.options },
       scheduledAt: null,
+      discordWebhookIds: post.discordWebhookIds ?? null,
     },
     "draft",
   );

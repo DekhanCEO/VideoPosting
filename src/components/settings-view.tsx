@@ -28,6 +28,7 @@ import type { HashtagGroup, PlatformId, PublicSettings } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { PageContainer, PageHeader } from "./app-shell";
 import { ChipsInput } from "./composer/fields";
+import { DiscordCard } from "./discord-settings";
 import { PlatformBadge } from "./icons";
 import { Badge, Button, Card, CardHeader, CopyField, ExternalA, Field, Input, Segmented, Select, Skeleton, Steps, Switch, buttonClass } from "./ui";
 
@@ -486,6 +487,7 @@ const NAV = [
   { id: "tiktok", label: "API TikTok" },
   { id: "youtube", label: "API YouTube" },
   { id: "instagram", label: "API Instagram" },
+  { id: "discord", label: "Discord" },
   { id: "hashtags", label: "Hashtags" },
   { id: "defaults", label: "Valeurs par défaut" },
   { id: "deploy", label: "Serveur & sécurité" },
@@ -557,6 +559,7 @@ export function SettingsView() {
                 <ApiCard key={p} platform={p} settings={settings} highlight={missing === p} />
               ),
             )}
+            <DiscordCard settings={settings} />
             <HashtagGroups settings={settings} />
             <Defaults settings={settings} />
             <Deployment settings={settings} />

@@ -25,7 +25,7 @@ import { toast } from "sonner";
 import { ApiError, api, fetcher } from "@/lib/api-client";
 import { defaultOptions, resolveOptions } from "@/lib/captions";
 import { formatDateTime, formatRelative, fromLocalInput, toLocalInput } from "@/lib/format";
-import { useAccounts, useSettings } from "@/lib/hooks";
+import { useAccounts, useDiscordWebhooks, useSettings } from "@/lib/hooks";
 import { PLATFORMS, PLATFORM_ORDER, TIKTOK_PRIVACY_LABELS, YOUTUBE_PRIVACY_LABELS, contentLabel, supportsKind, youtubeIsShort } from "@/lib/platforms";
 import type {
   CommonContent,
@@ -43,7 +43,8 @@ import { mediaUrl } from "@/lib/upload-client";
 import { cn } from "@/lib/utils";
 import { validatePost, type Issue } from "@/lib/validation";
 import { PageContainer } from "../app-shell";
-import { PlatformBadge } from "../icons";
+import { ComposerDiscordCard } from "../discord-settings";
+import { DiscordBadge, PlatformBadge } from "../icons";
 import { PostStatusBadge } from "../status";
 import { Avatar, Badge, Button, Card, CardHeader, Dialog, Field, Input, Segmented, Skeleton, Textarea } from "../ui";
 import { ChipsInput } from "./fields";
@@ -61,6 +62,8 @@ interface Draft {
   options: PlatformOptionsMap;
   scheduleMode: "now" | "later";
   scheduledAt: number | null;
+  /** Salons Discord à prévenir : null = tous les webhooks actifs. */
+  discordWebhookIds: string[] | null;
 }
 
 function snapshot(d: Draft) {
@@ -72,6 +75,7 @@ function snapshot(d: Draft) {
     p: d.platforms,
     o: d.options,
     s: d.scheduleMode === "later" ? d.scheduledAt : null,
+    d: d.discordWebhookIds,
   });
 }
 
@@ -131,6 +135,7 @@ export function Composer({ postId, presetDate }: { postId?: string; presetDate?:
         options: { ...defaultOptions(settings.defaults), ...existing.options },
         scheduleMode: existing.scheduledAt ? "later" : "now",
         scheduledAt: existing.scheduledAt ?? null,
+        discordWebhookIds: existing.discordWebhookIds ?? null,
       };
       setDraft(d);
       setSaved(snapshot(d));
@@ -148,6 +153,7 @@ export function Composer({ postId, presetDate }: { postId?: string; presetDate?:
         options: defaultOptions(settings.defaults),
         scheduleMode: "now",
         scheduledAt: null,
+        discordWebhookIds: null,
       };
       if (presetDate) {
         // Depuis le calendrier : programmation pré-remplie à 18 h ce jour-là.
@@ -180,6 +186,15 @@ export function Composer({ postId, presetDate }: { postId?: string; presetDate?:
     return map;
   }, [accounts]);
 
+  const { data: discordHooks } = useDiscordWebhooks();
+  const discordTargets = (discordHooks ?? []).filter(
+    (h) =>
+      h.enabled &&
+      (draft?.discordWebhookIds == null || draft.discordWebhookIds.includes(h.id)) &&
+      h.platforms.some((p) => draft?.platforms.includes(p)) &&
+      !settings?.demoMode,
+  );
+
   const wantsTiktok = !!draft?.platforms.includes("tiktok") && !!accountBy.tiktok;
   const { data: creator, error: creatorError } = useSWR<TiktokCreatorInfo>(wantsTiktok ? "/api/platforms/tiktok/creator-info" : null, fetcher, {
     revalidateOnFocus: false,
@@ -195,6 +210,7 @@ export function Composer({ postId, presetDate }: { postId?: string; presetDate?:
         platforms: draft.platforms,
         options: draft.options,
         scheduledAt: draft.scheduleMode === "later" ? draft.scheduledAt : null,
+        discordWebhookIds: draft.discordWebhookIds,
       }
     : null;
 
@@ -695,6 +711,15 @@ export function Composer({ postId, presetDate }: { postId?: string; presetDate?:
               )}
             </div>
           </Card>
+
+          {/* 6. Annonce Discord (si des webhooks sont configurés) */}
+          <ComposerDiscordCard
+            value={draft.discordWebhookIds}
+            onChange={(ids) => update((d) => ({ ...d, discordWebhookIds: ids }))}
+            platforms={draft.platforms}
+            demoMode={!!settings?.demoMode}
+            readOnly={readOnly}
+          />
         </div>
 
         {/* Colonne droite : aperçu + vérifications */}
@@ -781,6 +806,15 @@ export function Composer({ postId, presetDate }: { postId?: string; presetDate?:
               </div>
             );
           })}
+          {discordTargets.length > 0 && (
+            <div className="flex items-center gap-3 rounded-xl border border-border p-3">
+              <DiscordBadge size={36} />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium">Annonce Discord</p>
+                <p className="truncate text-xs text-muted">{discordTargets.map((h) => h.name).join(", ")}</p>
+              </div>
+            </div>
+          )}
           {warnings.length > 0 && (
             <div className="rounded-xl bg-warning/10 p-3 text-xs text-warning">
               {warnings.map((w, i) => (

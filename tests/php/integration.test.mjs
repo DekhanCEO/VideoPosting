@@ -320,6 +320,125 @@ test("YouTube : Short demandé pour une vidéo horizontale refusé", async () =>
   assert.equal(draft.data.options.youtube.format, "short");
 });
 
+test("annonces Discord : webhooks, message de test, liens envoyés à la publication", { timeout: 90_000 }, async () => {
+  const hookUrl = (id, token) => `https://discord.com/api/webhooks/${id}/${token}`;
+  const create = (body) => json(api("/discord/webhooks"), { method: "POST", json: { message: "", mention: "none", style: "links", timing: "each", enabled: true, ...body } });
+
+  // Seules les adresses de webhook Discord sont acceptées.
+  for (const url of ["https://evil.example.com/api/webhooks/123456/abcdefghijklmnopqrstuvwxyz", "http://discord.com/api/webhooks/123456/abcdefghijklmnopqrstuvwxyz", "https://discord.com.evil.fr/api/webhooks/123456/abcdefghijklmnopqrstuvwxyz"]) {
+    const bad = await create({ name: "Pirate", url, platforms: ["youtube"] });
+    assert.equal(bad.status, 422, url);
+  }
+  assert.equal((await create({ name: "Sans plateforme", url: hookUrl("123456", "abcdefghijklmnopqrstuvwxyz"), platforms: [] })).status, 422);
+  assert.equal((await create({ name: "Rôle", url: hookUrl("123456", "abcdefghijklmnopqrstuvwxyz"), platforms: ["youtube"], mention: "role", roleId: "abc" })).status, 422);
+
+  const each = await create({ name: "Annonces", url: hookUrl("111111111111", "tokenAAAAAAAAAAAAAAAAAAAAAA"), platforms: ["tiktok", "youtube", "instagram"], mention: "role", roleId: "222222222222" });
+  assert.equal(each.status, 201, JSON.stringify(each.data));
+  assert.equal(each.data.urlHint, "discord.com/api/webhooks/1111…1111/••••••");
+  assert.ok(!("url" in each.data), "adresse complète jamais renvoyée");
+  const grouped = (await create({ name: "Récap", url: hookUrl("333333333333", "tokenBBBBBBBBBBBBBBBBBBBBBB"), platforms: ["youtube", "tiktok"], timing: "grouped", style: "card", mention: "everyone", username: "Malabop" })).data;
+  const off = (await create({ name: "Désactivé", url: hookUrl("444444444444", "tokenCCCCCCCCCCCCCCCCCCCCCC"), platforms: ["youtube"], enabled: false })).data;
+  const gone = (await create({ name: "Supprimé", url: hookUrl("555555555555", "goneDDDDDDDDDDDDDDDDDDDDDD"), platforms: ["instagram"] })).data;
+  const list = (await json(api("/discord/webhooks"))).data;
+  assert.deepEqual(list.map((h) => h.name), ["Annonces", "Récap", "Désactivé", "Supprimé"]);
+  assert.ok(!JSON.stringify(list).includes("tokenAAAA"), "jeton du webhook jamais renvoyé");
+
+  // Message de test (avec une limite de débit Discord à patienter).
+  mock.state.discord.failNext = 1;
+  assert.equal((await json(api(`/discord/webhooks/${each.data.id}/test`), { method: "POST" })).status, 200);
+  const testMsg = mock.state.discord.messages.at(-1);
+  assert.equal(testMsg.id, "111111111111");
+  assert.equal(testMsg.wait, "true");
+  assert.match(testMsg.payload.content, /^<@&222222222222> 🎬 \*\*Message de test VideoPosting\*\* est en ligne !/);
+  assert.match(testMsg.payload.content, /▶️ YouTube : https:\/\/www\.youtube\.com\//);
+  assert.deepEqual(testMsg.payload.allowed_mentions, { parse: [], roles: ["222222222222"] });
+  const failed = await json(api(`/discord/webhooks/${gone.id}/test`), { method: "POST" });
+  assert.equal(failed.status, 502);
+  assert.match(failed.data.error, /invalide ou supprimé/);
+  const afterTest = (await json(api("/discord/webhooks"))).data;
+  assert.equal(afterTest.find((h) => h.id === each.data.id).lastResult.ok, true);
+  assert.equal(afterTest.find((h) => h.id === gone.id).lastResult.ok, false);
+
+  // Modification sans renvoyer l'adresse : elle est conservée.
+  const renamed = await json(api(`/discord/webhooks/${off.id}`), { ...PUT, json: { ...off, name: "En pause", url: "" } });
+  assert.equal(renamed.status, 200, JSON.stringify(renamed.data));
+  assert.equal(renamed.data.name, "En pause");
+  assert.equal(renamed.data.urlHint, off.urlHint);
+
+  // Publication réelle sur les trois plateformes : liens annoncés automatiquement.
+  const created = await json(api("/media"), { method: "POST", json: { fileName: "d.mp4", size: 2000, mimeType: "video/mp4" } });
+  await call(api(`/media/${created.data.id}/chunk`, "&offset=0"), { method: "POST", body: crypto.randomBytes(2000), headers: { "content-type": "application/octet-stream" } });
+  await json(api(`/media/${created.data.id}/complete`), { method: "POST", json: { duration: 15, width: 1080, height: 1920 } });
+  const options = {
+    youtube: { title: "", description: "", tags: [], sync: { title: true, description: true, tags: true }, categoryId: "22", privacy: "public", madeForKids: false, notifySubscribers: true, embeddable: true, license: "youtube", containsSyntheticMedia: false, defaultLanguage: "fr", format: "auto" },
+    tiktok: { caption: "", sync: { caption: true }, mode: "direct", privacyLevel: "PUBLIC_TO_EVERYONE", allowComments: true, allowDuet: true, allowStitch: true, coverTimestampMs: 0, commercialContent: false, yourBrand: false, brandedContent: false, isAigc: false, autoAddMusic: true },
+    instagram: { caption: "", sync: { caption: true }, shareToFeed: true, thumbOffsetMs: 0, collaborators: [], audioName: "", locationId: "" },
+  };
+  const publish = async (platforms, extra = {}) => {
+    const post = await json(api("/posts"), {
+      method: "POST",
+      json: { action: "publish", input: { mediaId: created.data.id, common: { title: "Annonce Discord", description: "Nouvelle vidéo", hashtags: [] }, platforms, options, ...extra } },
+    });
+    assert.equal(post.status, 200, JSON.stringify(post.data));
+    let current;
+    for (let i = 0; i < 200; i++) {
+      current = (await json(api(`/posts/${post.data.id}`))).data;
+      if (current.status !== "publishing") break;
+      await new Promise((r) => setTimeout(r, 300));
+    }
+    assert.equal(current.status, "published", JSON.stringify(Object.fromEntries(Object.entries(current.publications).map(([k, v]) => [k, [v.status, v.error]]))));
+    // Les annonces partent juste après la dernière étape : on laisse le worker terminer.
+    await new Promise((r) => setTimeout(r, 800));
+    return (await json(api(`/posts/${post.data.id}`))).data;
+  };
+  const before = mock.state.discord.messages.length;
+  const post = await publish(["tiktok", "youtube", "instagram"]);
+  const sent = mock.state.discord.messages.slice(before);
+  const urls = { tiktok: post.publications.tiktok.url, youtube: post.publications.youtube.url, instagram: post.publications.instagram.url };
+
+  // « Annonces » : un message par plateforme, dès qu'elle est en ligne, avec la mention du rôle.
+  const eachMsgs = sent.filter((m) => m.id === "111111111111");
+  assert.equal(eachMsgs.length, 3);
+  for (const [platform, url] of Object.entries(urls)) {
+    const msg = eachMsgs.find((m) => m.payload.content.includes(url));
+    assert.ok(msg, `lien ${platform} annoncé`);
+    assert.match(msg.payload.content, /^<@&222222222222> 🎬 \*\*Annonce Discord\*\* est en ligne !\n/);
+    assert.equal(msg.payload.username, "VideoPosting");
+    assert.equal(msg.payload.embeds, undefined);
+  }
+  // « Récap » : un seul message une fois tout publié, en carte, limité à YouTube et TikTok.
+  const groupedMsgs = sent.filter((m) => m.id === "333333333333");
+  assert.equal(groupedMsgs.length, 1);
+  const card = groupedMsgs[0].payload;
+  assert.equal(card.username, "Malabop");
+  assert.match(card.content, /^@everyone /);
+  assert.ok(card.content.includes(`<${urls.youtube}>`), "liens entre chevrons en style carte");
+  assert.ok(!card.content.includes(urls.instagram));
+  assert.deepEqual(card.allowed_mentions, { parse: ["everyone"] });
+  assert.equal(card.embeds[0].title, "Annonce Discord");
+  assert.deepEqual(card.embeds[0].fields.map((f) => f.name).sort(), ["▶️ YouTube", "🎵 TikTok"]);
+  assert.equal(card.embeds[0].thumbnail.url, "https://i.ytimg.com/vi/vid123/hqdefault.jpg");
+  // Désactivé : rien. Supprimé chez Discord : échec noté dans le journal, la publication reste réussie.
+  assert.ok(!sent.some((m) => m.id === "444444444444"));
+  assert.ok(post.publications.instagram.logs.some((l) => l.level === "warn" && /Discord \(« Supprimé »\) : Webhook Discord invalide/.test(l.message)));
+  assert.ok(post.publications.youtube.logs.some((l) => l.message === "Annonce Discord envoyée dans « Récap »"));
+
+  // Choix par publication : seul « Récap » est prévenu.
+  const before2 = mock.state.discord.messages.length;
+  const second = await publish(["tiktok"], { discordWebhookIds: [grouped.id, "pas-un-uuid"] });
+  assert.deepEqual(second.discordWebhookIds, [grouped.id]);
+  const sent2 = mock.state.discord.messages.slice(before2);
+  assert.deepEqual(sent2.map((m) => m.id), ["333333333333"]);
+  assert.deepEqual(sent2[0].payload.embeds[0].fields.map((f) => f.name), ["🎵 TikTok"]);
+  const dup = await json(api(`/posts/${second.id}/duplicate`), { method: "POST" });
+  assert.deepEqual(dup.data.discordWebhookIds, [grouped.id]);
+
+  // Nettoyage : ces publications ne doivent pas fausser les statistiques suivantes.
+  for (const id of [post.id, second.id, dup.data.id]) await json(api(`/posts/${id}`), DELETE);
+  for (const h of [off, gone]) assert.equal((await json(api(`/discord/webhooks/${h.id}`), DELETE)).status, 200);
+  assert.deepEqual((await json(api("/discord/webhooks"))).data.map((h) => h.name), ["Annonces", "Récap"]);
+});
+
 test("synchronisation des statistiques", async () => {
   const sync = await json(api("/analytics/sync"), { method: "POST" });
   assert.ok(sync.data.reports.every((r) => r.ok), JSON.stringify(sync.data));

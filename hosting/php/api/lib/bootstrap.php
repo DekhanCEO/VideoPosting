@@ -50,6 +50,7 @@ require __DIR__ . '/platforms/instagram.php';
 require __DIR__ . '/platforms/demo.php';
 require __DIR__ . '/posts.php';
 require __DIR__ . '/worker.php';
+require __DIR__ . '/discord.php';
 require __DIR__ . '/demo_data.php';
 require __DIR__ . '/twitch_channel.php';
 require __DIR__ . '/revenue.php';

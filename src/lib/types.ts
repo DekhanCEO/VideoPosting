@@ -1,3 +1,5 @@
+import type { DiscordWebhook } from "./discord";
+
 export const PLATFORM_IDS = ["tiktok", "youtube", "instagram"] as const;
 export type PlatformId = (typeof PLATFORM_IDS)[number];
 
@@ -162,6 +164,10 @@ export interface Post {
   createdAt: number;
   updatedAt: number;
   publishedAt?: number;
+  /** Webhooks Discord à prévenir (absent : tous les webhooks actifs, [] : aucun). */
+  discordWebhookIds?: string[] | null;
+  /** Plateformes déjà annoncées, par webhook. */
+  discord?: { sent: Record<string, PlatformId[]> };
 }
 
 /** Ce que le client envoie pour créer / modifier une publication. */
@@ -173,6 +179,7 @@ export interface PostInput {
   platforms: PlatformId[];
   options: PlatformOptionsMap;
   scheduledAt?: number | null;
+  discordWebhookIds?: string[] | null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -240,6 +247,8 @@ export interface Settings {
     instagramShareToFeed: boolean;
   };
   revenueEstimates?: RevenueEstimates;
+  /** Annonces Discord (webhooks) de l'espace. */
+  discord?: { webhooks: DiscordWebhook[] };
 }
 
 /**

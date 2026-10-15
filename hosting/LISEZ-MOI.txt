@@ -129,7 +129,22 @@ Ce que vous pouvez publier :
   dons, affiliation...) avec le bouton "Ajouter".
 
 
-8. DONNER ACCES A D'AUTRES CREATEURS (facultatif)
+8. ANNONCES DISCORD (facultatif)
+--------------------------------
+Dès qu'une vidéo est en ligne, ses liens TikTok, YouTube et Instagram peuvent être
+envoyés automatiquement dans un salon Discord :
+- Dans Discord : clic sur la roue dentée à côté du salon > "Intégrations" >
+  "Webhooks" > "Nouveau webhook" > "Copier l'URL du webhook".
+- Dans l'application : Paramètres > "Annonces Discord" > "Ajouter un webhook",
+  collez l'adresse, choisissez les plateformes, le moment (un message par plateforme
+  ou un récapitulatif), le style et la mention (@everyone, @here ou un rôle).
+- Bouton "Tester" : un message d'essai arrive aussitôt dans le salon.
+- Un webhook par salon (annonces, VIP...). Chaque publication peut choisir ses salons
+  dans le composer (carte "Annonce Discord").
+Les publications simulées du mode démo ne sont pas annoncées.
+
+
+9. DONNER ACCES A D'AUTRES CREATEURS (facultatif)
 -------------------------------------------------
 Menu "Espaces & accès" (visible uniquement par les administrateurs) :
 - "Administrateurs uniquement" (par défaut), "Sur invitation" (pseudos Twitch
@@ -142,8 +157,8 @@ Menu "Espaces & accès" (visible uniquement par les administrateurs) :
   connecter (voir les guides dans Paramètres).
 
 
-9. PUBLICATIONS PROGRAMMEES (fortement recommandé)
---------------------------------------------------
+10. PUBLICATIONS PROGRAMMEES (fortement recommandé)
+---------------------------------------------------
 Un hébergement mutualisé ne travaille que lorsque quelqu'un visite le site. Pour que
 les publications programmées partent à l'heure, même application fermée :
 - Dans l'application : Paramètres > Serveur & sécurité > copiez "l'URL cron".
@@ -152,7 +167,7 @@ les publications programmées partent à l'heure, même application fermée :
 Une seule URL suffit pour tous les espaces.
 
 
-10. BON A SAVOIR
+11. BON A SAVOIR
 ----------------
 - Vos données (espaces, comptes, vidéos, photos, statistiques, revenus) sont dans
   {{FOLDER}}/data. Sauvegardez ce dossier de temps en temps.

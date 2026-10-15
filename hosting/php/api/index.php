@@ -180,6 +180,9 @@ try {
                 });
             } elseif (!cancel_publication($p['id'], is_platform($body['platform'] ?? null) ? $body['platform'] : null)) {
                 throw new HttpError('Rien à annuler pour cette publication.', 409);
+            } else {
+                // Les autres plateformes sont peut-être en ligne : annonce groupée sur Discord.
+                discord_notify_safe($p['id'], null);
             }
             json_out(with_media(get_post($p['id'])));
         } elseif (route_match('/posts/{id}/duplicate', $route, $p) && $method === 'POST') {
@@ -229,6 +232,18 @@ try {
         } elseif (route_match('/revenue/{id}', $route, $p)) {
             if ($method === 'PUT') json_out(update_revenue($p['id'], request_json()));
             elseif ($method === 'DELETE') { delete_revenue($p['id']); json_out(['ok' => true]); }
+            else throw new HttpError('Méthode non autorisée', 405);
+        } elseif ($route === '/discord/webhooks') {
+            if ($isGet) json_out(list_discord_webhooks());
+            elseif ($method === 'POST') json_out(create_discord_webhook(request_json()), 201);
+            else throw new HttpError('Méthode non autorisée', 405);
+        } elseif (route_match('/discord/webhooks/{id}/test', $route, $p) && $method === 'POST') {
+            $kick = false;
+            test_discord_webhook($p['id']);
+            json_out(['ok' => true]);
+        } elseif (route_match('/discord/webhooks/{id}', $route, $p)) {
+            if ($method === 'PUT') json_out(update_discord_webhook($p['id'], request_json()));
+            elseif ($method === 'DELETE') { delete_discord_webhook($p['id']); json_out(['ok' => true]); }
             else throw new HttpError('Méthode non autorisée', 405);
         } elseif ($route === '/dashboard' && $isGet) {
             json_out(dashboard_data());

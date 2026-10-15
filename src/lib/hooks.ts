@@ -2,6 +2,7 @@
 
 import useSWR from "swr";
 import { fetcher } from "./api-client";
+import type { PublicDiscordWebhook } from "./discord";
 import type {
   AdminOverview,
   AnalyticsRange,
@@ -61,4 +62,9 @@ export function useRevenue(from?: string, to?: string) {
   if (from) q.set("from", from);
   if (to) q.set("to", to);
   return useSWR<RevenueSummary>(`/api/revenue?${q}`, fetcher, { keepPreviousData: true });
+}
+
+/** Webhooks Discord de l'espace (annonces automatiques des publications). */
+export function useDiscordWebhooks() {
+  return useSWR<PublicDiscordWebhook[]>("/api/discord/webhooks", fetcher, { revalidateOnFocus: false });
 }

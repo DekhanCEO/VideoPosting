@@ -227,6 +227,10 @@ function run_step(string $postId, string $platform): void
             unset($pub['job']);
         });
     }
+
+    // Publication terminée sur cette plateforme : annonce des liens sur Discord.
+    $after = get_post($postId);
+    if ($after && !in_array($after['publications'][$platform]['status'] ?? '', ACTIVE_STATUSES, true)) discord_notify_safe($postId, $platform);
 }
 
 /** Espaces ayant des publications à faire avancer (pour le cron). */

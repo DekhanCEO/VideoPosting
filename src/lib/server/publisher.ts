@@ -4,6 +4,7 @@ import { PLATFORMS } from "../platforms";
 import type { PlatformId, Post, PostStatus, Publication, PublicationLog } from "../types";
 import { getUsableAccount } from "./accounts";
 import { getCredentials } from "./config";
+import { notifyDiscord } from "./discord";
 import { AbortedError, PlatformError } from "./http";
 import { mediaPath } from "./media";
 import { adapters } from "./platforms";
@@ -178,6 +179,8 @@ async function runPublication(postId: string, platform: PlatformId) {
   } finally {
     running.delete(key(postId, platform));
     refreshPostStatus(postId);
+    // Annonce Discord des liens en ligne (jamais bloquante pour la publication).
+    void notifyDiscord(postId, platform).catch((err) => console.error("[discord]", err));
   }
 }
 

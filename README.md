@@ -29,6 +29,10 @@ Un tableau de bord suit ensuite vos **statistiques** (abonnés, vues, engagement
 - Vérifications avant publication (limites de caractères, formats, durées, comptes connectés…).
 - Programmation (raccourcis « Ce soir 19:00 », « Demain 12:00 »…), calendrier mensuel, brouillons, duplication.
 - Suivi en direct de chaque envoi (progression, étapes, journal), annulation, relance des échecs.
+- **Annonces Discord** : dès qu'une publication est en ligne, ses liens sont envoyés par webhook dans un ou plusieurs
+  salons. Pour chaque salon : plateformes concernées, un message par plateforme ou un récapitulatif, liens bruts
+  (aperçus Discord) ou carte avec boutons, message personnalisable (`{titre}`, `{liens}`, `{plateformes}`…), mention
+  `@everyone` / `@here` / d'un rôle, aperçu en direct et message de test. Chaque publication choisit ses salons.
 
 **Statistiques et influence**
 - **Taux d'influence** par vidéo, par plateforme et global : (j'aime + 2 × commentaires + 3 × partages + 2 ×
@@ -148,6 +152,13 @@ Chaque carte de la page Paramètres contient un guide pas à pas. En résumé :
 | TikTok | [TikTok for Developers](https://developers.tiktok.com/apps) | Login Kit, Content Posting API (Direct Post), scopes `user.info.basic`, `user.info.profile`, `user.info.stats`, `video.list`, `video.publish`, `video.upload` | Avant l'audit TikTok, publication directe uniquement en « Moi uniquement ». |
 | Instagram | [Meta for Developers](https://developers.facebook.com/apps) | Produit Instagram (connexion Instagram) **ou** Facebook Login for Business | Compte professionnel requis. Connexion Instagram : Instagram télécharge la vidéo depuis `PUBLIC_URL`. Via Facebook : envoi direct, Page Facebook liée nécessaire. 100 publications / 24 h. |
 
+### Discord
+Dans Discord : **Paramètres du salon → Intégrations → Webhooks → Nouveau webhook → Copier l'URL du webhook**, puis
+**Paramètres → Annonces Discord → Ajouter un webhook** dans VideoPosting. Seules les adresses
+`https://discord.com/api/webhooks/…` sont acceptées ; l'adresse complète reste sur le serveur (seule une version
+masquée est renvoyée au navigateur). Les publications du mode démo ne sont pas annoncées (bouton « Tester » pour
+vérifier un salon). Un échec Discord n'empêche jamais la publication : il est noté dans son journal.
+
 ### Revenus
 Seul YouTube expose les revenus via API (`estimatedRevenue`, chaînes du Programme Partenaire). TikTok et Instagram
 ne fournissent pas leurs gains : ajoutez-les (ainsi que vos partenariats, affiliations, etc.) dans la page **Revenus**.
@@ -178,6 +189,7 @@ BUILD_TARGET=standalone npx next build && npm run test:node   # même scénario 
 Les tests d'intégration simulent les API des plateformes (`tests/php/mock-platforms.mjs`) : installation et connexion
 Twitch, espaces isolés et règles d'accès, reprise d'une ancienne installation, connexion OAuth,
 envoi par morceaux avec coupure réseau et reprise, vérification de l'intégrité des fichiers reçus (SHA-256),
-téléchargement de la vidéo par Instagram via l'URL signée, statistiques et revenus YouTube.
+téléchargement de la vidéo par Instagram via l'URL signée, statistiques et revenus YouTube, annonces Discord
+(adresses refusées, limite de débit, message par plateforme ou récapitulatif, webhook supprimé).
 
 Astuce mode démo : ajoutez `#echec` dans un texte pour simuler une erreur de publication et tester la relance.
