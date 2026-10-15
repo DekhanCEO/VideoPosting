@@ -1,7 +1,7 @@
 node_modules/
 .next/
 out/
-data/
+/data/
 *.tsbuildinfo
 next-env.d.ts
 .env
@@ -12,4 +12,4 @@ npm-debug.log*
 test-results/
 .build-static/
 .build-desktop/
-dist/
+/dist/
