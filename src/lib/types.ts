@@ -239,6 +239,23 @@ export interface Settings {
     tiktokAllowStitch: boolean;
     instagramShareToFeed: boolean;
   };
+  revenueEstimates?: RevenueEstimates;
+}
+
+/**
+ * Estimation automatique des revenus que les plateformes ne communiquent pas par API.
+ * Montants dans la devise des paramètres.
+ */
+export interface RevenueEstimates {
+  enabled: boolean;
+  /** Revenu pour 1 000 vues (programme Creator Rewards). 0 = pas d'estimation. */
+  tiktokRpm: number;
+  /** Revenu pour 1 000 vues (bonus Reels, abonnements…). 0 = pas d'estimation. */
+  instagramRpm: number;
+  /** Part nette perçue par abonnement Twitch de niveau 1 (niveau 2 ×2, niveau 3 ×5). */
+  twitchSubValue: number;
+  /** Valeur d'un bit Twitch. */
+  twitchBitValue: number;
 }
 
 /** Paramètres renvoyés au navigateur : les secrets sont masqués. */
@@ -275,6 +292,9 @@ export interface PublicSettings {
    * les espaces). Absent = l'utilisateur peut tout modifier.
    */
   canManageApps?: boolean;
+  revenueEstimates?: RevenueEstimates;
+  /** Connexion d'une chaîne Twitch possible (application Twitch configurée sur l'hébergement). */
+  twitchAvailable?: boolean;
   /** Fichier .env de l'hébergement (administrateurs) : jamais les valeurs, seulement les clés présentes. */
   env?: { found: boolean; location: "outside" | "data" | null; public: boolean; keys: string[] } | null;
 }
@@ -468,17 +488,22 @@ export interface RevenueEntry {
   date: string; // AAAA-MM-JJ
   amount: number; // toujours positif, dans la devise des paramètres
   category: RevenueCategory;
-  platform?: PlatformId | "other";
+  platform?: RevenuePlatform;
   label: string; // ex. « Sponsoring Nike », « Micro Rode »
   partner?: string;
   postId?: string;
   status: "received" | "pending";
   note?: string;
   demo?: boolean;
-  /** Ligne calculée automatiquement (revenus publicitaires YouTube synchronisés). */
+  /** Ligne calculée automatiquement (revenus YouTube synchronisés, estimations). */
   auto?: boolean;
+  /** Montant estimé (RPM, abonnements Twitch…), à remplacer par le montant réel une fois versé. */
+  estimated?: boolean;
   createdAt: number;
 }
+
+/** Revenus : les trois plateformes de publication, Twitch (lives) et le reste. */
+export type RevenuePlatform = PlatformId | "twitch" | "other";
 
 export interface RevenueSummary {
   currency: string;
@@ -495,9 +520,27 @@ export interface RevenueSummary {
   };
   byMonth: { month: string; income: Record<string, number>; expenses: number }[];
   byCategory: { category: RevenueCategory; amount: number }[];
-  byPlatform: { platform: PlatformId | "other"; amount: number }[];
+  byPlatform: { platform: RevenuePlatform; amount: number }[];
   entries: RevenueEntry[];
   youtubeAdsIncluded: boolean;
+  /** Montant estimé inclus dans les revenus de la période. */
+  estimatedIncome?: number;
+}
+
+/** Chaîne Twitch connectée (abonnés, abonnements payants, bits) — version hébergée. */
+export interface TwitchChannelInfo {
+  connected: boolean;
+  demo?: boolean;
+  login?: string;
+  displayName?: string;
+  avatarUrl?: string | null;
+  followers?: number | null;
+  subscriptions?: { total: number; tier1: number; tier2: number; tier3: number; points: number } | null;
+  bitsThisMonth?: number | null;
+  /** Revenu mensuel estimé (abonnements + bits du mois en cours). */
+  monthlyEstimate?: number | null;
+  updatedAt?: number | null;
+  error?: string | null;
 }
 
 export interface TiktokCreatorInfo {

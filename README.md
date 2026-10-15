@@ -1,7 +1,7 @@
 # VideoPosting
 
-Studio de publication vidéo multi-plateforme : importez **une vidéo**, adaptez le titre, la description et les réglages
-pour **TikTok**, **YouTube** et **Instagram**, puis publiez partout en un clic (ou programmez la publication).
+Studio de publication multi-plateforme : importez **une vidéo** (ou **des photos**), adaptez le titre, la description et
+les réglages pour **TikTok**, **YouTube** et **Instagram**, puis publiez partout en un clic (ou programmez la publication).
 Un tableau de bord suit ensuite vos **statistiques** (abonnés, vues, engagement, meilleures vidéos) et vos **revenus**.
 
 > Sans aucune clé d'API, l'application démarre en **mode démo** : comptes fictifs, publications simulées,
@@ -13,6 +13,9 @@ Un tableau de bord suit ensuite vos **statistiques** (abonnés, vues, engagement
 - Envoi de vidéos volumineuses par morceaux (reprise automatique en cas de coupure), glisser-déposer.
 - Contenu commun (titre, description, hashtags) repris automatiquement par chaque plateforme, avec personnalisation
   champ par champ (« Synchronisé » / « Personnalisé »).
+- **Vidéo ou photos** : Short ou vidéo longue YouTube (au choix ou automatique), Reel / publication photo / carrousel
+  Instagram (10 photos), vidéo ou diaporama photo TikTok (35 photos, musique automatique). Les photos sont converties
+  en JPEG dans le navigateur, réordonnables, avec recadrage automatique au format Instagram.
 - Réglages complets par plateforme :
   - **YouTube** : titre, description, tags, miniature (automatique, image extraite de la vidéo ou import), visibilité,
     catégorie, langue, audience enfants (COPPA), notification des abonnés, intégration, contenu synthétique (IA),
@@ -27,7 +30,11 @@ Un tableau de bord suit ensuite vos **statistiques** (abonnés, vues, engagement
 - Programmation (raccourcis « Ce soir 19:00 », « Demain 12:00 »…), calendrier mensuel, brouillons, duplication.
 - Suivi en direct de chaque envoi (progression, étapes, journal), annulation, relance des échecs.
 
-**Statistiques**
+**Statistiques et influence**
+- **Taux d'influence** par vidéo, par plateforme et global : (j'aime + 2 × commentaires + 3 × partages + 2 ×
+  enregistrements) ÷ vues, évolution, portée (vues ÷ abonnés), position par rapport à votre moyenne, nuage de points.
+- **Audience** : genre, âge (âge moyen, tranches), pays et villes (YouTube Analytics, Instagram Insights ; saisie
+  manuelle pour TikTok), moyenne toutes plateformes pondérée par les abonnés.
 - Abonnés par plateforme et évolution, vues par jour / semaine, interactions et taux d'engagement.
 - Classement des meilleures vidéos publiées avec VideoPosting (vues par plateforme).
 - Synchronisation automatique toutes les 6 heures (ou à la demande), vue tableau pour chaque graphique.
@@ -36,6 +43,8 @@ Un tableau de bord suit ensuite vos **statistiques** (abonnés, vues, engagement
 - Revenus et dépenses par source : partenariats, revenus publicitaires, programmes créateurs (TikTok Creator Rewards…),
   affiliation, boutique, abonnements, dons.
 - **Revenus publicitaires YouTube importés automatiquement** (YouTube Analytics, chaînes monétisées).
+- **Twitch** (version hébergée) : abonnés, abonnements payants par niveau et bits de la chaîne, convertis en revenus
+  estimés ; TikTok et Instagram estimés à partir des vues (revenu pour 1 000 vues réglable). Badge « Estimé ».
 - Objectif mensuel, bénéfice net, paiements en attente, répartition par source et par plateforme, export CSV (Excel).
 
 **Accès** (version hébergée) : **connexion avec Twitch**, un espace séparé par compte Twitch (vidéos, comptes connectés,
@@ -70,6 +79,9 @@ Les hébergements mutualisés n'exécutent que du PHP : cette version embarque l
 (servie sous `/posting`) et une **API PHP 8.1+** équivalente (`hosting/php/`), sans base de données ni réécriture
 d'URL. Il suffit de glisser le dossier `posting` dans `www` par FTP (Cyberduck, FileZilla…).
 
+- **Fichier `.env` hors du dossier public** : identifiants Twitch, YouTube, TikTok et Instagram (modèle livré dans
+  l'archive). Recherché dans les dossiers parents de `posting` (puis `posting/data/`), prioritaire sur les valeurs
+  saisies, signalé s'il est exposé ; `.htaccess` bloque tout `.env` déposé par erreur dans `posting`.
 - **Connexion avec Twitch** : créez une application sur [dev.twitch.tv/console/apps](https://dev.twitch.tv/console/apps)
   (URL de redirection `https://votre-site/posting/api/callback.php`, type « Confidentiel »).
 - Première visite : saisissez le **code d'installation** (dans `LISEZ-MOI.txt`, hors du dossier publié), l'ID client et

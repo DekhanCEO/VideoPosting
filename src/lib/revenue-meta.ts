@@ -1,4 +1,12 @@
-import type { ExpenseCategory, IncomeCategory, RevenueCategory } from "./types";
+import { PLATFORMS, PLATFORM_ORDER } from "./platforms";
+import type { ExpenseCategory, IncomeCategory, RevenueCategory, RevenuePlatform } from "./types";
+
+export const REVENUE_PLATFORMS: Exclude<RevenuePlatform, "other">[] = [...PLATFORM_ORDER, "twitch"];
+
+export function revenuePlatformName(p: RevenuePlatform | undefined): string {
+  if (!p || p === "other") return "Hors plateforme / non spécifié";
+  return p === "twitch" ? "Twitch" : PLATFORMS[p].name;
+}
 
 /** Couleur fixe par catégorie (la couleur suit la catégorie, jamais son rang). */
 export const INCOME_META: Record<IncomeCategory, { label: string; color: string; hint: string }> = {

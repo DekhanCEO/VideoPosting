@@ -2,7 +2,8 @@ import "server-only";
 import crypto from "node:crypto";
 import { z } from "zod";
 import { addDays, isoDay, lastMonths, monthKey, parseDay } from "../dates";
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, type PlatformId, type RevenueEntry, type RevenueSummary } from "../types";
+import { revenueEstimates, viewEstimateEntries } from "../revenue-estimates";
+import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, type RevenueEntry, type RevenuePlatform, type RevenueSummary } from "../types";
 import { demoRevenueEntries, demoSeries } from "./demo-data";
 import { db, getSettings } from "./store";
 
@@ -12,7 +13,7 @@ export const revenueInputSchema = z
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     amount: z.number().positive().max(10_000_000),
     category: z.enum([...INCOME_CATEGORIES, ...EXPENSE_CATEGORIES]),
-    platform: z.enum(["tiktok", "youtube", "instagram", "other"]).optional(),
+    platform: z.enum(["tiktok", "youtube", "instagram", "twitch", "other"]).optional(),
     label: z.string().trim().min(1).max(120),
     partner: z.string().trim().max(120).optional(),
     postId: z.string().uuid().optional(),
@@ -73,8 +74,18 @@ function youtubeAdsEntries(): RevenueEntry[] {
   }));
 }
 
+/** Estimations TikTok / Instagram (vues × RPM choisi dans les réglages des revenus). */
+function estimatedEntries(): RevenueEntry[] {
+  const settings = getSettings();
+  const demo = settings.demoMode;
+  const { snapshots, daily } = demo
+    ? demoSeries()
+    : db().read((d) => ({ snapshots: d.analytics.snapshots.filter((s) => !s.demo), daily: d.analytics.daily.filter((m) => !m.demo) }));
+  return viewEstimateEntries(snapshots, daily, revenueEstimates(settings.revenueEstimates), { demo, today: isoDay() });
+}
+
 export function allRevenueEntries(): RevenueEntry[] {
-  return [...manualEntries(), ...youtubeAdsEntries()].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt);
+  return [...manualEntries(), ...youtubeAdsEntries(), ...estimatedEntries()].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt);
 }
 
 export function getRevenueSummary(params: { from?: string; to?: string }): RevenueSummary {
@@ -104,7 +115,7 @@ export function getRevenueSummary(params: { from?: string; to?: string }): Reven
   });
 
   const catMap = new Map<RevenueEntry["category"], number>();
-  const platMap = new Map<PlatformId | "other", number>();
+  const platMap = new Map<RevenuePlatform, number>();
   for (const e of income) {
     catMap.set(e.category, (catMap.get(e.category) ?? 0) + e.amount);
     const p = e.platform ?? "other";
@@ -132,7 +143,8 @@ export function getRevenueSummary(params: { from?: string; to?: string }): Reven
       .map(([platform, amount]) => ({ platform, amount: Math.round(amount * 100) / 100 }))
       .sort((a, b) => b.amount - a.amount),
     entries: inRange,
-    youtubeAdsIncluded: inRange.some((e) => e.auto),
+    youtubeAdsIncluded: inRange.some((e) => e.auto && !e.estimated),
+    estimatedIncome: sum(income.filter((e) => e.estimated)),
   };
 }
 

@@ -5,15 +5,16 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AlertTriangle, CheckCircle2, ExternalLink, FlaskConical, KeyRound, LogOut, RefreshCw, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
-import { api } from "@/lib/api-client";
+import useSWR from "swr";
+import { api, fetcher } from "@/lib/api-client";
 import { apiUrl } from "@/lib/paths";
-import { formatDate, formatRelative } from "@/lib/format";
+import { formatCurrency, formatDate, formatNumber, formatRelative } from "@/lib/format";
 import { useAccounts, useSettings } from "@/lib/hooks";
 import { PLATFORMS, PLATFORM_ORDER } from "@/lib/platforms";
-import type { PlatformId, PublicAccount } from "@/lib/types";
+import type { PlatformId, PublicAccount, TwitchChannelInfo } from "@/lib/types";
 import { PageContainer, PageHeader } from "./app-shell";
-import { PlatformBadge } from "./icons";
-import { Avatar, Badge, Button, ButtonLink, Card, Dialog, Skeleton } from "./ui";
+import { PlatformBadge, TwitchLogo } from "./icons";
+import { Avatar, Badge, Button, ButtonLink, Card, Dialog, Skeleton, buttonClass } from "./ui";
 
 const REQUIREMENTS: Record<PlatformId, string[]> = {
   tiktok: [
@@ -155,11 +156,14 @@ export function AccountsView() {
   useEffect(() => {
     const connected = params.get("connected");
     const error = params.get("error");
-    if (connected && connected in PLATFORMS) {
+    if (connected === "twitch") {
+      toast.success("Chaîne Twitch connectée", { description: "Abonnés, abonnements et bits sont relevés à chaque synchronisation." });
+    } else if (connected && connected in PLATFORMS) {
       toast.success(`${PLATFORMS[connected as PlatformId].name} connecté`, { description: "Vous pouvez publier dès maintenant." });
     } else if (error) {
       const p = params.get("platform");
-      toast.error(p && p in PLATFORMS ? `Connexion ${PLATFORMS[p as PlatformId].name} impossible` : "Connexion impossible", { description: error, duration: 10_000 });
+      const name = p === "twitch" ? "Twitch" : p && p in PLATFORMS ? PLATFORMS[p as PlatformId].name : null;
+      toast.error(name ? `Connexion ${name} impossible` : "Connexion impossible", { description: error, duration: 10_000 });
     }
     if (connected || error) router.replace("/accounts", { scroll: false });
   }, [params, router]);
@@ -205,6 +209,8 @@ export function AccountsView() {
             ))}
       </div>
 
+      {settings?.twitchAvailable && <TwitchChannelCard />}
+
       <Card className="mt-6 flex items-start gap-3 p-5">
         <ShieldCheck className="mt-0.5 size-5 shrink-0 text-success" />
         <div className="text-sm">
@@ -237,5 +243,91 @@ export function AccountsView() {
         }
       />
     </PageContainer>
+  );
+}
+
+/** Chaîne Twitch : abonnés, abonnements payants et bits, pour estimer les revenus Twitch. */
+function TwitchChannelCard() {
+  const { data, mutate, isLoading } = useSWR<TwitchChannelInfo>("/api/twitch-channel", fetcher);
+  const { data: settings } = useSettings();
+  const [syncing, setSyncing] = useState(false);
+  const currency = settings?.currency ?? "EUR";
+  const sync = async () => {
+    setSyncing(true);
+    try {
+      await mutate(await api<TwitchChannelInfo>("/api/twitch-channel", { method: "POST" }), { revalidate: false });
+      toast.success("Chaîne Twitch à jour");
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setSyncing(false);
+    }
+  };
+  const disconnect = async () => {
+    if (!confirm("Déconnecter la chaîne Twitch ? Les estimations de revenus Twitch ne seront plus calculées.")) return;
+    await api("/api/twitch-channel", { method: "DELETE" });
+    void mutate();
+    toast.success("Chaîne Twitch déconnectée");
+  };
+  const subs = data?.subscriptions;
+  return (
+    <Card className="mt-6 overflow-hidden">
+      <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
+        <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[#9146FF] text-white shadow-[0_8px_24px_-10px_#9146FF]">
+          <TwitchLogo className="size-6" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="flex flex-wrap items-center gap-2 font-semibold">
+            Chaîne Twitch
+            {data?.connected && <Badge tone="success" dot>Connectée</Badge>}
+            {data?.demo && <Badge tone="warning">Démo</Badge>}
+          </p>
+          <p className="mt-0.5 text-sm text-muted">
+            {data?.connected
+              ? `${data.displayName} (@${data.login}) · abonnés, abonnements et bits relevés à chaque synchronisation pour estimer vos revenus Twitch.`
+              : "Connectez votre chaîne pour suivre vos abonnés, abonnements payants et bits, et estimer vos revenus Twitch (chaîne Affiliée ou Partenaire)."}
+          </p>
+        </div>
+        <div className="flex shrink-0 gap-2">
+          {data?.connected ? (
+            <>
+              <Button size="sm" onClick={sync} loading={syncing}>
+                {!syncing && <RefreshCw className="size-4" />} Actualiser
+              </Button>
+              <Button size="sm" variant="ghost" onClick={disconnect}>
+                <LogOut className="size-4" /> Déconnecter
+              </Button>
+            </>
+          ) : (
+            <a href={apiUrl("/api/auth/twitch-channel/connect")} className={buttonClass("twitch", "sm")}>
+              <TwitchLogo className="size-4" /> Connecter ma chaîne
+            </a>
+          )}
+        </div>
+      </div>
+      {isLoading ? (
+        <Skeleton className="mx-5 mb-5 h-20" />
+      ) : data?.connected ? (
+        <div className="grid grid-cols-2 gap-px border-t border-border bg-border sm:grid-cols-4">
+          {[
+            { label: "Abonnés (followers)", value: formatNumber(data.followers ?? null) },
+            { label: "Abonnements payants", value: subs ? formatNumber(subs.total) : "—", hint: subs ? `${subs.tier1} niv. 1 · ${subs.tier2} niv. 2 · ${subs.tier3} niv. 3` : "Chaîne Affiliée requise" },
+            { label: "Bits ce mois-ci", value: formatNumber(data.bitsThisMonth ?? null) },
+            { label: "Revenu mensuel estimé", value: data.monthlyEstimate != null ? formatCurrency(data.monthlyEstimate, currency) : "—", hint: "Abonnements + bits (réglable dans Revenus)" },
+          ].map((k) => (
+            <div key={k.label} className="bg-surface p-4">
+              <p className="text-xs text-muted">{k.label}</p>
+              <p className="mt-1 text-xl font-semibold tabular-nums">{k.value}</p>
+              {k.hint && <p className="mt-0.5 text-[11px] text-muted">{k.hint}</p>}
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {data?.error && (
+        <p className="flex items-center gap-2 border-t border-border bg-warning/8 px-5 py-2.5 text-xs text-warning">
+          <AlertTriangle className="size-3.5 shrink-0" /> {data.error}
+        </p>
+      )}
+    </Card>
   );
 }

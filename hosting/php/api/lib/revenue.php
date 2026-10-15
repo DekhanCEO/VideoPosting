@@ -21,7 +21,7 @@ function sanitize_revenue(array $in): array
         'date' => $date,
         'amount' => round($amount + 0, 2),
         'category' => $category,
-        'platform' => (is_platform($platform) || $platform === 'other') ? $platform : null,
+        'platform' => (is_platform($platform) || $platform === 'twitch' || $platform === 'other') ? $platform : null,
         'label' => $label,
         'partner' => isset($in['partner']) ? trim(str_limit($in['partner'], 120)) : null,
         'postId' => is_uuid($in['postId'] ?? null) ? $in['postId'] : null,
@@ -71,9 +71,55 @@ function youtube_ads_entries(): array
     return $out;
 }
 
+/** Vues par jour : métriques quotidiennes si disponibles, sinon écart entre deux relevés consécutifs. */
+function daily_views(array $snapshots, array $daily, string $platform): array
+{
+    $out = [];
+    $list = array_values(array_filter($snapshots, fn($s) => $s['platform'] === $platform && isset($s['totalViews'])));
+    usort($list, fn($a, $b) => strcmp($a['date'], $b['date']));
+    for ($i = 1; $i < count($list); $i++) $out[$list[$i]['date']] = max(0, (int) $list[$i]['totalViews'] - (int) $list[$i - 1]['totalViews']);
+    foreach ($daily as $m) if ($m['platform'] === $platform && isset($m['views'])) $out[$m['date']] = (int) $m['views'];
+    return $out;
+}
+
+/** Estimations : TikTok / Instagram (vues du mois × RPM) et Twitch (abonnements, bits). */
+function estimated_entries(): array
+{
+    $d = db_read();
+    $demo = (bool) $d['settings']['demoMode'];
+    $est = revenue_estimates_settings($d['settings']);
+    if (!$est['enabled']) return [];
+    $data = $demo ? demo_series() : [
+        'snapshots' => array_values(array_filter($d['analytics']['snapshots'], fn($s) => empty($s['demo']))),
+        'daily' => array_values(array_filter($d['analytics']['daily'], fn($m) => empty($m['demo']))),
+    ];
+    $today = iso_day();
+    $out = [];
+    foreach (['tiktok' => ['tiktokRpm', 'Programme créateurs TikTok'], 'instagram' => ['instagramRpm', 'Bonus et programmes Instagram']] as $p => [$key, $label]) {
+        $rpm = (float) $est[$key];
+        if ($rpm <= 0) continue;
+        $byMonth = [];
+        foreach (daily_views($data['snapshots'], $data['daily'], $p) as $date => $views) {
+            if ($date > $today) continue;
+            $m = substr($date, 0, 7);
+            $byMonth[$m] ??= ['views' => 0, 'last' => $date];
+            $byMonth[$m]['views'] += $views;
+            if ($date > $byMonth[$m]['last']) $byMonth[$m]['last'] = $date;
+        }
+        foreach ($byMonth as $month => $v) {
+            $amount = round($v['views'] / 1000 * $rpm, 2);
+            if ($amount < 0.01) continue;
+            $out[] = ['id' => "est-$p-$month", 'kind' => 'income', 'date' => $v['last'], 'amount' => $amount, 'category' => 'creator_fund', 'platform' => $p,
+                'label' => "$label (estimé)", 'note' => number_format($v['views'], 0, ',', ' ') . ' vues × ' . number_format($rpm, 2, ',', ' ') . ' pour 1 000 vues',
+                'status' => 'pending', 'auto' => true, 'estimated' => true, 'demo' => $demo, 'createdAt' => 0];
+        }
+    }
+    return array_merge($out, twitch_estimate_entries($d, $est, $demo));
+}
+
 function all_revenues(): array
 {
-    $all = array_merge(manual_revenues(), youtube_ads_entries());
+    $all = array_merge(manual_revenues(), youtube_ads_entries(), estimated_entries());
     usort($all, fn($a, $b) => strcmp($b['date'], $a['date']) ?: (($b['createdAt'] ?? 0) <=> ($a['createdAt'] ?? 0)));
     return $all;
 }
@@ -141,7 +187,8 @@ function revenue_summary(?string $from, ?string $to): array
         'byCategory' => array_map(fn($k, $v) => ['category' => $k, 'amount' => round($v, 2)], array_keys($cat), $cat),
         'byPlatform' => array_map(fn($k, $v) => ['platform' => $k, 'amount' => round($v, 2)], array_keys($plat), $plat),
         'entries' => $inRange,
-        'youtubeAdsIncluded' => (bool) array_filter($inRange, fn($e) => !empty($e['auto'])),
+        'youtubeAdsIncluded' => (bool) array_filter($inRange, fn($e) => !empty($e['auto']) && empty($e['estimated'])),
+        'estimatedIncome' => sum_amounts(array_filter($income, fn($e) => !empty($e['estimated']))),
     ];
 }
 

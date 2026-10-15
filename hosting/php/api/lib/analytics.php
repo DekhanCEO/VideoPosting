@@ -12,6 +12,12 @@ function metrics_for(array $post, string $platform): ?array
 
 function sync_analytics(): array
 {
+    // Chaîne Twitch : relevé des abonnés, abonnements et bits (erreurs conservées dans l'espace).
+    try {
+        twitch_channel_sync();
+    } catch (Throwable $e) {
+        error_log('[VideoPosting] Twitch : ' . $e->getMessage());
+    }
     $d = db_read();
     $reports = [];
     $today = iso_day();

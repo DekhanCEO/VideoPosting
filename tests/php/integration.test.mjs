@@ -355,6 +355,53 @@ test("synchronisation des statistiques", async () => {
   assert.equal(a.audience.tiktok, undefined, "TikTok ne fournit pas d'audience par API");
 });
 
+test("chaîne Twitch : abonnés, abonnements, bits et revenus estimés", async () => {
+  const start = await call(api("/auth/twitch-channel/connect"));
+  assert.equal(start.status, 302);
+  const authorize = new URL(start.headers.get("location"));
+  assert.equal(authorize.origin + authorize.pathname, "https://id.twitch.tv/oauth2/authorize");
+  assert.match(authorize.searchParams.get("scope"), /channel:read:subscriptions/);
+  assert.match(authorize.searchParams.get("scope"), /bits:read/);
+  const state = authorize.searchParams.get("state");
+  assert.ok(state.startsWith("twitchch."));
+  const back = await call(`${BASE}/api/callback.php?code=code-malabop&state=${encodeURIComponent(state)}`);
+  assert.equal(back.headers.get("location"), `${BASE}/accounts/?connected=twitch`);
+
+  const info = (await json(api("/twitch-channel"))).data;
+  assert.equal(info.connected, true);
+  assert.equal(info.login, "malabop");
+  assert.equal(info.followers, 4321);
+  assert.deepEqual(info.subscriptions, { total: 5, tier1: 2, tier2: 1, tier3: 1, points: 11 }, "le propre abonnement du créateur n'est pas compté");
+  assert.equal(info.bitsThisMonth, 1500);
+  assert.equal(info.monthlyEstimate, (2 + 2 + 5) * 2.5 + 15);
+
+  const month = new Date().toISOString().slice(0, 7);
+  let revenue = (await json(api("/revenue"))).data;
+  const subs = revenue.entries.find((e) => e.id === `est-twitch-subs-${month}`);
+  const bits = revenue.entries.find((e) => e.id === `est-twitch-bits-${month}`);
+  assert.equal(subs.amount, 22.5);
+  assert.equal(subs.platform, "twitch");
+  assert.equal(subs.estimated, true);
+  assert.equal(bits.amount, 15);
+  assert.ok(revenue.estimatedIncome >= 37.5);
+  assert.ok(revenue.byPlatform.some((p) => p.platform === "twitch"));
+
+  // Réglages : valeur d'un abonnement, puis estimations désactivées.
+  const s = await json(api("/settings"), { ...PUT, json: { revenueEstimates: { twitchSubValue: 3 } } });
+  assert.equal(s.data.revenueEstimates.twitchSubValue, 3);
+  assert.equal(s.data.twitchAvailable, true);
+  revenue = (await json(api("/revenue"))).data;
+  assert.equal(revenue.entries.find((e) => e.id === `est-twitch-subs-${month}`).amount, 27);
+  await json(api("/settings"), { ...PUT, json: { revenueEstimates: { enabled: false } } });
+  revenue = (await json(api("/revenue"))).data;
+  assert.ok(!revenue.entries.some((e) => e.estimated));
+  await json(api("/settings"), { ...PUT, json: { revenueEstimates: { enabled: true, twitchSubValue: 2.5 } } });
+
+  assert.equal((await json(api("/twitch-channel"), DELETE)).status, 200);
+  assert.equal((await json(api("/twitch-channel"))).data.connected, false);
+  assert.ok(mock.state.twitch.revoked.includes("tw-malabop"));
+});
+
 test("audience TikTok saisie à la main", async () => {
   const bad = await json(api("/analytics/audience/tiktok"), { ...PUT, json: {} });
   assert.equal(bad.status, 422);

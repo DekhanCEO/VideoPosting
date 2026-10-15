@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { DEFAULT_SETTINGS_DEFAULTS } from "../captions";
+import { DEFAULT_REVENUE_ESTIMATES } from "../revenue-estimates";
 import type {
   Account,
   AccountSnapshot,
@@ -60,6 +61,7 @@ function defaultSettings(): Settings {
     currency: "EUR",
     monthlyRevenueGoal: 2000,
     defaults: { ...DEFAULT_SETTINGS_DEFAULTS },
+    revenueEstimates: { ...DEFAULT_REVENUE_ESTIMATES },
   };
 }
 
@@ -86,6 +88,7 @@ function migrate(raw: Partial<DbShape>): DbShape {
     instagram: { ...base.settings.credentials.instagram, ...(raw.settings?.credentials?.instagram ?? {}) },
   };
   settings.defaults = { ...base.settings.defaults, ...(raw.settings?.defaults ?? {}) };
+  settings.revenueEstimates = { ...DEFAULT_REVENUE_ESTIMATES, ...(raw.settings?.revenueEstimates ?? {}) };
   return {
     version: 1,
     secret: raw.secret || base.secret,

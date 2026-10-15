@@ -72,6 +72,8 @@ function public_settings(?array $user = null): array
         'currency' => $s['currency'],
         'monthlyRevenueGoal' => $s['monthlyRevenueGoal'],
         'defaults' => $s['defaults'],
+        'revenueEstimates' => revenue_estimates_settings($s),
+        'twitchAvailable' => twitch_configured($app),
         'passwordProtected' => true,
         'hosting' => 'php',
         'canManageApps' => $admin,
@@ -110,6 +112,15 @@ function apply_settings_patch(array $p, array $user): void
         }
         if (isset($p['currency']) && in_array($p['currency'], ['EUR', 'USD', 'GBP', 'CHF', 'CAD', 'MAD', 'XOF'], true)) $s['currency'] = $p['currency'];
         if (isset($p['monthlyRevenueGoal']) && is_numeric($p['monthlyRevenueGoal'])) $s['monthlyRevenueGoal'] = max(0, min(10000000, $p['monthlyRevenueGoal'] + 0));
+        if (isset($p['revenueEstimates']) && is_array($p['revenueEstimates'])) {
+            $r = $p['revenueEstimates'];
+            $cur = revenue_estimates_settings($s);
+            if (isset($r['enabled']) && is_bool($r['enabled'])) $cur['enabled'] = $r['enabled'];
+            foreach (['tiktokRpm' => 100, 'instagramRpm' => 100, 'twitchSubValue' => 100, 'twitchBitValue' => 1] as $k => $max) {
+                if (isset($r[$k]) && is_numeric($r[$k])) $cur[$k] = max(0, min($max, $r[$k] + 0));
+            }
+            $s['revenueEstimates'] = $cur;
+        }
         if (isset($p['defaults']) && is_array($p['defaults'])) {
             $df = $p['defaults'];
             foreach (['youtubeCategoryId', 'youtubeLanguage'] as $k) if (isset($df[$k]) && is_string($df[$k])) $s['defaults'][$k] = str_limit($df[$k], 10);
@@ -141,4 +152,10 @@ function apply_credentials_patch(array &$s, array $c): void
 function cron_secret(?array $app = null): string
 {
     return vp_env('CRON_SECRET') ?? (string) ($app ?? app_read())['cronSecret'];
+}
+
+function revenue_estimates_settings(array $s): array
+{
+    $defaults = ['enabled' => true, 'tiktokRpm' => 0.5, 'instagramRpm' => 0, 'twitchSubValue' => 2.5, 'twitchBitValue' => 0.01];
+    return array_replace($defaults, is_array($s['revenueEstimates'] ?? null) ? $s['revenueEstimates'] : []);
 }

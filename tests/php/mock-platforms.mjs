@@ -47,6 +47,23 @@ export function startMock(port) {
       state.twitch.revoked.push(form().token);
       return send(res, 200);
     }
+    if (p.startsWith("/api.twitch.tv/helix/") && p !== "/api.twitch.tv/helix/users") {
+      const token = (req.headers.authorization ?? "").replace("Bearer ", "");
+      if (!token.startsWith("tw-")) return send(res, 401, { status: 401, message: "Invalid OAuth token" });
+      const broadcaster = url.searchParams.get("broadcaster_id");
+      if (p === "/api.twitch.tv/helix/channels/followers") return send(res, 200, { total: 4321, data: [], pagination: {} });
+      if (p === "/api.twitch.tv/helix/subscriptions") {
+        const data = [
+          { user_id: broadcaster, tier: "1000" }, // abonnement du créateur à sa propre chaîne
+          { user_id: "s1", tier: "1000" },
+          { user_id: "s2", tier: "1000" },
+          { user_id: "s3", tier: "2000" },
+          { user_id: "s4", tier: "3000" },
+        ];
+        return send(res, 200, { data, total: 5, points: 11, pagination: {} });
+      }
+      if (p === "/api.twitch.tv/helix/bits/leaderboard") return send(res, 200, { data: [{ user_id: "b1", score: 1000 }, { user_id: "b2", score: 500 }], total: 2 });
+    }
     if (p === "/api.twitch.tv/helix/users") {
       const token = (req.headers.authorization ?? "").replace("Bearer ", "");
       if (!token.startsWith("tw-") || req.headers["client-id"] !== "tw-client") return send(res, 401, { status: 401, message: "Invalid OAuth token" });

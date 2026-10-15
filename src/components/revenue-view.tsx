@@ -6,6 +6,7 @@ import { mutate as globalMutate } from "swr";
 import {
   ArrowDownCircle,
   ArrowUpCircle,
+  Calculator,
   CheckCircle2,
   Clock,
   Download,
@@ -27,22 +28,23 @@ import { apiUrl } from "@/lib/paths";
 import { addDays, isoDay, parseDay } from "@/lib/dates";
 import { delta, formatCurrency, formatDate } from "@/lib/format";
 import { usePosts, useRevenue, useSettings } from "@/lib/hooks";
-import { PLATFORMS, PLATFORM_ORDER } from "@/lib/platforms";
-import { INCOME_META, categoryLabel } from "@/lib/revenue-meta";
+import { INCOME_META, REVENUE_PLATFORMS, categoryLabel, revenuePlatformName } from "@/lib/revenue-meta";
 import {
   EXPENSE_CATEGORIES,
   INCOME_CATEGORIES,
   type IncomeCategory,
-  type PlatformId,
+  type PublicSettings,
   type RevenueCategory,
   type RevenueEntry,
+  type RevenueEstimates,
+  type RevenuePlatform,
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { PageContainer, PageHeader } from "./app-shell";
 import { BarList, ChartCard, Legend, StackedColumns, type ChartSeries } from "./charts";
-import { PlatformBadge } from "./icons";
+import { PlatformBadge, RevenuePlatformBadge, TwitchLogo } from "./icons";
 import { DeltaBadge, StatTile } from "./stat-tile";
-import { Badge, Button, ButtonLink, Card, Dialog, EmptyState, Field, Input, Segmented, Select, Skeleton, Textarea, buttonClass } from "./ui";
+import { Badge, Button, ButtonLink, Card, CardHeader, Dialog, EmptyState, Field, Input, Segmented, Select, Skeleton, Switch, Textarea, buttonClass } from "./ui";
 
 type Period = "month" | "quarter" | "year" | "ytd";
 
@@ -65,7 +67,7 @@ interface FormState {
   amount: string;
   date: string;
   category: RevenueCategory;
-  platform: PlatformId | "other" | "";
+  platform: RevenuePlatform | "";
   partner: string;
   status: "received" | "pending";
   postId: string;
@@ -169,9 +171,9 @@ function EntryDialog({ form, setForm, onClose, onSaved, currency }: { form: Form
           <Field label="Plateforme">
             <Select value={form.platform} onChange={(e) => set({ platform: e.target.value as FormState["platform"] })}>
               <option value="">Non spécifiée</option>
-              {PLATFORM_ORDER.map((p) => (
+              {REVENUE_PLATFORMS.map((p) => (
                 <option key={p} value={p}>
-                  {PLATFORMS[p].name}
+                  {revenuePlatformName(p)}
                 </option>
               ))}
               <option value="other">Autre / hors plateforme</option>
@@ -419,10 +421,10 @@ export function RevenueView() {
                     format={money}
                     items={data.byPlatform.map((p) => ({
                       key: p.platform,
-                      label: p.platform === "other" ? "Hors plateforme / non spécifié" : PLATFORMS[p.platform].name,
+                      label: revenuePlatformName(p.platform),
                       value: p.amount,
                       color: p.platform === "other" ? "var(--subtle)" : `var(--series-${p.platform})`,
-                      icon: p.platform === "other" ? <span className="size-5 shrink-0 rounded-md bg-surface-3" /> : <PlatformBadge platform={p.platform} size={20} />,
+                      icon: <RevenuePlatformBadge platform={p.platform} size={20} />,
                     }))}
                   />
                 ) : (
@@ -432,6 +434,8 @@ export function RevenueView() {
             </Card>
           </div>
 
+          {settings && <EstimatesCard settings={settings} estimated={data.estimatedIncome ?? 0} money={money} periodLabel={range.label} onSaved={refresh} />}
+
           <Card className="overflow-hidden">
             <div className="flex flex-col gap-3 p-5 pb-0 md:flex-row md:items-center md:justify-between">
               <div>
@@ -439,6 +443,7 @@ export function RevenueView() {
                 <p className="mt-0.5 text-sm text-muted">
                   {entries.length} écriture{entries.length > 1 ? "s" : ""} {range.label}
                   {data.youtubeAdsIncluded && " · revenus YouTube synchronisés automatiquement"}
+                  {!!data.estimatedIncome && ` · dont ${money(data.estimatedIncome)} estimés`}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -488,7 +493,7 @@ export function RevenueView() {
                         <td className="px-5 py-3 whitespace-nowrap text-muted tabular-nums">{formatDate(e.date)}</td>
                         <td className="px-3 py-3">
                           <span className="flex items-center gap-2.5">
-                            {e.platform && e.platform !== "other" ? <PlatformBadge platform={e.platform} size={22} /> : <span className="size-[22px] shrink-0 rounded-md bg-surface-2" />}
+                            <RevenuePlatformBadge platform={e.platform} size={22} />
                             <span className="min-w-0">
                               <span className="block max-w-80 truncate font-medium">{e.label}</span>
                               {(e.partner || e.note) && <span className="block max-w-80 truncate text-xs text-muted">{[e.partner, e.note].filter(Boolean).join(" · ")}</span>}
@@ -502,7 +507,11 @@ export function RevenueView() {
                           </span>
                         </td>
                         <td className="px-3 py-3">
-                          {e.auto ? (
+                          {e.estimated ? (
+                            <Badge tone="accent">
+                              <Calculator className="size-3" /> Estimé
+                            </Badge>
+                          ) : e.auto ? (
                             <Badge tone="info">
                               <RefreshCw className="size-3" /> Synchronisé
                             </Badge>
@@ -592,5 +601,107 @@ export function RevenueView() {
         }}
       />
     </PageContainer>
+  );
+}
+
+/** Réglages des estimations : RPM TikTok / Instagram, valeur des abonnements et des bits Twitch. */
+function EstimatesCard({
+  settings,
+  estimated,
+  money,
+  periodLabel,
+  onSaved,
+}: {
+  settings: PublicSettings;
+  estimated: number;
+  money: (n: number) => string;
+  periodLabel: string;
+  onSaved: () => void;
+}) {
+  const current: RevenueEstimates = settings.revenueEstimates ?? { enabled: true, tiktokRpm: 0.5, instagramRpm: 0, twitchSubValue: 2.5, twitchBitValue: 0.01 };
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState(() => ({
+    tiktokRpm: String(current.tiktokRpm).replace(".", ","),
+    instagramRpm: String(current.instagramRpm).replace(".", ","),
+    twitchSubValue: String(current.twitchSubValue).replace(".", ","),
+    twitchBitValue: String(current.twitchBitValue).replace(".", ","),
+  }));
+  const [saving, setSaving] = useState(false);
+  const num = (v: string) => Math.max(0, Number(v.replace(",", ".")) || 0);
+  const save = async (patch: Partial<RevenueEstimates>) => {
+    setSaving(true);
+    try {
+      const next = await api<PublicSettings>("/api/settings", { method: "PUT", json: { revenueEstimates: patch } });
+      await globalMutate("/api/settings", next, { revalidate: false });
+      onSaved();
+      toast.success("Estimations mises à jour");
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+  const field = (key: keyof typeof form, label: string, suffix: string, hint: string, icon: React.ReactNode) => (
+    <Field label={label} hint={hint}>
+      <div className="relative">
+        <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center">{icon}</span>
+        <Input
+          inputMode="decimal"
+          value={form[key]}
+          onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value.replace(/[^\d.,]/g, "") }))}
+          className="pr-24 pl-10 tabular-nums"
+        />
+        <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-subtle">{suffix}</span>
+      </div>
+    </Field>
+  );
+  const cur = settings.currency;
+  return (
+    <Card>
+      <CardHeader
+        icon={<Calculator className="size-4" />}
+        title="Estimations automatiques"
+        description={
+          current.enabled
+            ? `TikTok, Instagram et Twitch ne communiquent pas leurs gains : VideoPosting les estime à partir des vues${settings.twitchAvailable ? ", des abonnements et des bits" : ""}.${estimated ? ` ${money(estimated)} estimés ${periodLabel}.` : ""}`
+            : "Désactivées : seuls les revenus saisis et les revenus YouTube synchronisés sont comptés."
+        }
+        actions={<Switch checked={current.enabled} onChange={(v) => void save({ enabled: v })} label="" />}
+      />
+      <div className="px-5 pb-5">
+        <button type="button" onClick={() => setOpen((o) => !o)} className="mt-3 text-sm font-medium text-accent hover:underline">
+          {open ? "Masquer les réglages" : "Régler les montants"}
+        </button>
+        {open && (
+          <div className="mt-4 space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              {field("tiktokRpm", "TikTok · pour 1 000 vues", `${cur} / 1 000 vues`, "Creator Rewards : environ 0,40 à 1 € (vidéos de plus d'1 minute). 0 = pas d'estimation.", <PlatformBadge platform="tiktok" size={18} />)}
+              {field("instagramRpm", "Instagram · pour 1 000 vues", `${cur} / 1 000 vues`, "Bonus, programmes ou abonnements. 0 = pas d'estimation.", <PlatformBadge platform="instagram" size={18} />)}
+              {settings.twitchAvailable && (
+                <>
+                  {field("twitchSubValue", "Twitch · par abonnement (niveau 1)", `${cur} net`, "Part reversée par abonnement (≈ 50 % de 4,99 $). Niveau 2 ×2, niveau 3 ×5.", <RevenuePlatformBadge platform="twitch" size={18} />)}
+                  {field("twitchBitValue", "Twitch · par bit", cur, "Un bit rapporte 0,01 $ au créateur.", <TwitchLogo className="size-4 text-[#9146FF]" />)}
+                </>
+              )}
+            </div>
+            <p className="text-xs text-muted">
+              Les montants estimés apparaissent « En attente » avec le badge Estimé : quand le paiement arrive, ajoutez le montant réel et réduisez l&apos;estimation à 0
+              si besoin.
+            </p>
+            <div className="flex justify-end">
+              <Button
+                variant="primary"
+                loading={saving}
+                onClick={() =>
+                  void save({ tiktokRpm: num(form.tiktokRpm), instagramRpm: num(form.instagramRpm), twitchSubValue: num(form.twitchSubValue), twitchBitValue: num(form.twitchBitValue) })
+                }
+              >
+                Enregistrer
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </Card>
   );
 }

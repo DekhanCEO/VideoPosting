@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import type { PlatformId } from "@/lib/types";
+import type { PlatformId, RevenuePlatform } from "@/lib/types";
 
 // Tracés des logos issus de Simple Icons (licence CC0).
 const PATHS: Record<PlatformId, string> = {
@@ -45,4 +45,17 @@ export function PlatformBadge({ platform, size = 32, className }: { platform: Pl
       <PlatformLogo platform={platform} className="size-[55%]" />
     </span>
   );
+}
+
+/** Pastille d'une plateforme de revenus : plateformes de publication, Twitch ou « autre ». */
+export function RevenuePlatformBadge({ platform, size = 22, className }: { platform?: RevenuePlatform | null; size?: number; className?: string }) {
+  if (platform === "twitch") {
+    return (
+      <span className={cn("inline-flex shrink-0 items-center justify-center rounded-[28%] bg-[#9146FF] text-white", className)} style={{ width: size, height: size }}>
+        <TwitchLogo className="size-[55%]" />
+      </span>
+    );
+  }
+  if (platform && platform !== "other") return <PlatformBadge platform={platform} size={size} className={className} />;
+  return <span className={cn("inline-block shrink-0 rounded-md bg-surface-3", className)} style={{ width: size, height: size }} />;
 }

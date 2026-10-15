@@ -34,7 +34,25 @@ if ($kind === 'login') {
     }
 }
 
-// 2. Connexion d'un compte de publication -------------------------------------
+// 2. Chaîne Twitch (abonnés, abonnements, bits) -----------------------------
+if ($kind === 'twitchch') {
+    try {
+        require_auth();
+    } catch (HttpError $e) {
+        $go('/login/');
+    }
+    if ($error) $go('/accounts/?platform=twitch&error=' . rawurlencode($error === 'access_denied' ? 'Autorisation refusée.' : (string) $error));
+    if (!$stateOk || $code === '') $go('/accounts/?platform=twitch&error=' . rawurlencode('Session de connexion expirée, veuillez réessayer.'));
+    try {
+        twitch_channel_exchange($code);
+        $go('/accounts/?connected=twitch');
+    } catch (Throwable $e) {
+        error_log('[VideoPosting] Twitch chaîne : ' . $e->getMessage());
+        $go('/accounts/?platform=twitch&error=' . rawurlencode($e->getMessage()));
+    }
+}
+
+// 3. Connexion d'un compte de publication -------------------------------------
 $platform = $kind;
 $back = fn(string $query) => $go("/accounts/?$query");
 if (!is_platform($platform)) $back('error=' . rawurlencode('Retour de connexion invalide.'));

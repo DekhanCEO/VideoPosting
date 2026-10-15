@@ -119,6 +119,8 @@ function default_settings(): array
             'tiktokAllowStitch' => true,
             'instagramShareToFeed' => true,
         ],
+        // Estimation des revenus non communiqués par les API (voir revenue.php).
+        'revenueEstimates' => ['enabled' => true, 'tiktokRpm' => 0.5, 'instagramRpm' => 0, 'twitchSubValue' => 2.5, 'twitchBitValue' => 0.01],
     ];
 }
 
@@ -134,6 +136,8 @@ function empty_db(): array
         'revenues' => [],
         'demoRevenueSeeded' => false,
         'jobs' => ['lastTokenRefresh' => 0, 'lastStatsSync' => 0],
+        // Chaîne Twitch connectée : compte, relevés quotidiens (abonnés, abonnements), bits par mois.
+        'twitch' => ['account' => null, 'snapshots' => [], 'bits' => [], 'error' => null, 'updatedAt' => null],
     ];
 }
 
@@ -144,6 +148,7 @@ function db_migrate(array $d): array
     $d['settings'] = array_replace_recursive($base['settings'], $d['settings'] ?? []);
     $d['settings']['hashtagGroups'] = array_values($d['settings']['hashtagGroups'] ?? []);
     $d['analytics'] = array_replace($base['analytics'], is_array($d['analytics'] ?? null) ? $d['analytics'] : []);
+    $d['twitch'] = array_replace($base['twitch'], is_array($d['twitch'] ?? null) ? $d['twitch'] : []);
     unset($d['settings']['credentials']);
     return $d;
 }

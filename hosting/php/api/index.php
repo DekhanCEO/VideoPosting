@@ -91,6 +91,19 @@ try {
             if (!is_platform($p['platform'])) throw new HttpError('Plateforme inconnue.', 404);
             remove_account($p['platform']);
             json_out(['ok' => true]);
+        } elseif ($route === '/auth/twitch-channel/connect' && $isGet) {
+            $kick = false;
+            $base = public_url();
+            if (db_read()['settings']['demoMode']) {
+                twitch_channel_connect_demo();
+                redirect_to("$base/accounts/?connected=twitch");
+            } elseif (!twitch_configured(app_read())) {
+                redirect_to("$base/accounts/?platform=twitch&error=" . rawurlencode('Application Twitch non configurée.'));
+            } else {
+                $state = 'twitchch.' . bin2hex(random_bytes(16));
+                setcookie('vp_oauth', $state, cookie_options(time() + 600));
+                redirect_to(twitch_channel_auth_url($state));
+            }
         } elseif (route_match('/auth/{platform}/connect', $route, $p) && $isGet) {
             $kick = false;
             $platform = $p['platform'];
@@ -186,6 +199,11 @@ try {
         } elseif ($route === '/analytics' && $isGet) {
             $range = (int) ($_GET['range'] ?? 28);
             json_out(analytics_summary(in_array($range, [7, 28, 90, 365], true) ? $range : 28));
+        } elseif ($route === '/twitch-channel') {
+            if ($isGet) json_out(twitch_channel_info());
+            elseif ($method === 'DELETE') { twitch_channel_disconnect(); json_out(['ok' => true]); }
+            elseif ($method === 'POST') { twitch_channel_sync(); json_out(twitch_channel_info()); }
+            else throw new HttpError('Méthode non autorisée', 405);
         } elseif (route_match('/analytics/audience/{platform}', $route, $p)) {
             if (!is_platform($p['platform'])) throw new HttpError('Plateforme inconnue.', 404);
             if ($method === 'PUT') json_out(save_manual_audience($p['platform'], request_json()));
