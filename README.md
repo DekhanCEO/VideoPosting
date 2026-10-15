@@ -57,8 +57,9 @@ npm run package:hosting   # dist/VideoPosting-hebergement.zip (dossier « postin
 npm run package:desktop   # dist/VideoPosting-Windows.zip et dist/VideoPosting-macOS.zip
 ```
 
-Elles sont aussi produites automatiquement par GitHub Actions (onglet *Actions* → « Paquets » → *Run workflow*,
-puis téléchargement dans *Artifacts*).
+Les versions Windows et macOS sont aussi produites par GitHub Actions (onglet *Actions* → « Paquets » →
+*Run workflow*, puis téléchargement dans *Artifacts*). Le paquet hébergement contient un code d'installation
+personnel : fabriquez-le en local pour qu'il ne soit pas public.
 
 ### Hébergement mutualisé (PHP)
 Les hébergements mutualisés n'exécutent que du PHP : cette version embarque l'interface en fichiers statiques

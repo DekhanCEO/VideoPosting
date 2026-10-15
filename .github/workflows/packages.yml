@@ -1,6 +1,8 @@
 name: Paquets
 
-# Fabrique les trois versions (hébergement mutualisé, Windows, macOS) et les publie comme artefacts.
+# Fabrique les trois versions et publie les versions Windows et macOS comme artefacts.
+# Le paquet hébergement est seulement vérifié : il contient un code d'installation personnel,
+# à fabriquer en local (npm run package:hosting) pour ne pas le rendre public.
 on:
   workflow_dispatch:
   push:
@@ -27,10 +29,6 @@ jobs:
       - run: npm run package:hosting
       - run: npm run package:desktop
       - run: npm run test:node
-      - uses: actions/upload-artifact@v4
-        with:
-          name: VideoPosting-hebergement
-          path: dist/VideoPosting-hebergement.zip
       - uses: actions/upload-artifact@v4
         with:
           name: VideoPosting-Windows
