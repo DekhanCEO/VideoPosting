@@ -59,15 +59,16 @@ function public_settings(?array $user = null): array
         'demoMode' => $s['demoMode'],
         'publicUrl' => $url,
         'publicUrlIsReachable' => str_starts_with($url, 'https://') && !preg_match('#^https://(localhost|127\.|10\.|192\.168\.)#', $url),
+        // Un membre ne voit que si chaque plateforme est disponible : aucun détail des applications développeur.
         'credentials' => [
-            'youtube' => ['clientId' => $admin ? $yt['clientId'] : '', 'hasSecret' => $yt['clientSecret'] !== '', 'fromEnv' => $yt['fromEnv'], 'configured' => $yt['configured']],
-            'tiktok' => ['clientKey' => $admin ? $tt['clientId'] : '', 'hasSecret' => $tt['clientSecret'] !== '', 'fromEnv' => $tt['fromEnv'], 'configured' => $tt['configured']],
+            'youtube' => ['clientId' => $admin ? $yt['clientId'] : '', 'hasSecret' => $admin && $yt['clientSecret'] !== '', 'fromEnv' => $admin && $yt['fromEnv'], 'configured' => $yt['configured']],
+            'tiktok' => ['clientKey' => $admin ? $tt['clientId'] : '', 'hasSecret' => $admin && $tt['clientSecret'] !== '', 'fromEnv' => $admin && $tt['fromEnv'], 'configured' => $tt['configured']],
             'instagram' => [
-                'appId' => $admin ? $ig['clientId'] : '', 'hasSecret' => $ig['clientSecret'] !== '', 'fromEnv' => $ig['fromEnv'], 'configured' => $ig['configured'],
-                'loginType' => $ig['loginType'], 'graphVersion' => $ig['graphVersion'],
+                'appId' => $admin ? $ig['clientId'] : '', 'hasSecret' => $admin && $ig['clientSecret'] !== '', 'fromEnv' => $admin && $ig['fromEnv'], 'configured' => $ig['configured'],
+                'loginType' => $ig['loginType'], 'graphVersion' => $admin ? $ig['graphVersion'] : '',
             ],
         ],
-        'redirectUris' => ['tiktok' => $redirect, 'youtube' => $redirect, 'instagram' => $redirect],
+        'redirectUris' => $admin ? ['tiktok' => $redirect, 'youtube' => $redirect, 'instagram' => $redirect] : ['tiktok' => '', 'youtube' => '', 'instagram' => ''],
         'hashtagGroups' => array_values($s['hashtagGroups']),
         'currency' => $s['currency'],
         'monthlyRevenueGoal' => $s['monthlyRevenueGoal'],
@@ -81,6 +82,28 @@ function public_settings(?array $user = null): array
         'env' => $admin ? vp_env_info() : null,
         'legal' => legal_info($app),
     ];
+}
+
+/** Mode démo de l'installation (au premier lancement : activé, pour essayer sans configurer d'API). */
+function installation_demo_mode(?array $app = null): bool
+{
+    return (bool) (($app ?? app_read())['demoMode'] ?? true);
+}
+
+function set_installation_demo_mode(bool $on): void
+{
+    app_update(function (array &$a) use ($on) {
+        $a['demoMode'] = $on;
+    });
+    $previous = $GLOBALS['VP_SPACE'];
+    foreach (all_space_ids() as $id) {
+        use_space($id);
+        if (!is_file(db_file())) continue;
+        db_update(function (array &$d) use ($on) {
+            $d['settings']['demoMode'] = $on;
+        });
+    }
+    use_space($previous);
 }
 
 /** Informations des pages légales (publiques : aucune donnée sensible). */
@@ -107,8 +130,18 @@ function apply_legal_patch(array $l): void
     });
 }
 
+/** Réglages qu'un membre peut modifier : ses préférences de la page Revenus (objectif, estimations). */
+const MEMBER_SETTINGS = ['monthlyRevenueGoal', 'revenueEstimates'];
+
 function apply_settings_patch(array $p, array $user): void
 {
+    if ($user['role'] !== 'admin') {
+        $forbidden = array_diff(array_keys($p), MEMBER_SETTINGS);
+        if ($forbidden) throw new HttpError('Réglage réservé à l\'administrateur.', 403);
+    }
+    // Mode démo : choisi par l'administrateur pour toute l'installation (tous les espaces le suivent).
+    if (isset($p['demoMode']) && is_bool($p['demoMode'])) set_installation_demo_mode($p['demoMode']);
+
     // Applications développeur (YouTube, TikTok, Meta) : communes à tous les espaces, réservées à l'administrateur.
     if (isset($p['credentials']) || isset($p['clearCredentials'])) {
         if ($user['role'] !== 'admin') throw new HttpError('Seul l\'administrateur peut modifier les applications développeur.', 403);
@@ -130,7 +163,6 @@ function apply_settings_patch(array $p, array $user): void
     }
     db_update(function (array &$d) use ($p) {
         $s = &$d['settings'];
-        if (isset($p['demoMode']) && is_bool($p['demoMode'])) $s['demoMode'] = $p['demoMode'];
         if (isset($p['hashtagGroups']) && is_array($p['hashtagGroups'])) {
             $groups = [];
             foreach (array_slice($p['hashtagGroups'], 0, 50) as $g) {

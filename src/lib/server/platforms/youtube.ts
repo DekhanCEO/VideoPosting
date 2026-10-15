@@ -9,7 +9,7 @@ import type { AccountData, PlatformAdapter, StatsResult } from "./types";
 type UploadedVideo = { id: string; status?: { privacyStatus?: string } };
 
 export const YOUTUBE_PRIVATE_NOTICE =
-  "YouTube a mis la vidéo en privé : votre projet Google Cloud n'est pas encore audité. Faites-le valider (formulaire d'audit de l'API YouTube, voir Paramètres → API YouTube) pour que les prochaines vidéos soient publiées avec la visibilité choisie.";
+  "YouTube a mis la vidéo en privé : votre projet Google Cloud n'est pas encore audité. L'administrateur doit le faire valider (formulaire d'audit de l'API YouTube) pour que les prochaines vidéos soient publiées avec la visibilité choisie.";
 
 const AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";

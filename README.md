@@ -55,8 +55,11 @@ Un tableau de bord suit ensuite vos **statistiques** (abonnés, vues, engagement
 - Objectif mensuel, bénéfice net, paiements en attente, répartition par source et par plateforme, export CSV (Excel).
 
 **Accès** (version hébergée) : **connexion avec Twitch**, un espace séparé par compte Twitch (vidéos, comptes connectés,
-statistiques, revenus). L'administrateur choisit qui peut entrer (lui seul, sur invitation ou tout compte Twitch),
-gère les espaces et configure une seule fois les applications développeur, communes à tous.
+statistiques, revenus, webhooks Discord). L'administrateur — la personne qui a installé l'application avec le code
+d'installation — choisit qui peut entrer (lui seul, sur invitation ou tout compte Twitch), gère les espaces, le mode
+démo (commun à tous) et configure une seule fois les applications développeur. Un créateur invité ne voit dans les
+Paramètres que ses propres webhooks Discord ; l'API refuse aussi ses modifications des réglages de l'installation
+(seuls son objectif et ses estimations de revenus restent modifiables, depuis la page Revenus).
 
 **Pages légales** : conditions d'utilisation et politique de confidentialité en français, publiques (`/conditions`,
 `/confidentialite`, ancre `#suppression` pour les instructions de suppression des données demandées par Meta),

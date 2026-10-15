@@ -557,26 +557,6 @@ const NAV = [
   { id: "deploy", label: "Serveur & sécurité" },
 ];
 
-/** Espace d'un membre (hébergement multi-espaces) : les applications sont gérées par l'administrateur. */
-function ManagedApiCard({ platform, settings, highlight }: { platform: PlatformId; settings: PublicSettings; highlight: boolean }) {
-  const cred = settings.credentials[platform];
-  return (
-    <Card id={platform} className={cn("scroll-mt-6 transition-shadow", highlight && "ring-2 ring-accent")}>
-      <CardHeader
-        icon={<PlatformBadge platform={platform} size={36} />}
-        title={`API ${PLATFORMS[platform].name}`}
-        description={
-          cred.configured
-            ? `Application configurée par l'administrateur : connectez votre compte ${PLATFORMS[platform].name} dans « Comptes ».`
-            : `L'administrateur n'a pas encore configuré l'application ${PLATFORMS[platform].name}. Utilisez le mode démo en attendant.`
-        }
-        actions={<StatusBadge configured={cred.configured} fromEnv={false} />}
-        className="pb-5"
-      />
-    </Card>
-  );
-}
-
 export function SettingsView() {
   const { data: settings } = useSettings();
   const params = useSearchParams();
@@ -584,7 +564,7 @@ export function SettingsView() {
 
   const member = settings?.canManageApps === false;
   useEffect(() => {
-    if (missing && missing in PLATFORMS && settings) {
+    if (missing && missing in PLATFORMS && settings && !member) {
       toast.info(member ? `API ${PLATFORMS[missing as PlatformId].name} non configurée` : `Configurez d'abord l'API ${PLATFORMS[missing as PlatformId].name}`, {
         description: member
           ? "Demandez à l'administrateur de configurer l'application, ou réactivez le mode démo."
@@ -595,6 +575,18 @@ export function SettingsView() {
     // Une seule notification, une fois les paramètres chargés.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [missing, !!settings]);
+
+  if (member) {
+    // Espace d'un membre : les applications et les réglages de l'installation sont gérés par l'administrateur.
+    return (
+      <PageContainer className="max-w-4xl">
+        <PageHeader title="Paramètres" description="Vos annonces Discord. Les applications et les réglages de l'installation sont gérés par l'administrateur." />
+        <div className="mt-6">
+          <DiscordCard settings={settings} />
+        </div>
+      </PageContainer>
+    );
+  }
 
   return (
     <PageContainer>
@@ -616,13 +608,9 @@ export function SettingsView() {
         ) : (
           <div className="min-w-0 space-y-6">
             <General settings={settings} />
-            {(["tiktok", "youtube", "instagram"] as PlatformId[]).map((p) =>
-              settings.canManageApps === false ? (
-                <ManagedApiCard key={p} platform={p} settings={settings} highlight={missing === p} />
-              ) : (
-                <ApiCard key={p} platform={p} settings={settings} highlight={missing === p} />
-              ),
-            )}
+            {(["tiktok", "youtube", "instagram"] as PlatformId[]).map((p) => (
+              <ApiCard key={p} platform={p} settings={settings} highlight={missing === p} />
+            ))}
             <DiscordCard settings={settings} />
             <LegalCard settings={settings} />
             <HashtagGroups settings={settings} />

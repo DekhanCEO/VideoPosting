@@ -119,7 +119,10 @@ try {
             } else {
                 $c = credentials($platform);
                 if (!$c['configured']) {
-                    redirect_to("$base/settings/?missing=$platform#$platform");
+                    // Les applications sont configurées par l'administrateur : un membre reste sur « Comptes ».
+                    redirect_to(($user['role'] ?? '') === 'admin'
+                        ? "$base/settings/?missing=$platform#$platform"
+                        : "$base/accounts/?platform=$platform&error=" . rawurlencode(PLATFORM_NAMES[$platform] . ' n\'est pas encore disponible : l\'administrateur doit configurer l\'application.'));
                 } else {
                     $state = $platform . '.' . bin2hex(random_bytes(16));
                     setcookie('vp_oauth', $state, ['expires' => time() + 600, 'path' => base_path() ?: '/', 'secure' => is_https(), 'httponly' => true, 'samesite' => 'Lax']);

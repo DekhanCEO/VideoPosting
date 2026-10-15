@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState } from "react";
 import { mutate as globalMutate } from "swr";
 import {
@@ -228,6 +227,7 @@ export function RevenueView() {
   const [kindFilter, setKindFilter] = useState<"all" | "income" | "expense">("all");
   const [query, setQuery] = useState("");
   const [visibleCount, setVisibleCount] = useState(15);
+  const [goalOpen, setGoalOpen] = useState(false);
 
   const currency = data?.currency ?? settings?.currency ?? "EUR";
   const money = (n: number) => formatCurrency(n, currency);
@@ -375,7 +375,7 @@ export function RevenueView() {
               </div>
               <p className="mt-3 text-sm">
                 {goal <= 0 ? (
-                  <span className="text-muted">Définissez un objectif dans les paramètres.</span>
+                  <span className="text-muted">Définissez un objectif mensuel pour suivre votre progression.</span>
                 ) : thisMonth >= goal ? (
                   <span className="inline-flex items-center gap-1.5 font-medium text-success">
                     <CheckCircle2 className="size-4" /> Objectif atteint, bravo !
@@ -386,9 +386,9 @@ export function RevenueView() {
                   </span>
                 )}
               </p>
-              <Link href="/settings#revenue-settings" className="mt-auto pt-4 text-xs font-medium text-accent hover:underline">
+              <button type="button" onClick={() => setGoalOpen(true)} className="mt-auto self-start pt-4 text-xs font-medium text-accent hover:underline">
                 Modifier l&apos;objectif →
-              </Link>
+              </button>
             </Card>
           </div>
 
@@ -601,7 +601,63 @@ export function RevenueView() {
           refresh();
         }}
       />
+      {goalOpen && (
+        <GoalDialog
+          initial={goal}
+          currency={currency}
+          onClose={() => setGoalOpen(false)}
+          onSaved={() => {
+            setGoalOpen(false);
+            refresh();
+          }}
+        />
+      )}
     </PageContainer>
+  );
+}
+
+/** Objectif de revenus mensuel de l'espace (réglage personnel, modifiable aussi par un membre). */
+function GoalDialog({ initial, currency, onClose, onSaved }: { initial: number; currency: string; onClose: () => void; onSaved: () => void }) {
+  const [value, setValue] = useState(initial > 0 ? String(initial) : "");
+  const [saving, setSaving] = useState(false);
+  const amount = Number(value.replace(",", "."));
+  const valid = value.trim() !== "" && Number.isFinite(amount) && amount >= 0 && amount <= 10_000_000;
+  const save = async () => {
+    setSaving(true);
+    try {
+      const next = await api<PublicSettings>("/api/settings", { method: "PUT", json: { monthlyRevenueGoal: amount } });
+      await globalMutate("/api/settings", next, { revalidate: false });
+      await globalMutate((key) => typeof key === "string" && key.startsWith("/api/dashboard"));
+      toast.success("Objectif enregistré");
+      onSaved();
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      size="sm"
+      title="Objectif du mois"
+      description="Montant de revenus que vous visez chaque mois (tableau de bord et page Revenus)."
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Annuler
+          </Button>
+          <Button variant="primary" onClick={save} loading={saving} disabled={!valid}>
+            Enregistrer
+          </Button>
+        </>
+      }
+    >
+      <Field label={`Objectif mensuel (${currency})`} htmlFor="goal-amount">
+        <Input id="goal-amount" type="number" min={0} step={50} inputMode="decimal" value={value} onChange={(e) => setValue(e.target.value)} placeholder="2000" />
+      </Field>
+    </Dialog>
   );
 }
 

@@ -9,7 +9,7 @@ import useSWR from "swr";
 import { api, fetcher } from "@/lib/api-client";
 import { apiUrl } from "@/lib/paths";
 import { formatCurrency, formatDate, formatNumber, formatRelative } from "@/lib/format";
-import { useAccounts, useSettings } from "@/lib/hooks";
+import { useAccess, useAccounts, useSettings } from "@/lib/hooks";
 import { PLATFORMS, PLATFORM_ORDER } from "@/lib/platforms";
 import type { PlatformId, PublicAccount, TwitchChannelInfo } from "@/lib/types";
 import { PageContainer, PageHeader } from "./app-shell";
@@ -17,21 +17,22 @@ import { PlatformBadge, TwitchLogo } from "./icons";
 import { Avatar, Badge, Button, ButtonLink, Card, Dialog, Skeleton, buttonClass } from "./ui";
 import { APP_NAME } from "@/lib/brand";
 
-const REQUIREMENTS: Record<PlatformId, string[]> = {
+/** Prérequis affichés avant la connexion ; « admin » : ce qui relève de l'administrateur (applications développeur). */
+const REQUIREMENTS: Record<PlatformId, { text: string; admin?: boolean }[]> = {
   tiktok: [
-    "Une application TikTok for Developers avec Login Kit et Content Posting API",
-    "Tant que l'application n'est pas auditée, les vidéos sont publiées en privé",
-    "Statistiques : autorisations user.info.stats et video.list",
+    { text: "Un compte TikTok (les comptes Créateur ou Entreprise donnent plus de statistiques)" },
+    { text: "Une application TikTok for Developers avec Login Kit et Content Posting API", admin: true },
+    { text: "Tant que l'application n'est pas auditée, les vidéos sont publiées en privé", admin: true },
   ],
   youtube: [
-    "Un compte Google avec une chaîne YouTube",
-    "Un projet Google Cloud avec YouTube Data API v3 et YouTube Analytics API",
-    "Revenus : chaîne membre du Programme Partenaire YouTube",
+    { text: "Un compte Google avec une chaîne YouTube" },
+    { text: "Un projet Google Cloud avec YouTube Data API v3 et YouTube Analytics API", admin: true },
+    { text: "Revenus : chaîne membre du Programme Partenaire YouTube" },
   ],
   instagram: [
-    "Un compte Instagram professionnel (Créateur ou Entreprise)",
-    "Une application Meta avec le produit « Instagram API »",
-    "Limite : 100 publications via l'API par 24 heures",
+    { text: "Un compte Instagram professionnel (Créateur ou Entreprise)" },
+    { text: "Une application Meta avec le produit « Instagram API »", admin: true },
+    { text: "Limite : 100 publications via l'API par 24 heures" },
   ],
 };
 
@@ -40,12 +41,15 @@ function AccountCard({
   account,
   demo,
   configured,
+  member,
   onDisconnect,
 }: {
   platform: PlatformId;
   account?: PublicAccount;
   demo: boolean;
   configured: boolean;
+  /** Membre : la configuration des API revient à l'administrateur. */
+  member?: boolean;
   onDisconnect: () => void;
 }) {
   const connectHref = apiUrl(`/api/auth/${platform}/connect`);
@@ -108,12 +112,14 @@ function AccountCard({
           </div>
         ) : (
           <ul className="space-y-2">
-            {REQUIREMENTS[platform].map((r) => (
-              <li key={r} className="flex gap-2 text-sm text-muted">
-                <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-subtle" />
-                {r}
-              </li>
-            ))}
+            {REQUIREMENTS[platform]
+              .filter((r) => !member || !r.admin)
+              .map((r) => (
+                <li key={r.text} className="flex gap-2 text-sm text-muted">
+                  <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-subtle" />
+                  {r.text}
+                </li>
+              ))}
           </ul>
         )}
       </div>
@@ -137,6 +143,10 @@ function AccountCard({
               {demo && " (démo)"}
             </Button>
           </a>
+        ) : member ? (
+          <Button className="w-full" disabled title="L'administrateur doit d'abord configurer l'application">
+            Bientôt disponible
+          </Button>
         ) : (
           <ButtonLink href={`/settings#${platform}`} className="w-full">
             <KeyRound className="size-4" /> Configurer l&apos;API {PLATFORMS[platform].name}
@@ -178,6 +188,7 @@ export function AccountsView() {
   };
 
   const demo = !!settings?.demoMode;
+  const { member, canConfigure } = useAccess();
 
   return (
     <PageContainer>
@@ -187,11 +198,16 @@ export function AccountsView() {
         <div className="mt-6 flex flex-col gap-3 rounded-2xl border border-warning/30 bg-warning/8 p-4 sm:flex-row sm:items-center">
           <FlaskConical className="size-5 shrink-0 text-warning" />
           <p className="flex-1 text-sm">
-            <strong>Mode démo :</strong> les connexions créent des comptes fictifs pour tester l&apos;outil sans configurer les API. Désactivez-le dans les paramètres pour connecter vos vrais comptes.
+            <strong>Mode démo :</strong> les connexions créent des comptes fictifs pour tester l&apos;outil.{" "}
+            {canConfigure
+              ? "Désactivez-le dans les paramètres pour connecter vos vrais comptes."
+              : "Vous pourrez connecter vos vrais comptes dès que l'administrateur l'aura désactivé."}
           </p>
-          <ButtonLink href="/settings" size="sm">
-            Paramètres
-          </ButtonLink>
+          {canConfigure && (
+            <ButtonLink href="/settings" size="sm">
+              Paramètres
+            </ButtonLink>
+          )}
         </div>
       )}
 
@@ -205,6 +221,7 @@ export function AccountsView() {
                 account={accounts?.find((a) => a.platform === p)}
                 demo={demo}
                 configured={settings.credentials[p].configured}
+                member={member}
                 onDisconnect={() => setDisconnect(p)}
               />
             ))}
@@ -219,9 +236,11 @@ export function AccountsView() {
           <p className="mt-1 text-muted">
             Les jetons d&apos;accès sont stockés uniquement sur votre serveur (dossier <code className="rounded bg-surface-2 px-1">data/</code>) et servent seulement à publier et lire vos
             statistiques. Vous pouvez révoquer l&apos;accès à tout moment ici ou depuis chaque plateforme.{" "}
-            <Link href="/settings" className="inline-flex items-center gap-0.5 text-accent hover:underline">
-              Configuration des API <ExternalLink className="size-3" />
-            </Link>
+            {canConfigure && (
+              <Link href="/settings" className="inline-flex items-center gap-0.5 text-accent hover:underline">
+                Configuration des API <ExternalLink className="size-3" />
+              </Link>
+            )}
           </p>
         </div>
       </Card>

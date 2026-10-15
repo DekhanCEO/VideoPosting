@@ -195,6 +195,17 @@ Menu "Espaces & accès" (visible uniquement par les administrateurs) :
   ses propres comptes. Tant que vos applications Google, TikTok et Meta ne sont pas
   validées par ces plateformes, seuls les comptes déclarés "testeurs" peuvent s'y
   connecter (voir les guides dans Paramètres).
+- Ce que voit chacun :
+    * l'administrateur (la personne qui a installé {{APP}} avec le code
+      d'installation) : tous les réglages - mode démo, API YouTube / TikTok /
+      Instagram, pages légales, serveur et URL cron, espaces et accès ;
+    * un créateur invité : son tableau de bord, ses publications, ses comptes,
+      ses statistiques et revenus, et dans Paramètres UNIQUEMENT ses propres
+      webhooks Discord. Il ne voit ni les identifiants des applications, ni les
+      réglages de l'installation, ni les espaces des autres.
+- Le mode démo est choisi par l'administrateur pour tout le monde : désactivez-le
+  dans Paramètres une fois les API configurées, et tous les espaces passent en
+  mode réel.
 
 
 11. PUBLICATIONS PROGRAMMEES (fortement recommandé)

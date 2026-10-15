@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ArrowRight, BarChart3, CalendarClock, CheckCircle2, Circle, Clapperboard, FlaskConical, Plus, Sparkles, Target, Users, Wallet } from "lucide-react";
 import { delta, formatCompact, formatCurrency, formatDateTime, formatPercent, formatRelative, formatSigned } from "@/lib/format";
-import { useDashboard } from "@/lib/hooks";
+import { useAccess, useDashboard } from "@/lib/hooks";
 import { PLATFORMS, PLATFORM_ORDER } from "@/lib/platforms";
 import { cn } from "@/lib/utils";
 import { PageContainer } from "./app-shell";
@@ -20,6 +20,7 @@ function greeting() {
 
 export function DashboardView() {
   const { data, mutate } = useDashboard();
+  const { canConfigure } = useAccess();
 
   if (!data) {
     return (
@@ -71,11 +72,16 @@ export function DashboardView() {
         <div className="mt-6 flex flex-col gap-3 rounded-2xl border border-warning/30 bg-warning/8 p-4 sm:flex-row sm:items-center">
           <FlaskConical className="size-5 shrink-0 text-warning" />
           <p className="flex-1 text-sm">
-            <strong>Mode démo actif.</strong> Statistiques, revenus et publications sont simulés pour vous laisser explorer. Désactivez-le dans les paramètres pour connecter vos vrais comptes.
+            <strong>Mode démo actif.</strong> Statistiques, revenus et publications sont simulés pour vous laisser explorer.{" "}
+            {canConfigure
+              ? "Désactivez-le dans les paramètres pour connecter vos vrais comptes."
+              : "Les vraies connexions seront disponibles dès que l'administrateur l'aura désactivé."}
           </p>
-          <ButtonLink href="/settings" size="sm">
-            Configurer
-          </ButtonLink>
+          {canConfigure && (
+            <ButtonLink href="/settings" size="sm">
+              Configurer
+            </ButtonLink>
+          )}
         </div>
       )}
 

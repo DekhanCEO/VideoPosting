@@ -143,6 +143,14 @@ function empty_db(): array
     ];
 }
 
+/** Nouvel espace : il suit le mode démo choisi par l'administrateur pour l'installation. */
+function new_space_db(): array
+{
+    $d = empty_db();
+    $d['settings']['demoMode'] = installation_demo_mode();
+    return $d;
+}
+
 function db_migrate(array $d): array
 {
     $base = empty_db();
@@ -232,7 +240,7 @@ function db_read(): array
 function db_update(callable $fn)
 {
     ensure_space_dir();
-    return locked_update(db_file(), space_dir() . '/db.lock', 'empty_db', 'db_migrate', $fn);
+    return locked_update(db_file(), space_dir() . '/db.lock', 'new_space_db', 'db_migrate', $fn);
 }
 
 /** Identifiants des espaces existants (un par utilisateur). */

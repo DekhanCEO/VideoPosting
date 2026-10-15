@@ -582,9 +582,12 @@ test("espaces séparés : accès sur invitation, données isolées, droits limit
   assert.deepEqual((await guest.json(api("/accounts"))).data, []);
   const settings = (await guest.json(api("/settings"))).data;
   assert.equal(settings.canManageApps, false);
-  assert.equal(settings.demoMode, true);
+  assert.equal(settings.demoMode, false, "le mode démo suit le choix de l'administrateur");
   assert.equal(settings.cronUrl, null);
+  assert.equal(settings.env, null);
   assert.equal(settings.credentials.youtube.clientId, "", "identifiants des applications masqués");
+  assert.equal(settings.credentials.youtube.hasSecret, false);
+  assert.equal(settings.redirectUris.youtube, "", "aucun détail de configuration pour un membre");
   assert.equal(settings.credentials.youtube.configured, true, "mais l'application est utilisable");
   // Les applications développeur restent réservées à l'administrateur.
   const forbidden = await guest.json(api("/settings"), { ...PUT, json: { credentials: { youtube: { clientId: "pirate" } } } });
@@ -594,11 +597,39 @@ test("espaces séparés : accès sur invitation, données isolées, droits limit
   // Pages légales : communes à l'installation, visibles mais non modifiables par un membre.
   assert.equal(settings.legal.email, "contact@malabop.fr");
   assert.equal((await guest.json(api("/settings"), { ...PUT, json: { legal: { editor: "Pirate" } } })).status, 403);
-  // Réglages personnels et comptes propres à l'espace.
-  assert.equal((await guest.json(api("/settings"), { ...PUT, json: { currency: "USD" } })).status, 200);
+  // Réglages de l'installation (mode démo, devise, hashtags, valeurs par défaut) : réservés à l'administrateur.
+  for (const patch of [{ currency: "USD" }, { demoMode: true }, { hashtagGroups: [] }, { defaults: { youtubePrivacy: "private" } }, { goal: 1, revenueEstimates: {} }]) {
+    assert.equal((await guest.json(api("/settings"), { ...PUT, json: patch })).status, 403, JSON.stringify(patch));
+  }
+  // Préférences personnelles de la page Revenus : autorisées.
+  const goal = await guest.json(api("/settings"), { ...PUT, json: { monthlyRevenueGoal: 750, revenueEstimates: { tiktokRpm: 0.8 } } });
+  assert.equal(goal.status, 200, JSON.stringify(goal.data));
+  assert.equal(goal.data.monthlyRevenueGoal, 750);
+  assert.equal((await json(api("/settings"))).data.monthlyRevenueGoal, 2000, "objectif propre à chaque espace");
+  // Webhooks Discord : propres à chaque personne.
+  const guestHook = await guest.json(api("/discord/webhooks"), {
+    method: "POST",
+    json: { name: "#mes-clips", url: "https://discord.com/api/webhooks/777777777777/tokenGGGGGGGGGGGGGGGGGGGGGG", platforms: ["youtube"], timing: "each", style: "links", message: "", mention: "none", enabled: true },
+  });
+  assert.equal(guestHook.status, 201, JSON.stringify(guestHook.data));
+  assert.deepEqual((await guest.json(api("/discord/webhooks"))).data.map((h) => h.name), ["#mes-clips"]);
+  assert.ok(!(await json(api("/discord/webhooks"))).data.some((h) => h.name === "#mes-clips"), "invisible pour l'administrateur");
+  assert.equal((await json(api(`/discord/webhooks/${guestHook.data.id}`), DELETE)).status, 200);
+  assert.equal((await guest.json(api("/discord/webhooks"))).data.length, 1, "l'administrateur ne peut pas supprimer le webhook d'un autre espace");
+  // Comptes propres à l'espace, via les applications de l'administrateur (mode réel).
   const connect = await guest.call(api("/auth/youtube/connect"));
-  assert.equal(connect.headers.get("location"), `${BASE}/accounts/?connected=youtube`);
-  assert.equal((await guest.json(api("/accounts"))).data[0].demo, true);
+  const authorize = new URL(connect.headers.get("location"));
+  assert.equal(authorize.hostname, "accounts.google.com");
+  const back = await guest.call(`${BASE}/api/callback.php?code=abc&state=${encodeURIComponent(authorize.searchParams.get("state"))}`);
+  assert.equal(back.headers.get("location"), `${BASE}/accounts/?connected=youtube`);
+  const guestAccounts = (await guest.json(api("/accounts"))).data;
+  assert.equal(guestAccounts.length, 1);
+  assert.equal(guestAccounts[0].demo, false);
+  // Mode démo activé par l'administrateur : tous les espaces le suivent.
+  await json(api("/settings"), { ...PUT, json: { demoMode: true } });
+  assert.equal((await guest.json(api("/settings"))).data.demoMode, true);
+  await json(api("/settings"), { ...PUT, json: { demoMode: false } });
+  assert.equal((await guest.json(api("/settings"))).data.demoMode, false);
   const draft = await guest.json(api("/posts"), {
     method: "POST",
     json: { action: "draft", input: { mediaId: null, common: { title: "Brouillon invité", description: "", hashtags: [] }, platforms: ["youtube"], options: {} } },

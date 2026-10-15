@@ -7,7 +7,7 @@ const YT_SCOPES = [
     'https://www.googleapis.com/auth/yt-analytics-monetary.readonly',
 ];
 const YT_API = 'https://www.googleapis.com/youtube/v3';
-const YT_PRIVATE_NOTICE = 'YouTube a mis la vidéo en privé : votre projet Google Cloud n\'est pas encore audité. Faites-le valider (formulaire d\'audit de l\'API YouTube, voir Paramètres → API YouTube) pour que les prochaines vidéos soient publiées avec la visibilité choisie.';
+const YT_PRIVATE_NOTICE = 'YouTube a mis la vidéo en privé : votre projet Google Cloud n\'est pas encore audité. L\'administrateur doit le faire valider (formulaire d\'audit de l\'API YouTube) pour que les prochaines vidéos soient publiées avec la visibilité choisie.';
 const YT_UPLOAD = 'https://www.googleapis.com/upload/youtube/v3';
 const YT_CHUNK = 32 * 256 * 1024; // 8 Mio, multiple de 256 Kio
 

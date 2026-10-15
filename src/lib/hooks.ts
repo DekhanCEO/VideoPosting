@@ -22,6 +22,17 @@ export function useSettings() {
   return useSWR<PublicSettings>("/api/settings", fetcher, { revalidateOnFocus: false });
 }
 
+/**
+ * Hébergement multi-espaces : l'administrateur (la personne qui a installé l'application) gère les API et les
+ * réglages de l'installation ; un membre ne gère que son espace (comptes, publications, annonces Discord).
+ * « canConfigure » reste faux tant que les paramètres ne sont pas chargés (rien ne s'affiche par erreur à un membre).
+ */
+export function useAccess() {
+  const { data: settings } = useSettings();
+  const member = settings?.canManageApps === false;
+  return { member, canConfigure: !!settings && !member };
+}
+
 export function useSession() {
   return useSWR<SessionInfo>("/api/session", fetcher, { revalidateOnFocus: false });
 }

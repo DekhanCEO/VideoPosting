@@ -118,18 +118,27 @@ function SidebarFooter() {
   }
   return (
     <div className="space-y-3">
-      {settings?.demoMode && (
-        <Link
-          href="/settings"
-          className="flex items-start gap-2.5 rounded-xl border border-dashed border-warning/40 bg-warning/8 p-3 text-xs transition-colors hover:bg-warning/12"
-        >
-          <FlaskConical className="mt-0.5 size-4 shrink-0 text-warning" />
-          <span>
-            <span className="block font-semibold text-fg">Mode démo actif</span>
-            <span className="text-muted">Publications et données simulées. Configurer les API →</span>
-          </span>
-        </Link>
-      )}
+      {settings?.demoMode &&
+        (settings.canManageApps === false ? (
+          <div className="flex items-start gap-2.5 rounded-xl border border-dashed border-warning/40 bg-warning/8 p-3 text-xs">
+            <FlaskConical className="mt-0.5 size-4 shrink-0 text-warning" />
+            <span>
+              <span className="block font-semibold text-fg">Mode démo actif</span>
+              <span className="text-muted">Publications et données simulées, en attendant que l&apos;administrateur active les vraies connexions.</span>
+            </span>
+          </div>
+        ) : (
+          <Link
+            href="/settings"
+            className="flex items-start gap-2.5 rounded-xl border border-dashed border-warning/40 bg-warning/8 p-3 text-xs transition-colors hover:bg-warning/12"
+          >
+            <FlaskConical className="mt-0.5 size-4 shrink-0 text-warning" />
+            <span>
+              <span className="block font-semibold text-fg">Mode démo actif</span>
+              <span className="text-muted">Publications et données simulées. Configurer les API →</span>
+            </span>
+          </Link>
+        ))}
       {user && (
         <div className="flex items-center gap-2.5 rounded-xl border border-border bg-surface p-2">
           <Avatar src={user.avatarUrl ?? undefined} name={user.displayName} size={34} />
