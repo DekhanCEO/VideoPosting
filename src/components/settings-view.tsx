@@ -1,0 +1,500 @@
+"use client";
+
+import { useSearchParams } from "next/navigation";
+import { useEffect, useState, type ReactNode } from "react";
+import { mutate as globalMutate } from "swr";
+import {
+  BookOpen,
+  Check,
+  Copy,
+  ExternalLink,
+  FlaskConical,
+  Globe,
+  Hash,
+  Lock,
+  Plus,
+  Save,
+  ServerCog,
+  SlidersHorizontal,
+  Trash2,
+  Wallet,
+} from "lucide-react";
+import { toast } from "sonner";
+import { api } from "@/lib/api-client";
+import { useSettings } from "@/lib/hooks";
+import { PLATFORMS, YOUTUBE_CATEGORIES, YOUTUBE_LANGUAGES, YOUTUBE_PRIVACY_LABELS } from "@/lib/platforms";
+import type { HashtagGroup, PlatformId, PublicSettings } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import { PageContainer, PageHeader } from "./app-shell";
+import { ChipsInput } from "./composer/fields";
+import { PlatformBadge } from "./icons";
+import { Badge, Button, Card, CardHeader, Field, Input, Segmented, Select, Skeleton, Switch } from "./ui";
+
+async function savePatch(patch: Record<string, unknown>) {
+  const next = await api<PublicSettings>("/api/settings", { method: "PUT", json: patch });
+  await globalMutate("/api/settings", next, { revalidate: false });
+  return next;
+}
+
+function CopyField({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="flex gap-2">
+      <Input readOnly value={value} className="font-mono text-xs" onFocus={(e) => e.target.select()} />
+      <Button
+        size="icon"
+        onClick={async () => {
+          await navigator.clipboard.writeText(value);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        }}
+        aria-label="Copier"
+      >
+        {copied ? <Check className="size-4 text-success" /> : <Copy className="size-4" />}
+      </Button>
+    </div>
+  );
+}
+
+function Steps({ steps }: { steps: ReactNode[] }) {
+  return (
+    <ol className="space-y-2.5">
+      {steps.map((s, i) => (
+        <li key={i} className="flex gap-3 text-sm">
+          <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-accent-soft text-[11px] font-semibold text-accent">{i + 1}</span>
+          <span className="text-muted">{s}</span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function A({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <a href={href} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 font-medium text-accent hover:underline">
+      {children}
+      <ExternalLink className="size-3" />
+    </a>
+  );
+}
+
+function StatusBadge({ configured, fromEnv }: { configured: boolean; fromEnv: boolean }) {
+  if (fromEnv) return <Badge tone="info">Variables d&apos;environnement</Badge>;
+  return configured ? <Badge tone="success" dot>Configuré</Badge> : <Badge>Non configuré</Badge>;
+}
+
+function ApiCard({ platform, settings, highlight }: { platform: PlatformId; settings: PublicSettings; highlight: boolean }) {
+  const cred = settings.credentials[platform];
+  const initialId = platform === "youtube" ? settings.credentials.youtube.clientId : platform === "tiktok" ? settings.credentials.tiktok.clientKey : settings.credentials.instagram.appId;
+  const [clientId, setClientId] = useState(initialId);
+  const [secret, setSecret] = useState("");
+  const [loginType, setLoginType] = useState(settings.credentials.instagram.loginType);
+  const [graphVersion, setGraphVersion] = useState(settings.credentials.instagram.graphVersion);
+  const [saving, setSaving] = useState(false);
+  const [guide, setGuide] = useState(!cred.configured);
+  const redirect = settings.redirectUris[platform];
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const body =
+        platform === "youtube"
+          ? { youtube: { clientId, clientSecret: secret } }
+          : platform === "tiktok"
+            ? { tiktok: { clientKey: clientId, clientSecret: secret } }
+            : { instagram: { appId: clientId, appSecret: secret, loginType, graphVersion } };
+      await savePatch({ credentials: body });
+      setSecret("");
+      toast.success(`Identifiants ${PLATFORMS[platform].name} enregistrés`);
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const clear = async () => {
+    if (!confirm("Supprimer les identifiants enregistrés ?")) return;
+    await savePatch({ clearCredentials: platform });
+    setClientId("");
+    toast.success("Identifiants supprimés");
+  };
+
+  const labels = {
+    youtube: { id: "ID client OAuth", secret: "Code secret du client" },
+    tiktok: { id: "Client key", secret: "Client secret" },
+    instagram: loginType === "facebook" ? { id: "ID de l'app Meta", secret: "Clé secrète de l'app" } : { id: "ID de l'app Instagram", secret: "Clé secrète de l'app Instagram" },
+  }[platform];
+
+  const steps: Record<PlatformId, ReactNode[]> = {
+    youtube: [
+      <>Créez un projet sur <A href="https://console.cloud.google.com/projectcreate">Google Cloud Console</A>.</>,
+      <>Activez <strong>YouTube Data API v3</strong> et <strong>YouTube Analytics API</strong> dans « API et services ».</>,
+      <>Configurez l&apos;écran de consentement OAuth (type Externe) et ajoutez votre adresse e-mail comme utilisateur test.</>,
+      <>Créez un <strong>ID client OAuth</strong> de type « Application Web » avec l&apos;URI de redirection ci-dessous.</>,
+      <>Copiez l&apos;ID client et le code secret dans les champs ci-dessus.</>,
+    ],
+    tiktok: [
+      <>Créez une application sur <A href="https://developers.tiktok.com/apps">TikTok for Developers</A>.</>,
+      <>Ajoutez les produits <strong>Login Kit</strong> et <strong>Content Posting API</strong> (activez « Direct Post »).</>,
+      <>Demandez les autorisations : user.info.basic, user.info.profile, user.info.stats, video.list, video.publish, video.upload.</>,
+      <>Dans Login Kit, ajoutez l&apos;URI de redirection ci-dessous (HTTPS obligatoire, utilisez un tunnel en local).</>,
+      <>Copiez la Client key et le Client secret.</>,
+    ],
+    instagram:
+      loginType === "facebook"
+        ? [
+            <>Créez une app de type Entreprise sur <A href="https://developers.facebook.com/apps">Meta for Developers</A>.</>,
+            <>Ajoutez <strong>Facebook Login for Business</strong> et <strong>Instagram API (connexion Facebook)</strong>.</>,
+            <>Ajoutez l&apos;URI de redirection ci-dessous dans « URI de redirection OAuth valides ».</>,
+            <>Votre compte Instagram professionnel doit être lié à une Page Facebook.</>,
+            <>Copiez l&apos;ID et la clé secrète de l&apos;app (Paramètres → Général).</>,
+          ]
+        : [
+            <>Créez une app de type Entreprise sur <A href="https://developers.facebook.com/apps">Meta for Developers</A>.</>,
+            <>Ajoutez le produit <strong>Instagram</strong> → « Configuration de l&apos;API avec connexion Instagram ».</>,
+            <>Dans « Business login settings », ajoutez l&apos;URI de redirection ci-dessous.</>,
+            <>Tant que l&apos;app est en développement, ajoutez votre compte Instagram comme testeur (Rôles).</>,
+            <>Copiez l&apos;« ID de l&apos;app Instagram » et sa clé secrète.</>,
+          ],
+  };
+
+  const notes: Record<PlatformId, ReactNode> = {
+    youtube: "Tant que Google n'a pas audité votre projet, les vidéos envoyées via l'API restent privées. Quota par défaut : 10 000 unités/jour (un envoi en consomme 1 600).",
+    tiktok: "Avant l'audit TikTok, les publications directes ne peuvent être que privées (« Moi uniquement »). Le mode brouillon fonctionne sans audit.",
+    instagram:
+      loginType === "facebook"
+        ? "La vidéo est envoyée directement aux serveurs de Meta : aucune URL publique n'est nécessaire."
+        : "Instagram télécharge la vidéo depuis votre serveur : l'application doit être accessible en HTTPS (PUBLIC_URL).",
+  };
+
+  return (
+    <Card id={platform} className={cn("scroll-mt-6 transition-shadow", highlight && "ring-2 ring-accent")}>
+      <CardHeader
+        icon={<PlatformBadge platform={platform} size={36} />}
+        title={`API ${PLATFORMS[platform].name}`}
+        description={platform === "instagram" ? "Instagram Graph API — publication de Reels et statistiques" : platform === "youtube" ? "YouTube Data API v3 + YouTube Analytics" : "Content Posting API + Display API"}
+        actions={<StatusBadge configured={cred.configured} fromEnv={cred.fromEnv} />}
+      />
+      <div className="space-y-4 p-5">
+        {platform === "instagram" && (
+          <Field label="Méthode de connexion">
+            <Segmented
+              value={loginType}
+              onChange={setLoginType}
+              options={[
+                { value: "instagram", label: "Connexion Instagram" },
+                { value: "facebook", label: "Via Facebook (Page)" },
+              ]}
+            />
+          </Field>
+        )}
+        {cred.fromEnv && <p className="rounded-xl bg-sky-500/8 p-3 text-xs text-sky-700 dark:text-sky-300">Identifiants définis par variables d&apos;environnement : ils sont prioritaires sur cette page.</p>}
+        <div className="grid gap-4 md:grid-cols-2">
+          <Field label={labels.id}>
+            <Input value={clientId} onChange={(e) => setClientId(e.target.value)} disabled={cred.fromEnv} placeholder="Collez la valeur ici" autoComplete="off" />
+          </Field>
+          <Field label={labels.secret}>
+            <Input
+              type="password"
+              value={secret}
+              onChange={(e) => setSecret(e.target.value)}
+              disabled={cred.fromEnv}
+              placeholder={cred.hasSecret ? "•••••••••• (enregistré)" : "Collez la valeur ici"}
+              autoComplete="new-password"
+            />
+          </Field>
+        </div>
+        {platform === "instagram" && (
+          <Field label="Version de l'API Graph" hint="Format v24.0 — gardez la valeur par défaut sauf besoin particulier." className="max-w-xs">
+            <Input value={graphVersion} onChange={(e) => setGraphVersion(e.target.value)} disabled={cred.fromEnv} />
+          </Field>
+        )}
+        <Field label="URI de redirection à déclarer" hint={!redirect.startsWith("https://") && platform === "tiktok" ? "TikTok exige une URL HTTPS : définissez PUBLIC_URL (ex. tunnel Cloudflare/ngrok)." : undefined}>
+          <CopyField value={redirect} />
+        </Field>
+
+        <div className="rounded-xl border border-border">
+          <button onClick={() => setGuide((g) => !g)} className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium">
+            <BookOpen className="size-4 text-accent" /> Guide de configuration
+            <span className="ml-auto text-xs text-muted">{guide ? "Masquer" : "Afficher"}</span>
+          </button>
+          {guide && (
+            <div className="space-y-4 border-t border-border p-4">
+              <Steps steps={steps[platform]} />
+              <p className="rounded-lg bg-warning/8 p-3 text-xs text-warning">{notes[platform]}</p>
+            </div>
+          )}
+        </div>
+
+        {!cred.fromEnv && (
+          <div className="flex flex-wrap justify-end gap-2">
+            {cred.configured && (
+              <Button variant="ghost" onClick={clear}>
+                <Trash2 className="size-4" /> Supprimer
+              </Button>
+            )}
+            <Button variant="primary" onClick={save} loading={saving}>
+              <Save className="size-4" /> Enregistrer
+            </Button>
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+function HashtagGroups({ settings }: { settings: PublicSettings }) {
+  const [groups, setGroups] = useState<HashtagGroup[]>(settings.hashtagGroups);
+  const [saving, setSaving] = useState(false);
+  const dirty = JSON.stringify(groups) !== JSON.stringify(settings.hashtagGroups);
+  const save = async () => {
+    setSaving(true);
+    try {
+      await savePatch({ hashtagGroups: groups.filter((g) => g.name.trim()) });
+      toast.success("Groupes de hashtags enregistrés");
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <Card id="hashtags" className="scroll-mt-6">
+      <CardHeader icon={<Hash className="size-4" />} title="Groupes de hashtags" description="Insérez un ensemble de hashtags en un clic depuis le composer." />
+      <div className="space-y-3 p-5">
+        {groups.map((g, i) => (
+          <div key={g.id} className="flex flex-col gap-2 rounded-xl border border-border p-3 sm:flex-row sm:items-start">
+            <Input
+              value={g.name}
+              onChange={(e) => setGroups((gs) => gs.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))}
+              placeholder="Nom du groupe"
+              className="sm:w-44"
+            />
+            <div className="min-w-0 flex-1">
+              <ChipsInput value={g.tags} onChange={(tags) => setGroups((gs) => gs.map((x, j) => (j === i ? { ...x, tags } : x)))} placeholder="Ajoutez des hashtags" />
+            </div>
+            <Button size="icon" variant="ghost" onClick={() => setGroups((gs) => gs.filter((_, j) => j !== i))} aria-label="Supprimer le groupe">
+              <Trash2 className="size-4" />
+            </Button>
+          </div>
+        ))}
+        <div className="flex flex-wrap justify-between gap-2">
+          <Button variant="ghost" onClick={() => setGroups((gs) => [...gs, { id: crypto.randomUUID(), name: "", tags: [] }])}>
+            <Plus className="size-4" /> Ajouter un groupe
+          </Button>
+          <Button variant="primary" onClick={save} loading={saving} disabled={!dirty}>
+            <Save className="size-4" /> Enregistrer
+          </Button>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function Defaults({ settings }: { settings: PublicSettings }) {
+  const [d, setD] = useState(settings.defaults);
+  const set = (patch: Partial<typeof d>) => setD((x) => ({ ...x, ...patch }));
+  const dirty = JSON.stringify(d) !== JSON.stringify(settings.defaults);
+  return (
+    <Card id="defaults" className="scroll-mt-6">
+      <CardHeader icon={<SlidersHorizontal className="size-4" />} title="Valeurs par défaut" description="Appliquées à chaque nouvelle publication." />
+      <div className="space-y-5 p-5">
+        <div className="grid gap-4 md:grid-cols-3">
+          <Field label="Visibilité YouTube">
+            <Select value={d.youtubePrivacy} onChange={(e) => set({ youtubePrivacy: e.target.value as typeof d.youtubePrivacy })}>
+              {Object.entries(YOUTUBE_PRIVACY_LABELS).map(([k, v]) => (
+                <option key={k} value={k}>
+                  {v.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Catégorie YouTube">
+            <Select value={d.youtubeCategoryId} onChange={(e) => set({ youtubeCategoryId: e.target.value })}>
+              {YOUTUBE_CATEGORIES.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Langue">
+            <Select value={d.youtubeLanguage} onChange={(e) => set({ youtubeLanguage: e.target.value })}>
+              {YOUTUBE_LANGUAGES.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </div>
+        <div className="grid gap-4 rounded-xl border border-border p-4 md:grid-cols-2">
+          <Switch label="TikTok : autoriser les commentaires" checked={d.tiktokAllowComments} onChange={(v) => set({ tiktokAllowComments: v })} />
+          <Switch label="TikTok : autoriser les duos" checked={d.tiktokAllowDuet} onChange={(v) => set({ tiktokAllowDuet: v })} />
+          <Switch label="TikTok : autoriser les collages" checked={d.tiktokAllowStitch} onChange={(v) => set({ tiktokAllowStitch: v })} />
+          <Switch label="Instagram : partager dans le fil" checked={d.instagramShareToFeed} onChange={(v) => set({ instagramShareToFeed: v })} />
+        </div>
+        <div className="flex justify-end">
+          <Button
+            variant="primary"
+            disabled={!dirty}
+            onClick={async () => {
+              await savePatch({ defaults: d });
+              toast.success("Valeurs par défaut enregistrées");
+            }}
+          >
+            <Save className="size-4" /> Enregistrer
+          </Button>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function General({ settings }: { settings: PublicSettings }) {
+  const [currency, setCurrency] = useState(settings.currency);
+  const [goal, setGoal] = useState(String(settings.monthlyRevenueGoal));
+  const toggleDemo = async (v: boolean) => {
+    await savePatch({ demoMode: v });
+    // Les comptes, statistiques et revenus diffèrent selon le mode : on recharge tout.
+    await globalMutate(() => true);
+    toast.success(v ? "Mode démo activé" : "Mode démo désactivé", {
+      description: v ? "Les publications et les données sont simulées." : "Connectez vos vrais comptes dans « Comptes ».",
+    });
+  };
+  return (
+    <div className="space-y-6">
+      <Card id="general" className={cn("scroll-mt-6 overflow-hidden", settings.demoMode && "border-warning/40")}>
+        <div className="flex items-start gap-4 p-5">
+          <div className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl", settings.demoMode ? "bg-warning/15 text-warning" : "bg-surface-2 text-muted")}>
+            <FlaskConical className="size-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <Switch
+              label="Mode démo"
+              description="Essayez tout l'outil sans clé d'API : comptes fictifs, publications simulées, statistiques et revenus d'exemple. Astuce : ajoutez #echec dans une légende pour simuler une erreur."
+              checked={settings.demoMode}
+              onChange={toggleDemo}
+            />
+          </div>
+        </div>
+      </Card>
+      <Card id="revenue-settings" className="scroll-mt-6">
+        <CardHeader icon={<Wallet className="size-4" />} title="Revenus" description="Devise d'affichage et objectif mensuel du tableau de bord." />
+        <div className="grid gap-4 p-5 sm:grid-cols-[180px_1fr_auto] sm:items-end">
+          <Field label="Devise">
+            <Select value={currency} onChange={(e) => setCurrency(e.target.value)}>
+              {["EUR", "USD", "GBP", "CHF", "CAD", "MAD", "XOF"].map((c) => (
+                <option key={c}>{c}</option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Objectif de revenus mensuel">
+            <Input type="number" min={0} step={50} value={goal} onChange={(e) => setGoal(e.target.value)} />
+          </Field>
+          <Button
+            variant="primary"
+            onClick={async () => {
+              await savePatch({ currency, monthlyRevenueGoal: Number(goal) || 0 });
+              await globalMutate((key) => typeof key === "string" && (key.startsWith("/api/revenue") || key.startsWith("/api/dashboard")));
+              toast.success("Préférences enregistrées");
+            }}
+          >
+            <Save className="size-4" /> Enregistrer
+          </Button>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function Deployment({ settings }: { settings: PublicSettings }) {
+  return (
+    <Card id="deploy" className="scroll-mt-6">
+      <CardHeader icon={<ServerCog className="size-4" />} title="Serveur & sécurité" description="Paramètres définis par variables d'environnement (fichier .env)." />
+      <div className="divide-y divide-border">
+        <div className="flex items-start gap-3 p-5">
+          <Globe className="mt-0.5 size-4 shrink-0 text-muted" />
+          <div className="min-w-0 flex-1 text-sm">
+            <p className="font-medium">URL publique</p>
+            <p className="mt-0.5 truncate font-mono text-xs text-muted">{settings.publicUrl}</p>
+            <p className="mt-1 text-xs text-muted">
+              {settings.publicUrlIsReachable
+                ? "Accessible en HTTPS : parfait pour les redirections OAuth et Instagram."
+                : "Adresse locale : suffisante pour YouTube, mais TikTok et Instagram (connexion Instagram) exigent une URL HTTPS publique. Définissez PUBLIC_URL."}
+            </p>
+          </div>
+          <Badge tone={settings.publicUrlIsReachable ? "success" : "warning"}>{settings.publicUrlIsReachable ? "Publique" : "Locale"}</Badge>
+        </div>
+        <div className="flex items-start gap-3 p-5">
+          <Lock className="mt-0.5 size-4 shrink-0 text-muted" />
+          <div className="min-w-0 flex-1 text-sm">
+            <p className="font-medium">Protection par mot de passe</p>
+            <p className="mt-1 text-xs text-muted">
+              {settings.passwordProtected ? "L'accès à l'interface est protégé (APP_PASSWORD)." : "Définissez APP_PASSWORD avant d'exposer l'application sur Internet."}
+            </p>
+          </div>
+          <Badge tone={settings.passwordProtected ? "success" : "warning"}>{settings.passwordProtected ? "Activée" : "Désactivée"}</Badge>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+const NAV = [
+  { id: "general", label: "Général" },
+  { id: "tiktok", label: "API TikTok" },
+  { id: "youtube", label: "API YouTube" },
+  { id: "instagram", label: "API Instagram" },
+  { id: "hashtags", label: "Hashtags" },
+  { id: "defaults", label: "Valeurs par défaut" },
+  { id: "deploy", label: "Serveur & sécurité" },
+];
+
+export function SettingsView() {
+  const { data: settings } = useSettings();
+  const params = useSearchParams();
+  const missing = params.get("missing");
+
+  useEffect(() => {
+    if (missing && missing in PLATFORMS) {
+      toast.info(`Configurez d'abord l'API ${PLATFORMS[missing as PlatformId].name}`, {
+        description: "Renseignez les identifiants de votre application développeur.",
+      });
+      setTimeout(() => document.getElementById(missing)?.scrollIntoView({ behavior: "smooth" }), 300);
+    }
+  }, [missing]);
+
+  return (
+    <PageContainer>
+      <PageHeader title="Paramètres" description="Mode démo, accès aux API des plateformes et préférences." />
+      <div className="mt-6 grid gap-8 lg:grid-cols-[200px_minmax(0,1fr)]">
+        <nav className="sticky top-6 hidden h-fit space-y-0.5 lg:block">
+          {NAV.map((n) => (
+            <a key={n.id} href={`#${n.id}`} className="block rounded-lg px-3 py-2 text-sm text-muted transition-colors hover:bg-surface-2 hover:text-fg">
+              {n.label}
+            </a>
+          ))}
+        </nav>
+        {!settings ? (
+          <div className="space-y-6">
+            <Skeleton className="h-28" />
+            <Skeleton className="h-80" />
+            <Skeleton className="h-80" />
+          </div>
+        ) : (
+          <div className="min-w-0 space-y-6">
+            <General settings={settings} />
+            {(["tiktok", "youtube", "instagram"] as PlatformId[]).map((p) => (
+              <ApiCard key={p} platform={p} settings={settings} highlight={missing === p} />
+            ))}
+            <HashtagGroups settings={settings} />
+            <Defaults settings={settings} />
+            <Deployment settings={settings} />
+          </div>
+        )}
+      </div>
+    </PageContainer>
+  );
+}
