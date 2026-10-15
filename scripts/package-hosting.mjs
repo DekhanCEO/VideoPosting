@@ -1,6 +1,7 @@
-// Fabrique le paquet pour hébergement mutualisé (OVH…) : dist/VideoPosting-hebergement.zip
-// Contenu : un dossier « posting » à déposer à la racine du site, un modèle de .env (hors du dossier public) et LISEZ-MOI.txt.
-// Usage : node scripts/package-hosting.mjs [--base /posting] [--site https://votre-domaine.fr] [--skip-build]
+// Fabrique le paquet pour hébergement mutualisé (IONOS, OVH…) : dist/<Nom>-hebergement.zip
+// Contenu : un dossier (par défaut « uplink ») à déposer à la racine du site, un modèle de .env (hors du dossier public)
+// et LISEZ-MOI.txt.
+// Usage : node scripts/package-hosting.mjs [--name Uplink] [--base /uplink] [--site https://www.votre-domaine.fr] [--skip-build]
 import { execSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -8,13 +9,22 @@ import path from "node:path";
 
 const root = path.resolve(import.meta.dirname, "..");
 const args = process.argv.slice(2);
-const base = args.includes("--base") ? args[args.indexOf("--base") + 1] : "/posting";
+const arg = (name) => (args.includes(name) ? args[args.indexOf(name) + 1] : undefined);
+// Nom de l'application (interface, annonces, pages légales) et dossier publié (par défaut, le nom en minuscules).
+const appName = (arg("--name") ?? "Uplink").trim();
+if (!/^[\p{L}\p{N} ._-]{2,40}$/u.test(appName)) throw new Error(`Nom invalide : ${appName}`);
+const slug = appName.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const base = arg("--base") ?? `/${slug}`;
 const folder = base.split("/").filter(Boolean).pop();
-// Adresse du site, utilisée uniquement dans le mode d'emploi (adresses à copier).
-const site = (args.includes("--site") ? args[args.indexOf("--site") + 1] : "https://votre-domaine.fr").replace(/\/+$/, "");
+// Adresse du site : mode d'emploi (adresses à copier) et redirection vers l'adresse officielle (www ou non).
+const siteGiven = arg("--site");
+const site = (siteGiven ?? "https://votre-domaine.fr").replace(/\/+$/, "");
+const siteHost = new URL(site).host;
+const domain = siteHost.replace(/^www\./, "");
+const label = domain.split(".")[0];
 
 if (!args.includes("--skip-build")) {
-  execSync(`node scripts/build-static.mjs --base ${base}`, { cwd: root, stdio: "inherit" });
+  execSync(`node scripts/build-static.mjs --base ${base}`, { cwd: root, stdio: "inherit", env: { ...process.env, NEXT_PUBLIC_APP_NAME: appName } });
 }
 
 const outRoot = path.join(root, "dist", "hebergement");
@@ -36,13 +46,18 @@ const setupCode = Array.from({ length: 3 }, () =>
 ).join("-");
 fs.writeFileSync(
   path.join(app, "api", "config.php"),
-  `<?php\n// Configuration générée automatiquement — ne pas partager.\nreturn [\n    // Code demandé à la première connexion (installation et désignation de l'administrateur).\n    'setup_code' => '${setupCode}',\n];\n`,
+  `<?php\n// Configuration générée automatiquement — ne pas partager.\nreturn [\n    // Code demandé à la première connexion (installation et désignation de l'administrateur).\n    'setup_code' => '${setupCode}',\n    // Nom de l'application (annonces Discord, pages légales).\n    'app_name' => '${appName.replace(/'/g, "")}',\n];\n`,
 );
 
 // 4. Règles Apache (un .env déposé par erreur dans le dossier public reste illisible)
+// Adresse officielle : les adresses de retour déclarées chez Twitch, Google, TikTok et Meta doivent correspondre
+// exactement ; une visite sur l'autre variante (avec ou sans www) y est donc redirigée.
+const canonical = siteGiven
+  ? `<IfModule mod_rewrite.c>\n  RewriteEngine On\n  RewriteCond %{HTTP_HOST} !^${siteHost.replace(/\./g, "\\.")}$ [NC]\n  RewriteCond %{HTTP_HOST} ^(www\\.)?${domain.replace(/\./g, "\\.")}$ [NC]\n  RewriteRule ^(.*)$ ${site}${base}/$1 [R=301,L]\n</IfModule>\n\n`
+  : "";
 fs.writeFileSync(
   path.join(app, ".htaccess"),
-  `# VideoPosting\nOptions -Indexes\nDirectoryIndex index.html index.php\nErrorDocument 404 ${base}/404.html\n\n<FilesMatch "(^\\.env|\\.env$)">\n  <IfModule mod_authz_core.c>\n    Require all denied\n  </IfModule>\n  <IfModule !mod_authz_core.c>\n    Deny from all\n  </IfModule>\n</FilesMatch>\n\n<IfModule mod_headers.c>\n  Header always set X-Content-Type-Options "nosniff"\n  Header always set Referrer-Policy "strict-origin-when-cross-origin"\n</IfModule>\n`,
+  `# ${appName}\nOptions -Indexes\nDirectoryIndex index.html index.php\nErrorDocument 404 ${base}/404.html\n\n${canonical}<FilesMatch "(^\\.env|\\.env$)">\n  <IfModule mod_authz_core.c>\n    Require all denied\n  </IfModule>\n  <IfModule !mod_authz_core.c>\n    Deny from all\n  </IfModule>\n</FilesMatch>\n\n<IfModule mod_headers.c>\n  Header always set X-Content-Type-Options "nosniff"\n  Header always set Referrer-Policy "strict-origin-when-cross-origin"\n</IfModule>\n`,
 );
 fs.writeFileSync(
   path.join(app, "_next", ".htaccess"),
@@ -53,6 +68,13 @@ fs.writeFileSync(
 const readme = fs
   .readFileSync(path.join(root, "hosting", "LISEZ-MOI.txt"), "utf8")
   .replaceAll("{{SETUP_CODE}}", setupCode)
+  .replaceAll("{{APP_UPPER}}", appName.toUpperCase())
+  .replaceAll("{{APP}}", appName)
+  .replaceAll("{{DOMAIN}}", domain)
+  .replaceAll("{{SITE_HOST}}", siteHost)
+  .replaceAll("{{HOST_PREFIX}}", siteHost === domain ? "@" : siteHost.slice(0, -domain.length - 1))
+  .replaceAll("{{LABEL_LOWER}}", label.toLowerCase())
+  .replaceAll("{{LABEL}}", label.charAt(0).toUpperCase() + label.slice(1))
   .replaceAll("{{FOLDER}}", folder)
   .replaceAll("{{BASE}}", base)
   .replaceAll("{{SITE}}", site);
@@ -60,12 +82,13 @@ fs.writeFileSync(path.join(outRoot, "LISEZ-MOI.txt"), readme.replace(/\n/g, "\r\
 // Modèle de .env, à déposer hors du dossier public.
 const env = fs
   .readFileSync(path.join(root, "hosting", "env.example"), "utf8")
+  .replaceAll("{{APP}}", appName)
   .replaceAll("{{BASE}}", base)
   .replaceAll("{{SITE}}", site);
 fs.writeFileSync(path.join(outRoot, ".env"), env);
 
 // 6. Archive
-const zipName = "VideoPosting-hebergement.zip";
+const zipName = `${appName.replace(/[^\p{L}\p{N}_-]+/gu, "-")}-hebergement.zip`;
 fs.rmSync(path.join(root, "dist", zipName), { force: true });
 execSync(`zip -qr ../${zipName} ${folder} .env LISEZ-MOI.txt`, { cwd: outRoot });
 console.log(`✓ dist/${zipName} (code d'installation : ${setupCode})`);

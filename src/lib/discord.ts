@@ -4,10 +4,11 @@
  */
 import { PLATFORMS } from "./platforms";
 import type { PlatformId, PostKind } from "./types";
+import { APP_NAME } from "./brand";
 
 /** each : un message dès qu'une plateforme est en ligne · grouped : un récapitulatif quand tout est publié. */
 export type DiscordTiming = "each" | "grouped";
-/** links : liens bruts (Discord affiche ses propres aperçus) · card : carte VideoPosting avec boutons. */
+/** links : liens bruts (Discord affiche ses propres aperçus) · card : carte avec un bouton par plateforme. */
 export type DiscordStyle = "links" | "card";
 export type DiscordMention = "none" | "everyone" | "here" | "role";
 
@@ -113,7 +114,7 @@ export function buildDiscordPayload(hook: DiscordWebhookSettings, ctx: DiscordCo
       : hook.mention === "role" && hook.roleId
         ? { parse: [] as string[], roles: [hook.roleId] }
         : { parse: [] as string[] };
-  const payload: Record<string, unknown> = { username: hook.username?.trim() || "VideoPosting", content, allowed_mentions: allowed };
+  const payload: Record<string, unknown> = { username: hook.username?.trim() || APP_NAME, content, allowed_mentions: allowed };
   if (hook.style === "card" && ctx.links.length) {
     const single = ctx.links.length === 1 ? ctx.links[0].platform : null;
     payload.embeds = [
@@ -128,7 +129,7 @@ export function buildDiscordPayload(hook: DiscordWebhookSettings, ctx: DiscordCo
           inline: true,
         })),
         thumbnail: ctx.thumbnailUrl ? { url: ctx.thumbnailUrl } : undefined,
-        footer: { text: "Publié avec VideoPosting" },
+        footer: { text: `Publié avec ${APP_NAME}` },
         timestamp: ctx.timestamp,
       },
     ];

@@ -1,5 +1,5 @@
-VIDEOPOSTING - INSTALLATION SUR HEBERGEMENT MUTUALISE (IONOS, OVH, o2switch...)
-================================================================================
+{{APP_UPPER}} - INSTALLATION SUR HEBERGEMENT MUTUALISE (IONOS, OVH, o2switch...)
+==========================================================================
 
 VOTRE CODE D'INSTALLATION :  {{SETUP_CODE}}
 
@@ -26,11 +26,11 @@ Contenu de l'archive :
 - PHP 8.1 ou plus récent : espace client IONOS > Hébergement > votre contrat >
   "PHP" (ou "Paramètres PHP") > choisissez 8.2 ou 8.3.
 - HTTPS (certificat SSL) actif, obligatoire pour Twitch, TikTok et Instagram :
-  "Domaines & SSL" > malabop.fr > le cadenas SSL doit être actif (certificat gratuit).
+  "Domaines & SSL" > {{DOMAIN}} > le cadenas SSL doit être actif (certificat gratuit).
 - Accès SFTP : Hébergement > "SFTP & SSH" (ou "Accès SFTP") : notez le serveur
   (ex. access-5012345678.webspace-host.com), l'utilisateur et le mot de passe.
-- Dossier de votre site : "Domaines & SSL" > malabop.fr > onglet "Utilisation"
-  (ou "Destination") : notez le dossier du webspace (ex. "/" ou "/malabop").
+- Dossier de votre site : "Domaines & SSL" > {{DOMAIN}} > onglet "Utilisation"
+  (ou "Destination") : notez le dossier du webspace (ex. "/" ou "/{{LABEL_LOWER}}").
 (OVH : PHP dans "Informations générales", SSL dans "Multisite", accès dans "FTP - SSH".)
 
 
@@ -42,7 +42,7 @@ Contenu de l'archive :
       Utilisateur :   votre utilisateur SFTP
       Mot de passe :  votre mot de passe SFTP
   puis "Connecter".
-- Ouvrez le dossier de votre site (étape 1, ex. "/malabop") et glissez-y le
+- Ouvrez le dossier de votre site (étape 1, ex. "/{{LABEL_LOWER}}") et glissez-y le
   dossier "{{FOLDER}}". Attendez la fin du transfert (fenêtre "Transferts").
 - Vous devez obtenir :   <dossier du site>/{{FOLDER}}/index.html
                          <dossier du site>/{{FOLDER}}/api/index.php
@@ -59,9 +59,9 @@ Rangé hors du dossier public, il n'est jamais accessible depuis le navigateur.
   Bloc-notes...) et remplissez ce que vous avez (le reste peut rester vide,
   vous pourrez compléter plus tard) :  TWITCH_CLIENT_ID=...  TWITCH_CLIENT_SECRET=...
 - Où le déposer avec Cyberduck :
-    * si votre site est dans un sous-dossier (ex. "/malabop") : déposez ".env"
+    * si votre site est dans un sous-dossier (ex. "/{{LABEL_LOWER}}") : déposez ".env"
       dans le dossier PARENT, c'est-à-dire à la racine "/" du webspace
-      (à côté du dossier "malabop", pas dedans) ;
+      (à côté du dossier "{{LABEL_LOWER}}", pas dedans) ;
     * si votre domaine pointe directement sur la racine "/" : déposez ".env"
       dans "{{FOLDER}}/data" (dossier protégé, illisible depuis le web).
   Pour voir le fichier dans Cyberduck : Présentation > Afficher les fichiers masqués.
@@ -76,7 +76,7 @@ Rangé hors du dossier public, il n'est jamais accessible depuis le navigateur.
 - Ouvrez https://dev.twitch.tv/console/apps et connectez-vous avec votre compte
   Twitch (Twitch exige l'authentification à deux facteurs pour cette console).
 - "Enregistrer votre application" (Register Your Application) :
-      Nom :                       VideoPosting Malabop   (nom libre, unique sur Twitch)
+      Nom :                       {{APP}} {{LABEL}}   (nom libre, unique sur Twitch)
       URL de redirection OAuth :  {{SITE}}{{BASE}}/api/callback.php
                                   (cliquez sur "Ajouter" après l'avoir collée)
       Catégorie :                 Website Integration
@@ -118,9 +118,12 @@ Rangé hors du dossier public, il n'est jamais accessible depuis le navigateur.
           {{SITE}}{{BASE}}/confidentialite/#suppression
   TikTok : "App details" · Meta : Paramètres de l'app > Général ·
   Google : Écran de consentement OAuth (page d'accueil : {{SITE}}{{BASE}}/).
-- Publications PHOTO sur TikTok : dans TikTok for Developers > "URL properties",
-  ajoutez et vérifiez le préfixe {{SITE}}{{BASE}}/ (TikTok télécharge les photos
-  depuis votre site).
+- Publications PHOTO sur TikTok : TikTok télécharge les photos depuis votre site,
+  il doit donc être vérifié. TikTok for Developers > "URL properties" > ajoutez le
+  domaine (ex. {{SITE_HOST}}) : TikTok donne un texte "tiktok-developers-site-
+  verification=...". Chez IONOS : "Domaines & SSL" > {{DOMAIN}} > "DNS" >
+  "Ajouter un enregistrement" > TXT, nom d'hôte "{{HOST_PREFIX}}", valeur = le texte
+  complet. Attendez 10 min à 1 h puis cliquez sur "Verify" dans TikTok.
 - Puis, dans "Comptes", cliquez sur "Connecter" pour chaque plateforme.
 
 Ce que vous pouvez publier :
@@ -129,7 +132,31 @@ Ce que vous pouvez publier :
   - TikTok    : vidéo, ou publication photo (diaporama jusqu'à 35 photos).
 
 
-7. REVENUS (y compris Twitch)
+7. PUBLIER EN PUBLIC (vidéos non privées)
+-----------------------------------------
+Tant que vos applications développeur ne sont pas validées, les plateformes
+imposent des publications PRIVEES, quel que soit le réglage choisi. Ce n'est pas
+modifiable par {{APP}} : il faut faire valider chaque application (une seule fois,
+pour tous les créateurs qui utiliseront votre installation).
+- YouTube : Google Cloud > Écran de consentement OAuth > passez en "Production" et
+  demandez la validation Google (vidéo de démonstration + pages légales), puis
+  remplissez le formulaire d'audit de l'API YouTube :
+  https://support.google.com/youtube/contact/yt_api_form
+  Ensuite, les vidéos partent avec la visibilité choisie ("Public" par défaut).
+  Avant l'audit, {{APP}} signale sur la publication que YouTube l'a mise en privé.
+- TikTok : TikTok for Developers > votre application > "Submit for review", puis
+  demandez l'audit "Direct Post" de la Content Posting API. Après l'audit, il suffit
+  de choisir "Tout le monde" dans le composer : la vidéo est publique dès sa mise
+  en ligne. (TikTok impose de choisir la visibilité à chaque publication, sans
+  valeur par défaut : c'est vérifié pendant l'audit.)
+- Instagram : les publications sont toujours publiques (compte professionnel).
+  Pour connecter d'autres comptes que les testeurs : vérification d'entreprise et
+  "App Review" chez Meta, puis passage de l'application en mode "Live".
+Le détail de chaque étape est dans Paramètres > API YouTube / TikTok / Instagram >
+"Guide de configuration" > "Publier en public".
+
+
+8. REVENUS (y compris Twitch)
 -----------------------------
 - YouTube : revenus publicitaires importés automatiquement (chaîne monétisée).
 - Twitch : "Comptes" > "Connecter ma chaîne" (chaîne Affiliée ou Partenaire pour
@@ -142,7 +169,7 @@ Ce que vous pouvez publier :
   dons, affiliation...) avec le bouton "Ajouter".
 
 
-8. ANNONCES DISCORD (facultatif)
+9. ANNONCES DISCORD (facultatif)
 --------------------------------
 Dès qu'une vidéo est en ligne, ses liens TikTok, YouTube et Instagram peuvent être
 envoyés automatiquement dans un salon Discord :
@@ -157,8 +184,8 @@ envoyés automatiquement dans un salon Discord :
 Les publications simulées du mode démo ne sont pas annoncées.
 
 
-9. DONNER ACCES A D'AUTRES CREATEURS (facultatif)
--------------------------------------------------
+10. DONNER ACCES A D'AUTRES CREATEURS (facultatif)
+--------------------------------------------------
 Menu "Espaces & accès" (visible uniquement par les administrateurs) :
 - "Administrateurs uniquement" (par défaut), "Sur invitation" (pseudos Twitch
   autorisés) ou "Tout compte Twitch".
@@ -170,7 +197,7 @@ Menu "Espaces & accès" (visible uniquement par les administrateurs) :
   connecter (voir les guides dans Paramètres).
 
 
-10. PUBLICATIONS PROGRAMMEES (fortement recommandé)
+11. PUBLICATIONS PROGRAMMEES (fortement recommandé)
 ---------------------------------------------------
 Un hébergement mutualisé ne travaille que lorsque quelqu'un visite le site. Pour que
 les publications programmées partent à l'heure, même application fermée :
@@ -180,7 +207,7 @@ les publications programmées partent à l'heure, même application fermée :
 Une seule URL suffit pour tous les espaces.
 
 
-11. BON A SAVOIR
+12. BON A SAVOIR
 ----------------
 - Vos données (espaces, comptes, vidéos, photos, statistiques, revenus) sont dans
   {{FOLDER}}/data. Sauvegardez ce dossier de temps en temps.

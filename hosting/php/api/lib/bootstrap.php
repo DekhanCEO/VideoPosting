@@ -1,13 +1,13 @@
 <?php
 /**
- * VideoPosting — version hébergement mutualisé (PHP 8.1+).
+ * Uplink — version hébergement mutualisé (PHP 8.1+).
  * Même API JSON que la version Node.js : l'interface (export statique) est identique.
  */
 
 if (PHP_VERSION_ID < 80100) {
     http_response_code(500);
     header('Content-Type: application/json; charset=utf-8');
-    echo json_encode(['error' => 'VideoPosting nécessite PHP 8.1 ou plus récent (version actuelle : ' . PHP_VERSION . '). Changez la version PHP dans votre espace client.']);
+    echo json_encode(['error' => 'Cette application nécessite PHP 8.1 ou plus récent (version actuelle : ' . PHP_VERSION . '). Changez la version PHP dans votre espace client.']);
     exit;
 }
 
@@ -34,6 +34,9 @@ function vp_config(string $key, $default = null)
 {
     return $GLOBALS['VP_CONFIG'][$key] ?? $default;
 }
+
+// Nom de l'application (interface, annonces Discord, pages légales) : 'app_name' dans config.php.
+define('VP_APP_NAME', trim((string) vp_config('app_name', '')) ?: 'Uplink');
 
 require __DIR__ . '/util.php';
 require __DIR__ . '/env.php';

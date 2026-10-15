@@ -3,8 +3,8 @@ import { test } from "node:test";
 import { DATA_DELETION_ANCHOR, LEGAL_PAGES, legalInfo, legalUrl } from "../src/lib/legal";
 
 test("pages légales : valeurs par défaut et nettoyage", () => {
-  assert.deepEqual(legalInfo(null), { serviceName: "VideoPosting", editor: "", email: "" });
-  assert.deepEqual(legalInfo({ serviceName: "  ", editor: " Malabop ", email: " a@b.fr " }), { serviceName: "VideoPosting", editor: "Malabop", email: "a@b.fr" });
+  assert.deepEqual(legalInfo(null), { serviceName: "Uplink", editor: "", email: "" });
+  assert.deepEqual(legalInfo({ serviceName: "  ", editor: " Malabop ", email: " a@b.fr " }), { serviceName: "Uplink", editor: "Malabop", email: "a@b.fr" });
 });
 
 test("pages légales : adresses à indiquer aux plateformes", () => {

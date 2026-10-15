@@ -23,6 +23,7 @@ import type { PlatformId, PublicSettings } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { DiscordBadge, PlatformBadge } from "./icons";
 import { Badge, Button, Card, CardHeader, Dialog, ExternalA, Field, Input, Menu, Segmented, Select, Skeleton, Steps, Switch, Textarea, buttonClass } from "./ui";
+import { APP_NAME } from "@/lib/brand";
 
 type FormState = DiscordWebhookSettings & { url: string; roleId: string; username: string };
 
@@ -145,7 +146,7 @@ export function DiscordPreview({ hook, platform }: { hook: DiscordWebhookSetting
                     </div>
                   ))}
                 </div>
-                <div className="mt-2 text-xs text-[#949BA4]">Publié avec VideoPosting • Aujourd&apos;hui à {time}</div>
+                <div className="mt-2 text-xs text-[#949BA4]">Publié avec {APP_NAME} • Aujourd&apos;hui à {time}</div>
               </div>
               <div className="flex size-20 items-center justify-center rounded-[4px] bg-gradient-to-br from-[#7c3aed] to-[#db2777]">
                 <Film className="size-6 text-white/80" />
@@ -301,7 +302,7 @@ function WebhookDialog({ open, onClose, editing }: { open: boolean; onClose: () 
               <Input id="dc-name" value={form.name} onChange={(e) => set({ name: e.target.value })} placeholder="#annonces" maxLength={80} invalid={!!shown("name")} data-autofocus />
             </Field>
             <Field label="Nom affiché dans Discord" htmlFor="dc-username" hint="Facultatif.">
-              <Input id="dc-username" value={form.username} onChange={(e) => set({ username: e.target.value })} placeholder="VideoPosting" maxLength={80} />
+              <Input id="dc-username" value={form.username} onChange={(e) => set({ username: e.target.value })} placeholder={APP_NAME} maxLength={80} />
             </Field>
           </div>
 

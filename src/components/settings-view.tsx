@@ -32,6 +32,7 @@ import { DiscordCard } from "./discord-settings";
 import { LegalCard } from "./legal-settings";
 import { PlatformBadge } from "./icons";
 import { Badge, Button, Card, CardHeader, CopyField, ExternalA, Field, Input, Segmented, Select, Skeleton, Steps, Switch, buttonClass } from "./ui";
+import { APP_NAME } from "@/lib/brand";
 
 async function savePatch(patch: Record<string, unknown>) {
   const next = await api<PublicSettings>("/api/settings", { method: "PUT", json: patch });
@@ -130,9 +131,60 @@ function ApiCard({ platform, settings, highlight }: { platform: PlatformId; sett
           ],
   };
 
+  // Ce qu'exige chaque plateforme pour que les publications ne soient plus privées (et ouvertes à d'autres comptes).
+  const legalLink = (
+    <a href="#legal" className="text-accent underline">
+      pages légales
+    </a>
+  );
+  const publicSteps: Record<PlatformId, ReactNode[]> = {
+    youtube: [
+      <>
+        Écran de consentement OAuth : passez l&apos;application <strong>en production</strong> et demandez la <strong>validation Google</strong> (envoi
+        de vidéos et statistiques), avec une vidéo de démonstration et les liens des {legalLink}.
+      </>,
+      <>
+        Remplissez le <A href="https://support.google.com/youtube/contact/yt_api_form">formulaire d&apos;audit de l&apos;API YouTube</A> (YouTube API
+        Services – Audit and Quota Extension). Il permet aussi d&apos;augmenter le quota quotidien.
+      </>,
+      <>
+        Une fois le projet audité, les vidéos sont publiées avec la visibilité choisie (« Public » par défaut, voir Valeurs par défaut) : rien à
+        changer dans YouTube Studio.
+      </>,
+    ],
+    tiktok: [
+      <>
+        Soumettez l&apos;application à la validation de TikTok (<i>Submit for review</i>) avec Login Kit et Content Posting API, les {legalLink} et une
+        vidéo de démonstration du parcours de publication.
+      </>,
+      <>
+        Demandez ensuite l&apos;<strong>audit Direct Post</strong> de la Content Posting API : TikTok vérifie le respect de ses{" "}
+        <A href="https://developers.tiktok.com/doc/content-sharing-guidelines">règles de partage</A>, déjà appliquées par le composer.
+      </>,
+      <>
+        Après l&apos;audit, il suffit de choisir « Tout le monde » dans le composer : la vidéo est publique dès sa mise en ligne. TikTok exige ce choix à
+        chaque publication (aucune valeur par défaut n&apos;est autorisée).
+      </>,
+    ],
+    instagram: [
+      <>Les publications Instagram sont toujours publiques (compte professionnel) : aucun réglage de visibilité.</>,
+      loginType === "facebook" ? (
+        <>
+          Pour d&apos;autres comptes que les testeurs : vérification d&apos;entreprise, puis App Review (accès avancé) de instagram_basic,
+          instagram_content_publish, instagram_manage_insights, pages_show_list et pages_read_engagement, et passage de l&apos;app en mode « Live ».
+        </>
+      ) : (
+        <>
+          Pour d&apos;autres comptes que les testeurs : vérification d&apos;entreprise, puis App Review (accès avancé) de instagram_business_basic,
+          instagram_business_content_publish et instagram_business_manage_insights, et passage de l&apos;app en mode « Live ».
+        </>
+      ),
+    ],
+  };
+
   const notes: Record<PlatformId, ReactNode> = {
-    youtube: "Tant que Google n'a pas audité votre projet, les vidéos envoyées via l'API restent privées. Quota par défaut : 10 000 unités/jour (un envoi en consomme 1 600).",
-    tiktok: "Avant l'audit TikTok, les publications directes ne peuvent être que privées (« Moi uniquement »). Le mode brouillon fonctionne sans audit.",
+    youtube: "Tant que Google n'a pas audité votre projet, YouTube met en privé toutes les vidéos envoyées via l'API, quelle que soit la visibilité choisie. Quota par défaut : 10 000 unités/jour (un envoi en consomme 1 600).",
+    tiktok: "Avant l'audit TikTok, les publications directes ne peuvent être que privées (« Moi uniquement », compte TikTok en privé). Le mode brouillon fonctionne sans audit.",
     instagram:
       loginType === "facebook"
         ? "La vidéo est envoyée directement aux serveurs de Meta : aucune URL publique n'est nécessaire."
@@ -194,6 +246,12 @@ function ApiCard({ platform, settings, highlight }: { platform: PlatformId; sett
             <div className="space-y-4 border-t border-border p-4">
               <Steps steps={steps[platform]} />
               <p className="rounded-lg bg-warning/8 p-3 text-xs text-warning">{notes[platform]}</p>
+              <div className="space-y-3 rounded-lg border border-border p-3">
+                <p className="flex items-center gap-1.5 text-sm font-medium">
+                  <Globe className="size-4 text-success" /> Publier en public
+                </p>
+                <Steps steps={publicSteps[platform]} />
+              </div>
             </div>
           )}
         </div>
@@ -414,7 +472,7 @@ function Deployment({ settings }: { settings: PublicSettings }) {
             <div className="min-w-0 flex-1 space-y-1 text-sm">
               <p className="font-medium">Application sur votre ordinateur</p>
               <p className="text-xs text-muted">
-                Les publications programmées partent tant que VideoPosting est ouvert (ordinateur allumé, non en veille). Vos données sont stockées dans :
+                Les publications programmées partent tant que {APP_NAME} est ouvert (ordinateur allumé, non en veille). Vos données sont stockées dans :
               </p>
               {settings.dataDir && <CopyField value={settings.dataDir} />}
             </div>

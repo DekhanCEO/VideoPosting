@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
   AlertCircle,
+  AlertTriangle,
   CalendarClock,
   CheckCircle2,
   ChevronDown,
@@ -118,6 +119,12 @@ function PublicationCard({
             </div>
           )}
           {status === "canceled" && <p className="text-sm text-muted">Publication annulée.</p>}
+          {status === "published" && pub.notice && (
+            <div className="flex gap-2.5 rounded-xl bg-warning/10 p-3 text-sm text-warning">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+              <span>{pub.notice}</span>
+            </div>
+          )}
 
           {status === "published" && (
             <>

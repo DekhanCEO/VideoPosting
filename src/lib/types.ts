@@ -149,6 +149,8 @@ export interface Publication {
   finishedAt?: number;
   logs: PublicationLog[];
   metrics?: PostMetrics;
+  /** Mise en ligne réussie mais avec une restriction imposée par la plateforme (ex. vidéo forcée en privé). */
+  notice?: string;
 }
 
 export interface Post {

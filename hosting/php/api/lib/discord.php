@@ -63,7 +63,7 @@ function discord_payload(array $hook, array $ctx): array
     $allowed = in_array($hook['mention'], ['everyone', 'here'], true) ? ['parse' => ['everyone']]
         : ($hook['mention'] === 'role' && !empty($hook['roleId']) ? ['parse' => [], 'roles' => [$hook['roleId']]] : ['parse' => []]);
     $payload = [
-        'username' => trim($hook['username'] ?? '') !== '' ? trim($hook['username']) : 'VideoPosting',
+        'username' => trim($hook['username'] ?? '') !== '' ? trim($hook['username']) : VP_APP_NAME,
         'content' => discord_truncate($mention . discord_render_template($template, $ctx, $hook['style']), 2000),
         'allowed_mentions' => $allowed,
     ];
@@ -78,7 +78,7 @@ function discord_payload(array $hook, array $ctx): array
                 'value' => '[' . ($ctx['kind'] === 'photo' ? 'Voir les photos' : 'Regarder') . '](' . $l['url'] . ')',
                 'inline' => true,
             ], $ctx['links']),
-            'footer' => ['text' => 'Publié avec VideoPosting'],
+            'footer' => ['text' => 'Publié avec ' . VP_APP_NAME],
         ];
         if ($ctx['description'] !== '') $embed['description'] = discord_truncate($ctx['description'], 350);
         if (!empty($ctx['thumbnailUrl'])) $embed['thumbnail'] = ['url' => $ctx['thumbnailUrl']];
@@ -212,7 +212,7 @@ function test_discord_webhook(string $id): void
     if (!$hook) throw new HttpError('Webhook introuvable.', 404);
     $examples = ['tiktok' => 'https://www.tiktok.com/', 'youtube' => 'https://www.youtube.com/', 'instagram' => 'https://www.instagram.com/'];
     $payload = discord_payload($hook, [
-        'title' => 'Message de test VideoPosting',
+        'title' => 'Message de test ' . VP_APP_NAME,
         'description' => 'Si vous lisez ceci, les annonces de vos publications arriveront dans ce salon.',
         'kind' => 'video',
         'links' => array_map(fn($p) => ['platform' => $p, 'url' => $examples[$p]], $hook['platforms']),
@@ -318,6 +318,6 @@ function discord_notify_safe(string $postId, ?string $platform): void
     try {
         discord_notify($postId, $platform);
     } catch (Throwable $e) {
-        error_log('[VideoPosting] discord ' . $e->getMessage());
+        error_log('[' . VP_APP_NAME . '] discord ' . $e->getMessage());
     }
 }

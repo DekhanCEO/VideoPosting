@@ -43,7 +43,7 @@ function http_request(string $method, string $url, array $headers = [], $body = 
         CURLOPT_FOLLOWLOCATION => false,
         CURLOPT_CONNECTTIMEOUT => 20,
         CURLOPT_TIMEOUT => $opts['timeout'] ?? 120,
-        CURLOPT_USERAGENT => 'VideoPosting/1.0',
+        CURLOPT_USERAGENT => preg_replace('/[^A-Za-z0-9._-]/', '', VP_APP_NAME) . '/1.0',
         CURLOPT_HEADERFUNCTION => function ($ch, $line) use (&$respHeaders) {
             $parts = explode(':', $line, 2);
             if (count($parts) === 2) $respHeaders[strtolower(trim($parts[0]))] = trim($parts[1]);

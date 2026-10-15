@@ -2,9 +2,10 @@
  * Pages légales publiques (conditions d'utilisation, politique de confidentialité) exigées par TikTok, Meta et Google
  * lors de la création et de la validation des applications développeur.
  */
+import { APP_NAME } from "./brand";
 
 export interface LegalInfo {
-  /** Nom du service tel qu'il apparaît chez les plateformes (ex. « VideoPosting Malabop »). */
+  /** Nom du service tel qu'il apparaît chez les plateformes (ex. « Uplink by DSociety »). */
   serviceName: string;
   /** Personne ou société qui exploite le site. */
   editor: string;
@@ -12,7 +13,7 @@ export interface LegalInfo {
   email: string;
 }
 
-export const DEFAULT_LEGAL: LegalInfo = { serviceName: "VideoPosting", editor: "", email: "" };
+export const DEFAULT_LEGAL: LegalInfo = { serviceName: APP_NAME, editor: "", email: "" };
 
 /** Date de la version en vigueur des deux documents (à changer à chaque modification du texte). */
 export const LEGAL_UPDATED = "15 octobre 2026";

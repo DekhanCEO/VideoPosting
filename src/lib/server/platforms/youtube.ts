@@ -6,6 +6,11 @@ import { getSettings } from "../store";
 import { PlatformError, form, parseBody, readChunk, sleep, throwIfAborted } from "../http";
 import type { AccountData, PlatformAdapter, StatsResult } from "./types";
 
+type UploadedVideo = { id: string; status?: { privacyStatus?: string } };
+
+export const YOUTUBE_PRIVATE_NOTICE =
+  "YouTube a mis la vidéo en privé : votre projet Google Cloud n'est pas encore audité. Faites-le valider (formulaire d'audit de l'API YouTube, voir Paramètres → API YouTube) pour que les prochaines vidéos soient publiées avec la visibilité choisie.";
+
 const AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const API = "https://www.googleapis.com/youtube/v3";
@@ -205,7 +210,7 @@ export const youtube: PlatformAdapter<"youtube"> = {
     ctx.log("Session d'envoi YouTube ouverte");
 
     let offset = 0;
-    let video: { id: string } | null = null;
+    let video: UploadedVideo | null = null;
     let failures = 0;
 
     while (!video) {
@@ -231,7 +236,7 @@ export const youtube: PlatformAdapter<"youtube"> = {
       }
 
       if (res.status === 200 || res.status === 201) {
-        video = (await res.json()) as { id: string };
+        video = (await res.json()) as UploadedVideo;
         break;
       }
       if (res.status === 308) {
@@ -257,7 +262,7 @@ export const youtube: PlatformAdapter<"youtube"> = {
           const range = status.headers.get("range");
           offset = range ? Number(range.split("-")[1]) + 1 : 0;
         } else if (status && (status.status === 200 || status.status === 201)) {
-          video = (await status.json()) as { id: string };
+          video = (await status.json()) as UploadedVideo;
         }
         continue;
       }
@@ -266,6 +271,8 @@ export const youtube: PlatformAdapter<"youtube"> = {
     }
 
     ctx.log(`Vidéo envoyée (id ${video.id})`);
+    // Projet Google non audité : YouTube impose la visibilité « privée » quelle que soit celle demandée.
+    const notice = o.privacy !== "private" && video.status?.privacyStatus === "private" ? YOUTUBE_PRIVATE_NOTICE : undefined;
 
     if (ctx.thumbnail) {
       ctx.progress(93, "Ajout de la miniature");
@@ -290,9 +297,11 @@ export const youtube: PlatformAdapter<"youtube"> = {
       }
     }
 
+    if (notice) ctx.log(notice, "warn");
     return {
       externalId: video.id,
       url: short ? `https://www.youtube.com/shorts/${video.id}` : `https://www.youtube.com/watch?v=${video.id}`,
+      notice,
     };
   },
 

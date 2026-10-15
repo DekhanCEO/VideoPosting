@@ -1,4 +1,7 @@
-# VideoPosting
+# Uplink
+
+> Studio de publication multi-plateforme (anciennement « VideoPosting »). Le nom affiché se change en une option :
+> `npm run package:hosting -- --name "Autre nom"`.
 
 Studio de publication multi-plateforme : importez **une vidéo** (ou **des photos**), adaptez le titre, la description et
 les réglages pour **TikTok**, **YouTube** et **Instagram**, puis publiez partout en un clic (ou programmez la publication).
@@ -40,7 +43,7 @@ Un tableau de bord suit ensuite vos **statistiques** (abonnés, vues, engagement
 - **Audience** : genre, âge (âge moyen, tranches), pays et villes (YouTube Analytics, Instagram Insights ; saisie
   manuelle pour TikTok), moyenne toutes plateformes pondérée par les abonnés.
 - Abonnés par plateforme et évolution, vues par jour / semaine, interactions et taux d'engagement.
-- Classement des meilleures vidéos publiées avec VideoPosting (vues par plateforme).
+- Classement des meilleures vidéos publiées avec Uplink (vues par plateforme).
 - Synchronisation automatique toutes les 6 heures (ou à la demande), vue tableau pour chaque graphique.
 
 **Revenus**
@@ -68,7 +71,7 @@ mot de passe facultatif pour la version serveur Node.js (`APP_PASSWORD`).
 
 | Version | Pour qui | Fichier |
 |---|---|---|
-| **Hébergement mutualisé** (OVH, o2switch, IONOS…) | Recommandée : accessible partout (`https://malabop.fr/posting`), TikTok et Instagram fonctionnent (HTTPS) | `VideoPosting-hebergement.zip` |
+| **Hébergement mutualisé** (OVH, o2switch, IONOS…) | Recommandée : accessible partout (`https://www.dsociety.fr/uplink`), TikTok et Instagram fonctionnent (HTTPS) | `Uplink-hebergement.zip` |
 | **Windows** (10/11, 64 bits) | Utilisation sur un PC, sans installation | `VideoPosting-Windows.zip` |
 | **macOS** (11+, Apple Silicon et Intel) | Utilisation sur un Mac, sans installation | `VideoPosting-macOS.zip` |
 
@@ -76,7 +79,7 @@ Chaque archive contient un **LISEZ-MOI.txt** pas à pas. Pour les fabriquer :
 
 ```bash
 npm install
-npm run package:hosting -- --site https://malabop.fr   # dist/VideoPosting-hebergement.zip (dossier « posting » + code d'installation)
+npm run package:hosting -- --site https://www.dsociety.fr   # dist/Uplink-hebergement.zip (dossier « uplink » + code d'installation)
 npm run package:desktop   # dist/VideoPosting-Windows.zip et dist/VideoPosting-macOS.zip
 ```
 
@@ -86,14 +89,14 @@ personnel : fabriquez-le en local pour qu'il ne soit pas public.
 
 ### Hébergement mutualisé (PHP)
 Les hébergements mutualisés n'exécutent que du PHP : cette version embarque l'interface en fichiers statiques
-(servie sous `/posting`) et une **API PHP 8.1+** équivalente (`hosting/php/`), sans base de données ni réécriture
-d'URL. Il suffit de glisser le dossier `posting` dans `www` par FTP (Cyberduck, FileZilla…).
+(servie sous `/uplink`) et une **API PHP 8.1+** équivalente (`hosting/php/`), sans base de données ni réécriture
+d'URL. Il suffit de glisser le dossier `uplink` dans `www` par FTP (Cyberduck, FileZilla…).
 
 - **Fichier `.env` hors du dossier public** : identifiants Twitch, YouTube, TikTok et Instagram (modèle livré dans
-  l'archive). Recherché dans les dossiers parents de `posting` (puis `posting/data/`), prioritaire sur les valeurs
-  saisies, signalé s'il est exposé ; `.htaccess` bloque tout `.env` déposé par erreur dans `posting`.
+  l'archive). Recherché dans les dossiers parents de `uplink` (puis `uplink/data/`), prioritaire sur les valeurs
+  saisies, signalé s'il est exposé ; `.htaccess` bloque tout `.env` déposé par erreur dans `uplink`.
 - **Connexion avec Twitch** : créez une application sur [dev.twitch.tv/console/apps](https://dev.twitch.tv/console/apps)
-  (URL de redirection `https://votre-site/posting/api/callback.php`, type « Confidentiel »).
+  (URL de redirection `https://votre-site/uplink/api/callback.php`, type « Confidentiel »).
 - Première visite : saisissez le **code d'installation** (dans `LISEZ-MOI.txt`, hors du dossier publié), l'ID client et
   le secret de l'application Twitch, puis connectez-vous : ce compte Twitch devient **administrateur**.
 - Page **Espaces & accès** : mode d'accès (administrateurs uniquement, sur invitation par pseudo Twitch, ouvert),
@@ -106,10 +109,12 @@ d'URL. Il suffit de glisser le dossier `posting` dans `www` par FTP (Cyberduck, 
   exécutées après chaque réponse HTTP, pour respecter les limites de durée des scripts.
 - Publications programmées : faites appeler l'**URL cron** (Paramètres → Serveur & sécurité, visible par les
   administrateurs) chaque minute par un service comme cron-job.org (les tâches planifiées OVH sont limitées à une par
-  heure), ou `php posting/api/cron.php` si votre hébergeur le permet. Elle traite tous les espaces.
-- Adresse de retour OAuth unique pour Twitch et les trois plateformes : `https://votre-site/posting/api/callback.php`.
+  heure), ou `php uplink/api/cron.php` si votre hébergeur le permet. Elle traite tous les espaces.
+- Adresse de retour OAuth unique pour Twitch et les trois plateformes : `https://votre-site/uplink/api/callback.php`.
+- Avec `--site https://www.exemple.fr`, le dossier redirige l'autre variante de l'adresse (sans www) vers celle-ci :
+  les adresses de retour déclarées chez les plateformes correspondent toujours.
 - Instagram télécharge les vidéos via une URL signée temporaire (aucun envoi direct nécessaire).
-- Autre emplacement que `/posting` : `node scripts/package-hosting.mjs --base /autre-dossier`.
+- Autre emplacement que `/uplink` : `node scripts/package-hosting.mjs --base /autre-dossier`.
 
 ### Windows et macOS
 Versions « portables » : Node.js officiel embarqué (vérifié par SHA-256), aucune installation. Double-clic sur
@@ -158,6 +163,15 @@ Chaque carte de la page Paramètres contient un guide pas à pas. En résumé :
 | TikTok | [TikTok for Developers](https://developers.tiktok.com/apps) | Login Kit, Content Posting API (Direct Post), scopes `user.info.basic`, `user.info.profile`, `user.info.stats`, `video.list`, `video.publish`, `video.upload` | Avant l'audit TikTok, publication directe uniquement en « Moi uniquement ». |
 | Instagram | [Meta for Developers](https://developers.facebook.com/apps) | Produit Instagram (connexion Instagram) **ou** Facebook Login for Business | Compte professionnel requis. Connexion Instagram : Instagram télécharge la vidéo depuis `PUBLIC_URL`. Via Facebook : envoi direct, Page Facebook liée nécessaire. 100 publications / 24 h. |
 
+### Publier en public
+Tant qu'une application développeur n'est pas validée, la plateforme impose des publications privées, quel que soit
+le réglage : **YouTube** (projet Google non audité : vidéos « privées », signalées sur la publication), **TikTok**
+(avant l'audit Direct Post : « Moi uniquement »). Instagram publie toujours en public (comptes professionnels).
+Démarches : validation de l'écran de consentement Google puis
+[formulaire d'audit de l'API YouTube](https://support.google.com/youtube/contact/yt_api_form) ; validation de
+l'application TikTok puis audit Direct Post de la Content Posting API ; App Review et mode « Live » chez Meta pour
+d'autres comptes que les testeurs. Détail dans **Paramètres → API … → Guide de configuration → Publier en public**.
+
 ### Pages légales
 TikTok (« App details »), Meta (Paramètres de l'app → Général) et Google (écran de consentement OAuth) demandent
 l'adresse des conditions d'utilisation et de la politique de confidentialité. Renseignez l'éditeur et l'e-mail de
@@ -167,7 +181,7 @@ accessibles sans connexion. Relisez les textes (`src/components/legal/`) et adap
 
 ### Discord
 Dans Discord : **Paramètres du salon → Intégrations → Webhooks → Nouveau webhook → Copier l'URL du webhook**, puis
-**Paramètres → Annonces Discord → Ajouter un webhook** dans VideoPosting. Seules les adresses
+**Paramètres → Annonces Discord → Ajouter un webhook** dans Uplink. Seules les adresses
 `https://discord.com/api/webhooks/…` sont acceptées ; l'adresse complète reste sur le serveur (seule une version
 masquée est renvoyée au navigateur). Les publications du mode démo ne sont pas annoncées (bouton « Tester » pour
 vérifier un salon). Un échec Discord n'empêche jamais la publication : il est noté dans son journal.

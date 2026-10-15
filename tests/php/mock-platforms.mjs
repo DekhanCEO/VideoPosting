@@ -4,7 +4,7 @@ import http from "node:http";
 
 export function startMock(port) {
   const state = {
-    yt: { sessions: new Map(), failedOnce: false, hash: null, meta: null },
+    yt: { sessions: new Map(), failedOnce: false, hash: null, meta: null, forcePrivate: false },
     tt: { bytes: [], init: null, statusCalls: 0, hash: null, photoInit: null, photoDownloads: [] },
     ig: { container: null, downloaded: null, hash: null, published: false, statusCalls: 0, images: [], carousel: null, children: 0 },
     twitch: { tokenCalls: [], revoked: [] },
@@ -45,7 +45,7 @@ export function startMock(port) {
       return send(res, 200, { id: String(state.discord.messages.length), channel_id: "1", content: payload.content });
     }
 
-    // ---- Twitch (connexion à VideoPosting) ----
+    // ---- Twitch (connexion à l'application) ----
     // Le code d'autorisation désigne l'utilisateur : « code-<login> » → jeton « tw-<login> ».
     if (p === "/id.twitch.tv/oauth2/token") {
       const f = form();
@@ -98,12 +98,14 @@ export function startMock(port) {
       state.yt.sessions.set(id, { total: Number(req.headers["x-upload-content-length"]), parts: [] });
       return send(res, 200, {}, { Location: `${base}/upload/yt/${id}` });
     }
+    // Projet Google non audité (forcePrivate) : YouTube enregistre la vidéo en privé quelle que soit la demande.
+    const ytDone = () => ({ id: "vid123", status: { uploadStatus: "uploaded", privacyStatus: state.yt.forcePrivate ? "private" : state.yt.meta?.status?.privacyStatus } });
     if (p.startsWith("/upload/yt/")) {
       const s = state.yt.sessions.get(p.split("/").pop());
       const range = req.headers["content-range"];
       const received = s.parts.reduce((n, b) => n + b.length, 0);
       if (range?.startsWith("bytes */")) {
-        return received >= s.total ? send(res, 201, { id: "vid123" }) : send(res, 308, undefined, received ? { Range: `bytes=0-${received - 1}` } : {});
+        return received >= s.total ? send(res, 201, ytDone()) : send(res, 308, undefined, received ? { Range: `bytes=0-${received - 1}` } : {});
       }
       const [, start] = range.match(/bytes (\d+)-(\d+)\/(\d+)/);
       // Panne simulée sur le 2e morceau pour tester la reprise.
@@ -116,7 +118,7 @@ export function startMock(port) {
       const now = received + body.length;
       if (now >= s.total) {
         state.yt.hash = crypto.createHash("sha256").update(Buffer.concat(s.parts)).digest("hex");
-        return send(res, 201, { id: "vid123", status: { uploadStatus: "uploaded" } });
+        return send(res, 201, ytDone());
       }
       return send(res, 308, undefined, { Range: `bytes=0-${now - 1}` });
     }

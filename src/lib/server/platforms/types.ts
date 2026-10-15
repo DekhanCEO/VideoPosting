@@ -36,6 +36,8 @@ export interface PublishContext<P extends PlatformId = PlatformId> {
 export interface PublishResult {
   externalId?: string;
   url?: string;
+  /** Restriction imposée par la plateforme (affichée sur la publication). */
+  notice?: string;
 }
 
 export interface StatsResult {

@@ -263,7 +263,7 @@ try {
     json_out(['error' => $e->getMessage()], 502);
 } catch (Throwable $e) {
     $kick = false;
-    error_log('[VideoPosting] ' . $e);
+    error_log('[' . VP_APP_NAME . '] ' . $e);
     json_out(['error' => 'Erreur serveur : ' . $e->getMessage()], 500);
 }
 

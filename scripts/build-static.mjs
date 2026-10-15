@@ -1,13 +1,13 @@
 // Construit l'interface en fichiers statiques pour l'hébergement PHP (sortie : .build-static/out).
-// Usage : node scripts/build-static.mjs [--base /posting]
+// Usage : node scripts/build-static.mjs [--base /uplink]   (nom de l'application : variable NEXT_PUBLIC_APP_NAME)
 import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
 const root = path.resolve(import.meta.dirname, "..");
 const argBase = process.argv.indexOf("--base");
-const basePath = argBase > -1 ? process.argv[argBase + 1] : "/posting";
-if (!/^\/[\w-]+(\/[\w-]+)*$/.test(basePath)) throw new Error(`Chemin invalide : ${basePath} (ex. /posting)`);
+const basePath = argBase > -1 ? process.argv[argBase + 1] : "/uplink";
+if (!/^\/[\w-]+(\/[\w-]+)*$/.test(basePath)) throw new Error(`Chemin invalide : ${basePath} (ex. /uplink)`);
 
 const work = path.join(root, ".build-static");
 fs.rmSync(work, { recursive: true, force: true });

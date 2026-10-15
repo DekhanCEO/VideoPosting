@@ -9,6 +9,7 @@ import { DATA_DELETION_ANCHOR, LEGAL_PAGES, legalInfo, legalUrl, type LegalInfo 
 import type { PublicSettings } from "@/lib/types";
 import { PlatformBadge } from "./icons";
 import { Button, Card, CardHeader, CopyField, ExternalA, Field, Input } from "./ui";
+import { APP_NAME } from "@/lib/brand";
 
 /** Où coller les adresses dans chaque console développeur. */
 function WhereToPaste({ home }: { home: string }) {
@@ -94,7 +95,7 @@ export function LegalCard({ settings }: { settings: PublicSettings }) {
           <div className="space-y-4">
             <div className="grid gap-4 md:grid-cols-3">
               <Field label="Nom du service" htmlFor="legal-service" hint="Idéalement le nom de vos applications développeur.">
-                <Input id="legal-service" value={form.serviceName} onChange={(e) => setForm((f) => ({ ...f, serviceName: e.target.value }))} placeholder="VideoPosting" maxLength={80} />
+                <Input id="legal-service" value={form.serviceName} onChange={(e) => setForm((f) => ({ ...f, serviceName: e.target.value }))} placeholder={APP_NAME} maxLength={80} />
               </Field>
               <Field label="Éditeur" htmlFor="legal-editor" hint="Votre nom ou celui de votre société.">
                 <Input id="legal-editor" value={form.editor} onChange={(e) => setForm((f) => ({ ...f, editor: e.target.value }))} placeholder="Prénom Nom" maxLength={160} />

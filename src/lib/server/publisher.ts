@@ -158,6 +158,7 @@ async function runPublication(postId: string, platform: PlatformId) {
         step: "Publiée",
         externalId: result.externalId,
         url: result.url,
+        notice: result.notice,
         finishedAt: Date.now(),
       },
       { level: "info", message: `Publiée sur ${name}` },

@@ -7,6 +7,7 @@ const YT_SCOPES = [
     'https://www.googleapis.com/auth/yt-analytics-monetary.readonly',
 ];
 const YT_API = 'https://www.googleapis.com/youtube/v3';
+const YT_PRIVATE_NOTICE = 'YouTube a mis la vidéo en privé : votre projet Google Cloud n\'est pas encore audité. Faites-le valider (formulaire d\'audit de l\'API YouTube, voir Paramètres → API YouTube) pour que les prochaines vidéos soient publiées avec la visibilité choisie.';
 const YT_UPLOAD = 'https://www.googleapis.com/upload/youtube/v3';
 const YT_CHUNK = 32 * 256 * 1024; // 8 Mio, multiple de 256 Kio
 
@@ -135,7 +136,9 @@ function youtube_step(array $ctx): array
                 $id = $body['id'] ?? null;
                 if (!$id) throw new PlatformError('Réponse YouTube inattendue.', $body);
                 $next = !empty($ctx['thumbnail']) ? 'thumb' : 'finish';
-                return ['job' => ['state' => $next, 'videoId' => $id], 'progress' => 92, 'step' => 'Finalisation sur YouTube', 'log' => "Vidéo envoyée (id $id)"];
+                // Projet Google non audité : YouTube impose « privée » quelle que soit la visibilité demandée.
+                $forced = ($o['privacy'] ?? 'public') !== 'private' && (($body['status']['privacyStatus'] ?? '') === 'private');
+                return ['job' => ['state' => $next, 'videoId' => $id, 'forcedPrivate' => $forced], 'progress' => 92, 'step' => 'Finalisation sur YouTube', 'log' => "Vidéo envoyée (id $id)"];
             }
             if ($status === 308) {
                 $offset = youtube_range_offset($headers);
@@ -158,12 +161,14 @@ function youtube_step(array $ctx): array
                 $log = 'Miniature non appliquée : ' . $e->getMessage() . ' (la chaîne doit être validée pour les miniatures personnalisées).';
                 $level = 'warn';
             }
-            return ['job' => ['state' => 'finish', 'videoId' => $job['videoId']], 'progress' => 97, 'step' => 'Finalisation sur YouTube', 'log' => $log, 'level' => $level];
+            return ['job' => ['state' => 'finish', 'videoId' => $job['videoId'], 'forcedPrivate' => !empty($job['forcedPrivate'])], 'progress' => 97, 'step' => 'Finalisation sur YouTube', 'log' => $log, 'level' => $level];
 
         case 'finish':
             $short = youtube_is_short($o['format'] ?? 'auto', $media);
             $id = $job['videoId'];
-            return ['done' => ['externalId' => $id, 'url' => $short ? "https://www.youtube.com/shorts/$id" : "https://www.youtube.com/watch?v=$id"]];
+            $done = ['externalId' => $id, 'url' => $short ? "https://www.youtube.com/shorts/$id" : "https://www.youtube.com/watch?v=$id"];
+            if (empty($job['forcedPrivate'])) return ['done' => $done];
+            return ['done' => $done + ['notice' => YT_PRIVATE_NOTICE], 'log' => YT_PRIVATE_NOTICE, 'level' => 'warn'];
     }
     throw new PlatformError('État de publication inconnu.');
 }

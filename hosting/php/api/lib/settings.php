@@ -88,7 +88,7 @@ function legal_info(?array $app = null): array
 {
     $l = ($app ?? app_read())['legal'] ?? [];
     return [
-        'serviceName' => trim((string) ($l['serviceName'] ?? '')) ?: 'VideoPosting',
+        'serviceName' => trim((string) ($l['serviceName'] ?? '')) ?: VP_APP_NAME,
         'editor' => trim((string) ($l['editor'] ?? '')),
         'email' => trim((string) ($l['email'] ?? '')),
     ];
@@ -100,7 +100,7 @@ function apply_legal_patch(array $l): void
     if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) throw new HttpError('Adresse e-mail invalide.', 422);
     app_update(function (array &$a) use ($l, $email) {
         $cur = legal_info($a);
-        if (array_key_exists('serviceName', $l)) $cur['serviceName'] = trim(str_limit($l['serviceName'], 80)) ?: 'VideoPosting';
+        if (array_key_exists('serviceName', $l)) $cur['serviceName'] = trim(str_limit($l['serviceName'], 80)) ?: VP_APP_NAME;
         if (array_key_exists('editor', $l)) $cur['editor'] = trim(str_limit($l['editor'], 160));
         if (array_key_exists('email', $l)) $cur['email'] = $email;
         $a['legal'] = $cur;

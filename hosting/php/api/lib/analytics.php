@@ -16,7 +16,7 @@ function sync_analytics(): array
     try {
         twitch_channel_sync();
     } catch (Throwable $e) {
-        error_log('[VideoPosting] Twitch : ' . $e->getMessage());
+        error_log('[' . VP_APP_NAME . '] Twitch : ' . $e->getMessage());
     }
     $d = db_read();
     $reports = [];

@@ -1,7 +1,7 @@
 <?php
 /**
  * Adresse de retour OAuth unique : https://votre-site/posting/api/callback.php
- *  - connexion à VideoPosting avec Twitch (state « login.… ») ;
+ *  - connexion à l'application avec Twitch (state « login.… ») ;
  *  - connexion des comptes TikTok, YouTube et Instagram d'un espace (state « <plateforme>.… »).
  */
 
@@ -29,7 +29,7 @@ if ($kind === 'login') {
     try {
         $go(twitch_callback($code));
     } catch (Throwable $e) {
-        error_log('[VideoPosting] Twitch : ' . $e->getMessage());
+        error_log('[' . VP_APP_NAME . '] Twitch : ' . $e->getMessage());
         $go('/login/?error=' . rawurlencode($e->getMessage()));
     }
 }
@@ -47,7 +47,7 @@ if ($kind === 'twitchch') {
         twitch_channel_exchange($code);
         $go('/accounts/?connected=twitch');
     } catch (Throwable $e) {
-        error_log('[VideoPosting] Twitch chaîne : ' . $e->getMessage());
+        error_log('[' . VP_APP_NAME . '] Twitch chaîne : ' . $e->getMessage());
         $go('/accounts/?platform=twitch&error=' . rawurlencode($e->getMessage()));
     }
 }
@@ -74,6 +74,6 @@ try {
     save_account($account + ['connectedAt' => now_ms()]);
     $back("connected=$platform");
 } catch (Throwable $e) {
-    error_log('[VideoPosting] OAuth ' . $platform . ' : ' . $e->getMessage());
+    error_log('[' . VP_APP_NAME . '] OAuth ' . $platform . ' : ' . $e->getMessage());
     $back("platform=$platform&error=" . rawurlencode($e->getMessage()));
 }

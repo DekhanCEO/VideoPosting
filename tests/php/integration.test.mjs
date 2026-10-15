@@ -220,6 +220,7 @@ test("envoi par morceaux puis publication réelle sur les trois plateformes", { 
   assert.equal(pubs.tiktok.url, "https://www.tiktok.com/@createur.tt/video/7300000000000000001");
   assert.equal(pubs.instagram.url, "https://www.instagram.com/reel/ABC123/");
   assert.ok(!("job" in pubs.youtube), "l'état interne n'est pas exposé");
+  assert.equal(pubs.youtube.notice, undefined, "visibilité respectée : aucun avertissement");
 
   // YouTube : fichier reçu intact malgré la panne simulée, métadonnées correctes.
   assert.equal(mock.state.yt.failedOnce, true);
@@ -349,7 +350,7 @@ test("annonces Discord : webhooks, message de test, liens envoyés à la publica
   const testMsg = mock.state.discord.messages.at(-1);
   assert.equal(testMsg.id, "111111111111");
   assert.equal(testMsg.wait, "true");
-  assert.match(testMsg.payload.content, /^<@&222222222222> 🎬 \*\*Message de test VideoPosting\*\* est en ligne !/);
+  assert.match(testMsg.payload.content, /^<@&222222222222> 🎬 \*\*Message de test Uplink\*\* est en ligne !/);
   assert.match(testMsg.payload.content, /▶️ YouTube : https:\/\/www\.youtube\.com\//);
   assert.deepEqual(testMsg.payload.allowed_mentions, { parse: [], roles: ["222222222222"] });
   const failed = await json(api(`/discord/webhooks/${gone.id}/test`), { method: "POST" });
@@ -392,7 +393,13 @@ test("annonces Discord : webhooks, message de test, liens envoyés à la publica
     return (await json(api(`/posts/${post.data.id}`))).data;
   };
   const before = mock.state.discord.messages.length;
+  mock.state.yt.forcePrivate = true; // projet Google non audité
   const post = await publish(["tiktok", "youtube", "instagram"]);
+  mock.state.yt.forcePrivate = false;
+  // Vidéo demandée en public mais mise en privé par YouTube : avertissement visible sur la publication.
+  assert.match(post.publications.youtube.notice, /YouTube a mis la vidéo en privé : votre projet Google Cloud n'est pas encore audité/);
+  assert.ok(post.publications.youtube.logs.some((l) => l.level === "warn" && /mis la vidéo en privé/.test(l.message)));
+  assert.equal(post.publications.tiktok.notice, undefined);
   const sent = mock.state.discord.messages.slice(before);
   const urls = { tiktok: post.publications.tiktok.url, youtube: post.publications.youtube.url, instagram: post.publications.instagram.url };
 
@@ -403,7 +410,7 @@ test("annonces Discord : webhooks, message de test, liens envoyés à la publica
     const msg = eachMsgs.find((m) => m.payload.content.includes(url));
     assert.ok(msg, `lien ${platform} annoncé`);
     assert.match(msg.payload.content, /^<@&222222222222> 🎬 \*\*Annonce Discord\*\* est en ligne !\n/);
-    assert.equal(msg.payload.username, "VideoPosting");
+    assert.equal(msg.payload.username, "Uplink");
     assert.equal(msg.payload.embeds, undefined);
   }
   // « Récap » : un seul message une fois tout publié, en carte, limité à YouTube et TikTok.
@@ -443,16 +450,16 @@ test("pages légales : informations publiques, modifiables par l'administrateur"
   const anonymous = browser();
   const initial = await anonymous.json(api("/legal"));
   assert.equal(initial.status, 200, "accessible sans connexion (vérifié par TikTok, Meta et Google)");
-  assert.deepEqual(initial.data, { serviceName: "VideoPosting", editor: "", email: "" });
+  assert.deepEqual(initial.data, { serviceName: "Uplink", editor: "", email: "" });
 
   assert.equal((await json(api("/settings"), { ...PUT, json: { legal: { email: "pas-un-email" } } })).status, 422);
-  const saved = await json(api("/settings"), { ...PUT, json: { legal: { serviceName: "VideoPosting Malabop", editor: "Malabop", email: "contact@malabop.fr" } } });
+  const saved = await json(api("/settings"), { ...PUT, json: { legal: { serviceName: "Uplink by DSociety", editor: "Malabop", email: "contact@malabop.fr" } } });
   assert.equal(saved.status, 200, JSON.stringify(saved.data));
-  assert.deepEqual(saved.data.legal, { serviceName: "VideoPosting Malabop", editor: "Malabop", email: "contact@malabop.fr" });
+  assert.deepEqual(saved.data.legal, { serviceName: "Uplink by DSociety", editor: "Malabop", email: "contact@malabop.fr" });
   assert.deepEqual((await anonymous.json(api("/legal"))).data, saved.data.legal);
   // Nom vide : retour au nom par défaut ; champs non envoyés conservés.
   const reset = await json(api("/settings"), { ...PUT, json: { legal: { serviceName: "" } } });
-  assert.deepEqual(reset.data.legal, { serviceName: "VideoPosting", editor: "Malabop", email: "contact@malabop.fr" });
+  assert.deepEqual(reset.data.legal, { serviceName: "Uplink", editor: "Malabop", email: "contact@malabop.fr" });
 });
 
 test("synchronisation des statistiques", async () => {

@@ -52,6 +52,7 @@ import { CaptionSourceHint, InstagramPanel, TiktokPanel, YoutubePanel } from "./
 import { PhotoUploader } from "./photo-uploader";
 import { PlatformPreview, type PreviewData } from "./previews";
 import { VideoUploader, type UploadState } from "./video-uploader";
+import { APP_NAME } from "@/lib/brand";
 
 interface Draft {
   kind: PostKind;
@@ -705,7 +706,7 @@ export function Composer({ postId, presetDate }: { postId?: string; presetDate?:
                     )}
                   </div>
                   <p className="text-xs text-muted">
-                    Fuseau horaire : {Intl.DateTimeFormat().resolvedOptions().timeZone}. Le serveur VideoPosting doit être démarré à l&apos;heure prévue.
+                    Fuseau horaire : {Intl.DateTimeFormat().resolvedOptions().timeZone}. Le serveur {APP_NAME} doit être démarré à l&apos;heure prévue.
                   </p>
                 </div>
               )}

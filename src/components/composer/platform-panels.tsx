@@ -508,7 +508,7 @@ export function TiktokPanel({
 
           <Divider />
           <Section title={photo ? "Qui peut voir ces photos ?" : "Qui peut voir cette vidéo ?"}>
-            <Field error={fieldError(issues, "privacyLevel")}>
+            <Field error={fieldError(issues, "privacyLevel")} hint="« Tout le monde » : publication publique dès la mise en ligne (application auditée par TikTok).">
               <Select value={value.privacyLevel} onChange={(e) => onChange({ privacyLevel: e.target.value as TiktokPrivacy })}>
                 <option value="" disabled>
                   Choisir la visibilité…

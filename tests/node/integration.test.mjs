@@ -187,7 +187,7 @@ test("annonces Discord : webhooks, message de test, liens envoyés à la publica
   assert.equal((await json(`/api/discord/webhooks/${each.data.id}/test`, { method: "POST" })).status, 200);
   const testMsg = mock.state.discord.messages.at(-1);
   assert.equal(testMsg.wait, "true");
-  assert.match(testMsg.payload.content, /^<@&222222222222> 🎬 \*\*Message de test VideoPosting\*\*/);
+  assert.match(testMsg.payload.content, /^<@&222222222222> 🎬 \*\*Message de test Uplink\*\*/);
   const failed = await json(`/api/discord/webhooks/${gone.id}/test`, { method: "POST" });
   assert.equal(failed.status, 502);
   assert.match(failed.data.error, /invalide ou supprimé/);
@@ -217,7 +217,11 @@ test("annonces Discord : webhooks, message de test, liens envoyés à la publica
     return (await json(`/api/posts/${post.data.id}`)).data;
   };
   const before = mock.state.discord.messages.length;
+  mock.state.yt.forcePrivate = true; // projet Google non audité
   const post = await publish(["tiktok", "youtube", "instagram"]);
+  mock.state.yt.forcePrivate = false;
+  assert.match(post.publications.youtube.notice, /YouTube a mis la vidéo en privé/);
+  assert.equal(post.publications.instagram.notice, undefined);
   const sent = mock.state.discord.messages.slice(before);
   const eachMsgs = sent.filter((m) => m.id === "111111111111");
   assert.equal(eachMsgs.length, 3);
@@ -252,10 +256,10 @@ test("pages légales : publiques, pré-rendues, informations de l'éditeur", asy
     assert.ok(html.includes("YouTube"), `${path} : texte pré-rendu`);
   }
   assert.ok((await (await fetch(`${BASE}/confidentialite`)).text()).includes('id="suppression"'), "ancre des instructions de suppression (Meta)");
-  assert.deepEqual((await json("/api/legal")).data, { serviceName: "VideoPosting", editor: "", email: "" });
+  assert.deepEqual((await json("/api/legal")).data, { serviceName: "Uplink", editor: "", email: "" });
   assert.equal((await json("/api/settings", { method: "PUT", json: { legal: { email: "faux" } } })).status, 422);
   const saved = await json("/api/settings", { method: "PUT", json: { legal: { editor: "Malabop", email: "contact@malabop.fr" } } });
-  assert.deepEqual(saved.data.legal, { serviceName: "VideoPosting", editor: "Malabop", email: "contact@malabop.fr" });
+  assert.deepEqual(saved.data.legal, { serviceName: "Uplink", editor: "Malabop", email: "contact@malabop.fr" });
   assert.deepEqual((await json("/api/legal")).data, saved.data.legal);
 });
 

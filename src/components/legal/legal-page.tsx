@@ -18,7 +18,7 @@ function useLegal() {
   return useContext(LegalContext);
 }
 
-/** Nom du service (« VideoPosting » par défaut). */
+/** Nom du service (nom de l'application par défaut). */
 export function Service() {
   return <>{useLegal().info.serviceName}</>;
 }

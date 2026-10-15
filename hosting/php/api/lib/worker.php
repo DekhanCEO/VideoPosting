@@ -203,6 +203,7 @@ function run_step(string $postId, string $platform): void
                 $pub['step'] = 'Publiée';
                 $pub['externalId'] = $r['done']['externalId'] ?? null;
                 $pub['url'] = $r['done']['url'] ?? null;
+                if (!empty($r['done']['notice'])) $pub['notice'] = $r['done']['notice'];
                 $pub['finishedAt'] = now_ms();
                 $pub['logs'][] = ['at' => now_ms(), 'level' => 'info', 'message' => "Publiée sur $name"];
                 unset($pub['job']);
@@ -217,7 +218,7 @@ function run_step(string $postId, string $platform): void
         });
     } catch (Throwable $e) {
         $message = $e instanceof PlatformError ? $e->getMessage() : 'Erreur inattendue : ' . $e->getMessage();
-        if (!$e instanceof PlatformError) error_log('[VideoPosting] ' . $e);
+        if (!$e instanceof PlatformError) error_log('[' . VP_APP_NAME . '] ' . $e);
         patch_pub($postId, $platform, function (&$pub) use ($message) {
             $pub['status'] = 'failed';
             $pub['error'] = $message;
@@ -317,7 +318,7 @@ function run_periodic_jobs_all(float $budget = 40.0): void
         try {
             periodic_jobs();
         } catch (Throwable $e) {
-            error_log('[VideoPosting] espace ' . $id . ' : ' . $e->getMessage());
+            error_log('[' . VP_APP_NAME . '] espace ' . $id . ' : ' . $e->getMessage());
         }
     }
     use_space($previous);
@@ -337,7 +338,7 @@ function periodic_jobs(): void
         try {
             sync_analytics();
         } catch (Throwable $e) {
-            error_log('[VideoPosting] sync ' . $e->getMessage());
+            error_log('[' . VP_APP_NAME . '] sync ' . $e->getMessage());
         }
     }
 }

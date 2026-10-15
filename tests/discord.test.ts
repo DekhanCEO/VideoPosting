@@ -38,7 +38,7 @@ test("message : variables, liens bruts pour les aperçus Discord, mentions maît
   assert.equal(p.content, "🎬 **Ma routine** est en ligne sur TikTok et YouTube !\n🎵 TikTok : https://www.tiktok.com/@moi/video/1\n▶️ YouTube : https://www.youtube.com/shorts/abc");
   assert.deepEqual(p.allowed_mentions, { parse: [] });
   assert.equal(p.embeds, undefined);
-  assert.equal(p.username, "VideoPosting");
+  assert.equal(p.username, "Uplink");
   const everyone = buildDiscordPayload({ ...hook, mention: "everyone" }, ctx);
   assert.ok(String(everyone.content).startsWith("@everyone "));
   assert.deepEqual(everyone.allowed_mentions, { parse: ["everyone"] });

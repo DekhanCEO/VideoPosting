@@ -45,6 +45,7 @@ import { BarList, ChartCard, Legend, StackedColumns, type ChartSeries } from "./
 import { PlatformBadge, RevenuePlatformBadge, TwitchLogo } from "./icons";
 import { DeltaBadge, StatTile } from "./stat-tile";
 import { Badge, Button, ButtonLink, Card, CardHeader, Dialog, EmptyState, Field, Input, Segmented, Select, Skeleton, Switch, Textarea, buttonClass } from "./ui";
+import { APP_NAME } from "@/lib/brand";
 
 type Period = "month" | "quarter" | "year" | "ytd";
 
@@ -663,7 +664,7 @@ function EstimatesCard({
         title="Estimations automatiques"
         description={
           current.enabled
-            ? `TikTok, Instagram et Twitch ne communiquent pas leurs gains : VideoPosting les estime à partir des vues${settings.twitchAvailable ? ", des abonnements et des bits" : ""}.${estimated ? ` ${money(estimated)} estimés ${periodLabel}.` : ""}`
+            ? `TikTok, Instagram et Twitch ne communiquent pas leurs gains : ${APP_NAME} les estime à partir des vues${settings.twitchAvailable ? ", des abonnements et des bits" : ""}.${estimated ? ` ${money(estimated)} estimés ${periodLabel}.` : ""}`
             : "Désactivées : seuls les revenus saisis et les revenus YouTube synchronisés sont comptés."
         }
         actions={<Switch checked={current.enabled} onChange={(v) => void save({ enabled: v })} label="" />}

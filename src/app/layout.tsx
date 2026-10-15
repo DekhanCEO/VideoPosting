@@ -3,9 +3,10 @@ import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
 import { Toaster } from "sonner";
 import "./globals.css";
+import { APP_NAME } from "@/lib/brand";
 
 export const metadata: Metadata = {
-  title: { default: "VideoPosting", template: "%s · VideoPosting" },
+  title: { default: APP_NAME, template: `%s · ${APP_NAME}` },
   description: "Publiez la même vidéo sur TikTok, YouTube et Instagram, suivez vos statistiques et vos revenus.",
   icons: { icon: `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/icon.svg` },
 };

@@ -1,7 +1,7 @@
 <?php
 /**
  * Chaîne Twitch d'un espace : abonnés, abonnements payants et bits, pour estimer les revenus Twitch.
- * Connexion distincte de la connexion à VideoPosting (autorisations de lecture supplémentaires).
+ * Connexion distincte de la connexion à l'application (autorisations de lecture supplémentaires).
  */
 
 const TWITCH_CHANNEL_SCOPES = 'moderator:read:followers channel:read:subscriptions bits:read';
@@ -52,7 +52,7 @@ function twitch_channel_exchange(string $code): void
     try {
         twitch_channel_sync();
     } catch (Throwable $e) {
-        error_log('[VideoPosting] Twitch : ' . $e->getMessage());
+        error_log('[' . VP_APP_NAME . '] Twitch : ' . $e->getMessage());
     }
 }
 

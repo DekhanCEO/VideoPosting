@@ -15,6 +15,7 @@ import type { PlatformId, PublicAccount, TwitchChannelInfo } from "@/lib/types";
 import { PageContainer, PageHeader } from "./app-shell";
 import { PlatformBadge, TwitchLogo } from "./icons";
 import { Avatar, Badge, Button, ButtonLink, Card, Dialog, Skeleton, buttonClass } from "./ui";
+import { APP_NAME } from "@/lib/brand";
 
 const REQUIREMENTS: Record<PlatformId, string[]> = {
   tiktok: [
@@ -180,7 +181,7 @@ export function AccountsView() {
 
   return (
     <PageContainer>
-      <PageHeader title="Comptes connectés" description="Connectez vos comptes une fois : VideoPosting publie ensuite pour vous." />
+      <PageHeader title="Comptes connectés" description={`Connectez vos comptes une fois : ${APP_NAME} publie ensuite pour vous.`} />
 
       {demo && (
         <div className="mt-6 flex flex-col gap-3 rounded-2xl border border-warning/30 bg-warning/8 p-4 sm:flex-row sm:items-center">

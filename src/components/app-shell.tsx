@@ -25,6 +25,7 @@ import { api } from "@/lib/api-client";
 import { useSession, useSettings } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
 import { Avatar, buttonClass } from "./ui";
+import { APP_NAME } from "@/lib/brand";
 
 const NAV = [
   { href: "/", label: "Tableau de bord", icon: LayoutDashboard },
@@ -62,7 +63,7 @@ function Logo() {
         </svg>
       </span>
       <span className="leading-tight">
-        <span className="block text-[15px] font-semibold tracking-tight">VideoPosting</span>
+        <span className="block text-[15px] font-semibold tracking-tight">{APP_NAME}</span>
         <span className="block text-[11px] text-muted">Studio multi-plateforme</span>
       </span>
     </Link>
@@ -108,12 +109,12 @@ function SidebarFooter() {
   };
   const [stopped, setStopped] = useState(false);
   const quit = async () => {
-    if (!confirm("Quitter VideoPosting ? Les publications programmées ne partiront pas tant que l'application est fermée.")) return;
+    if (!confirm(`Quitter ${APP_NAME} ? Les publications programmées ne partiront pas tant que l'application est fermée.`)) return;
     await api("/api/desktop/quit", { method: "POST" }).catch(() => undefined);
     setStopped(true);
   };
   if (stopped) {
-    return <p className="rounded-xl bg-surface-2 p-3 text-xs text-muted">VideoPosting est arrêté. Vous pouvez fermer cet onglet.</p>;
+    return <p className="rounded-xl bg-surface-2 p-3 text-xs text-muted">{APP_NAME} est arrêté. Vous pouvez fermer cet onglet.</p>;
   }
   return (
     <div className="space-y-3">
@@ -152,7 +153,7 @@ function SidebarFooter() {
           </button>
         )}
         {settings?.hosting === "desktop" && (
-          <button onClick={quit} className={buttonClass("ghost", "icon-sm")} aria-label="Quitter VideoPosting" title="Quitter VideoPosting">
+          <button onClick={quit} className={buttonClass("ghost", "icon-sm")} aria-label={`Quitter ${APP_NAME}`} title={`Quitter ${APP_NAME}`}>
             <Power className="size-4" />
           </button>
         )}

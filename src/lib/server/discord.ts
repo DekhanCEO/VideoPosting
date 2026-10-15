@@ -6,6 +6,7 @@ import { PLATFORM_IDS, type PlatformId, type Post } from "../types";
 import { isPubliclyReachable } from "./config";
 import { signedMediaUrl } from "./media";
 import { db, getMedia, getPost } from "./store";
+import { APP_NAME } from "../brand";
 
 const ACTIVE = ["pending", "uploading", "processing"];
 
@@ -119,7 +120,7 @@ export async function testWebhook(id: string) {
   if (!hook) throw new Error("Webhook introuvable.");
   const examples: Record<PlatformId, string> = { tiktok: "https://www.tiktok.com/", youtube: "https://www.youtube.com/", instagram: "https://www.instagram.com/" };
   const payload = buildDiscordPayload(hook, {
-    title: "Message de test VideoPosting",
+    title: `Message de test ${APP_NAME}`,
     description: "Si vous lisez ceci, les annonces de vos publications arriveront dans ce salon.",
     kind: "video",
     links: hook.platforms.map((p) => ({ platform: p, url: examples[p] })),

@@ -98,7 +98,7 @@ function empty_app(): array
         'access' => ['mode' => 'owner', 'allowed' => []],
         'users' => [],
         // Éditeur et contact affichés sur les pages légales publiques (conditions, confidentialité).
-        'legal' => ['serviceName' => 'VideoPosting', 'editor' => '', 'email' => ''],
+        'legal' => ['serviceName' => '', 'editor' => '', 'email' => ''],
     ];
 }
 

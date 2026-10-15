@@ -8,6 +8,7 @@ import { apiUrl } from "@/lib/paths";
 import type { SessionInfo } from "@/lib/types";
 import { TwitchLogo } from "@/components/icons";
 import { Button, Card, CopyField, ExternalA, Field, Input, Skeleton, Steps, buttonClass } from "@/components/ui";
+import { APP_NAME } from "@/lib/brand";
 
 function Logo({ icon }: { icon: React.ReactNode }) {
   return (
@@ -24,10 +25,10 @@ function ErrorBox({ message }: { message: string }) {
   );
 }
 
-/** Nom d'application proposé : « VideoPosting Malabop » pour malabop.fr. */
+/** Nom d'application Twitch proposé : « Uplink Dsociety » pour dsociety.fr (le nom doit être unique sur Twitch). */
 function suggestedName() {
   const label = window.location.hostname.replace(/^www\./, "").split(".")[0] ?? "";
-  return /^[a-z0-9-]+$/i.test(label) && !/^\d+$/.test(label) ? `VideoPosting ${label[0].toUpperCase()}${label.slice(1)}` : "VideoPosting Studio";
+  return /^[a-z0-9-]+$/i.test(label) && !/^\d+$/.test(label) ? `${APP_NAME} ${label[0].toUpperCase()}${label.slice(1)}` : `${APP_NAME} Studio`;
 }
 
 /** Première visite sur l'hébergement : code d'installation + application Twitch, puis connexion Twitch. */
@@ -60,7 +61,7 @@ function TwitchSetup({ info, initialError }: { info: SessionInfo; initialError: 
   return (
     <Card className="relative w-full max-w-lg animate-scale-in p-6 sm:p-8">
       <Logo icon={<KeyRound className="size-6" />} />
-      <h1 className="mt-5 text-center text-xl font-semibold">Installation de VideoPosting</h1>
+      <h1 className="mt-5 text-center text-xl font-semibold">Installation de {APP_NAME}</h1>
       <p className="mx-auto mt-1 max-w-sm text-center text-sm text-muted">
         Une seule fois : reliez votre application Twitch, puis connectez-vous. Vous deviendrez l&apos;administrateur de cet espace.
       </p>
@@ -170,7 +171,7 @@ function TwitchLogin({ error }: { error: string | null }) {
           </svg>
         }
       />
-      <h1 className="mt-5 text-center text-xl font-semibold">VideoPosting</h1>
+      <h1 className="mt-5 text-center text-xl font-semibold">{APP_NAME}</h1>
       <p className="mt-1 text-center text-sm text-muted">Connectez-vous avec Twitch pour retrouver votre espace : publications, comptes et statistiques.</p>
       <div className="mt-6 space-y-4">
         {error && <ErrorBox message={error} />}
@@ -234,7 +235,7 @@ function PasswordLogin({ onDone }: { onDone: () => void }) {
   return (
     <Card className="relative w-full max-w-sm animate-scale-in p-8">
       <Logo icon={<Lock className="size-6" />} />
-      <h1 className="mt-5 text-center text-xl font-semibold">VideoPosting</h1>
+      <h1 className="mt-5 text-center text-xl font-semibold">{APP_NAME}</h1>
       <p className="mt-1 text-center text-sm text-muted">Saisissez le mot de passe pour accéder au studio.</p>
       <form onSubmit={submit} className="mt-6 space-y-4">
         <Field error={error}>

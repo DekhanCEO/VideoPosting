@@ -19,6 +19,7 @@ import { PlatformBadge } from "./icons";
 import { InfluenceView } from "./influence-view";
 import { DeltaBadge, StatTile } from "./stat-tile";
 import { Badge, Button, ButtonLink, Card, EmptyState, Segmented, Skeleton } from "./ui";
+import { APP_NAME } from "@/lib/brand";
 
 export const PLATFORM_SERIES: ChartSeries[] = PLATFORM_ORDER.map((p) => ({
   key: p,
@@ -258,7 +259,7 @@ export function AnalyticsView() {
 
           <ChartCard
             title={weekly ? "Vues par semaine" : "Vues par jour"}
-            subtitle="YouTube : vues de la chaîne (YouTube Analytics) · TikTok et Instagram : vues des vidéos publiées avec VideoPosting"
+            subtitle={`YouTube : vues de la chaîne (YouTube Analytics) · TikTok et Instagram : vues des vidéos publiées avec ${APP_NAME}`}
             legend={<Legend series={PLATFORM_SERIES} />}
             chart={
               <StackedColumns
