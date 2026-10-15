@@ -17,12 +17,16 @@ export function savePost(args: { input: PostInput; action: SaveAction; create: (
   if (action === "schedule" && !input.scheduledAt) return fail("Choisissez une date de programmation.", 422);
 
   if (action !== "draft") {
-    const media = input.mediaId ? getMedia(input.mediaId) : undefined;
-    if (input.mediaId && !media) return fail("La vidéo est introuvable, ajoutez-la à nouveau.", 422);
+    const photo = input.kind === "photo";
+    const media = !photo && input.mediaId ? getMedia(input.mediaId) : undefined;
+    if (!photo && input.mediaId && !media) return fail("La vidéo est introuvable, ajoutez-la à nouveau.", 422);
+    const images = photo ? (input.imageIds ?? []).map((id) => getMedia(id)) : [];
+    if (images.some((i) => !i || i.kind !== "image")) return fail("Une photo est introuvable, ajoutez-la à nouveau.", 422);
     const connected = Object.fromEntries(listPublicAccounts().map((a) => [a.platform, !a.needsReconnect]));
     const issues = validatePost({
       input: action === "publish" ? { ...input, scheduledAt: null } : input,
       media,
+      images,
       connected,
       mode: "publish",
     });

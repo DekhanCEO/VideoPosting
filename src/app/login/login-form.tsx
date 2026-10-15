@@ -70,6 +70,15 @@ function TwitchSetup({ info, initialError }: { info: SessionInfo; initialError: 
           <Input id="setup-code" autoFocus value={setupCode} onChange={(e) => setSetupCode(e.target.value)} placeholder="XXXX-XXXX-XXXX" autoComplete="off" spellCheck={false} />
         </Field>
 
+        {info.twitchFromEnv ? (
+          <div className="flex items-start gap-3 rounded-xl border border-success/25 bg-success/8 p-3.5 text-sm">
+            <ShieldCheck className="mt-0.5 size-4 shrink-0 text-success" />
+            <p>
+              <span className="font-medium">2. Application Twitch : trouvée dans votre fichier .env.</span>{" "}
+              <span className="text-muted">Rien à saisir ici.</span>
+            </p>
+          </div>
+        ) : (
         <div className="space-y-3">
           <p className="text-sm font-medium">2. Application Twitch</p>
           <div className="rounded-xl border border-border">
@@ -125,6 +134,7 @@ function TwitchSetup({ info, initialError }: { info: SessionInfo; initialError: 
           </div>
           {saved && <p className="text-xs text-muted">Application Twitch déjà enregistrée : laissez ces champs vides pour la conserver.</p>}
         </div>
+        )}
 
         {error && <ErrorBox message={error} />}
 

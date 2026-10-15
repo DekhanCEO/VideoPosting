@@ -173,3 +173,53 @@ export const ACCEPTED_IMAGE = ["image/jpeg", "image/png", "image/webp"];
 export function mediaUrl(id: string) {
   return apiUrl(`/api/media/${id}/file`);
 }
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.decoding = "async";
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Image illisible par le navigateur (HEIC ? exportez-la en JPEG)."));
+    img.src = src;
+  });
+}
+
+function toJpeg(img: CanvasImageSource, sw: number, sh: number, sx: number, sy: number, maxSide: number, quality: number) {
+  const scale = Math.min(1, maxSide / Math.max(sw, sh));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(sw * scale));
+  canvas.height = Math.max(1, Math.round(sh * scale));
+  const ctx = canvas.getContext("2d")!;
+  // Fond blanc : les zones transparentes (PNG) deviendraient noires en JPEG.
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+  return new Promise<{ blob: Blob; width: number; height: number }>((resolve, reject) =>
+    canvas.toBlob((b) => (b ? resolve({ blob: b, width: canvas.width, height: canvas.height }) : reject(new Error("Conversion impossible"))), "image/jpeg", quality),
+  );
+}
+
+/**
+ * Prépare une photo pour les plateformes : JPEG (exigé par Instagram, accepté par TikTok), orientation
+ * corrigée par le navigateur, plus grand côté limité à 1920 px.
+ */
+export async function prepareImage(file: Blob, maxSide = 1920, quality = 0.9) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await loadImage(url);
+    return await toJpeg(img, img.naturalWidth, img.naturalHeight, 0, 0, maxSide, quality);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+/** Recadre une image au centre selon un rapport largeur / hauteur (ex. 4/5). */
+export async function cropImage(src: string, ratio: number, maxSide = 1920, quality = 0.92) {
+  const img = await loadImage(src);
+  const w = img.naturalWidth;
+  const h = img.naturalHeight;
+  const cw = w / h > ratio ? Math.round(h * ratio) : w;
+  const ch = w / h > ratio ? h : Math.round(w / ratio);
+  return toJpeg(img, cw, ch, Math.round((w - cw) / 2), Math.round((h - ch) / 2), maxSide, quality);
+}

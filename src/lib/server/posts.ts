@@ -11,7 +11,9 @@ const str = (max: number) => z.string().max(max).default("");
 const tags = z.array(z.string().trim().min(1).max(100)).max(100).default([]);
 
 export const postInputSchema = z.object({
+  kind: z.enum(["video", "photo"]).default("video"),
   mediaId: z.string().uuid().optional(),
+  imageIds: z.array(z.string().uuid()).max(35).default([]).transform((ids) => [...new Set(ids)]),
   common: z.object({
     title: str(500),
     description: str(10000),
@@ -33,6 +35,7 @@ export const postInputSchema = z.object({
       containsSyntheticMedia: z.boolean(),
       defaultLanguage: z.string().max(10),
       thumbnailId: z.string().uuid().optional(),
+      format: z.enum(["auto", "short", "long"]).default("auto"),
     }),
     tiktok: z.object({
       caption: str(5000),
@@ -47,6 +50,7 @@ export const postInputSchema = z.object({
       yourBrand: z.boolean(),
       brandedContent: z.boolean(),
       isAigc: z.boolean(),
+      autoAddMusic: z.boolean().default(true),
     }),
     instagram: z.object({
       caption: str(5000),
@@ -66,7 +70,9 @@ export function newPost(input: PostInput, status: PostStatus): Post {
   const post: Post = {
     id: crypto.randomUUID(),
     status,
+    kind: input.kind ?? "video",
     mediaId: input.mediaId,
+    imageIds: input.imageIds ?? [],
     common: input.common,
     platforms: input.platforms,
     options: input.options,
@@ -88,7 +94,9 @@ export function updatePost(id: string, input: PostInput, status: PostStatus): Po
   const updated = db().update((d) => {
     const p = d.posts.find((x) => x.id === id)!;
     Object.assign(p, {
+      kind: input.kind ?? "video",
       mediaId: input.mediaId,
+      imageIds: input.imageIds ?? [],
       common: input.common,
       platforms: input.platforms,
       options: input.options,
@@ -99,6 +107,7 @@ export function updatePost(id: string, input: PostInput, status: PostStatus): Po
     return p;
   });
   if (existing.mediaId && existing.mediaId !== input.mediaId) deleteMediaIfUnused(existing.mediaId);
+  for (const img of existing.imageIds ?? []) if (!input.imageIds?.includes(img)) deleteMediaIfUnused(img);
   const oldThumb = existing.options.youtube.thumbnailId;
   if (oldThumb && oldThumb !== input.options.youtube.thumbnailId) deleteMediaIfUnused(oldThumb);
   return updated;
@@ -112,6 +121,7 @@ export function deletePost(id: string) {
   });
   deleteMediaIfUnused(post.mediaId);
   deleteMediaIfUnused(post.options.youtube.thumbnailId);
+  for (const img of post.imageIds ?? []) deleteMediaIfUnused(img);
 }
 
 export function duplicatePost(id: string): Post {
@@ -119,7 +129,9 @@ export function duplicatePost(id: string): Post {
   if (!post) throw new Error("Publication introuvable.");
   return newPost(
     {
+      kind: post.kind ?? "video",
       mediaId: post.mediaId,
+      imageIds: post.imageIds ?? [],
       common: post.common,
       platforms: post.platforms,
       options: { ...defaultOptions(getSettings().defaults), ...post.options },

@@ -108,7 +108,7 @@ function delete_media_if_unused(?string $id): void
     if (!$id) return;
     $d = db_read();
     foreach ($d['posts'] as $p) {
-        if (($p['mediaId'] ?? null) === $id || ($p['options']['youtube']['thumbnailId'] ?? null) === $id) return;
+        if (($p['mediaId'] ?? null) === $id || ($p['options']['youtube']['thumbnailId'] ?? null) === $id || in_array($id, $p['imageIds'] ?? [], true)) return;
     }
     $asset = get_media($id);
     if (!$asset) return;

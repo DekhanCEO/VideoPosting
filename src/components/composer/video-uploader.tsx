@@ -34,7 +34,7 @@ function compatibility(media: MediaAsset) {
     {
       platform: "youtube" as const,
       ok: true,
-      label: isYoutubeShort(media) ? "Publiée en Short" : "Vidéo classique",
+      label: isYoutubeShort(media) ? "Short ou vidéo longue (au choix)" : "Vidéo longue",
     },
     {
       platform: "instagram" as const,

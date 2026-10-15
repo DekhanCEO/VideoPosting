@@ -99,7 +99,7 @@ function youtube_step(array $ctx): array
             $meta = [
                 'snippet' => array_filter([
                     'title' => trim($o['title']),
-                    'description' => $o['description'],
+                    'description' => youtube_description($o),
                     'tags' => $o['tags'] ?: null,
                     'categoryId' => $o['categoryId'],
                     'defaultLanguage' => $o['defaultLanguage'] ?: null,
@@ -161,7 +161,7 @@ function youtube_step(array $ctx): array
             return ['job' => ['state' => 'finish', 'videoId' => $job['videoId']], 'progress' => 97, 'step' => 'Finalisation sur YouTube', 'log' => $log, 'level' => $level];
 
         case 'finish':
-            $short = !empty($media['duration']) && !empty($media['width']) && $media['duration'] <= 180 && ($media['height'] ?? 0) >= $media['width'];
+            $short = youtube_is_short($o['format'] ?? 'auto', $media);
             $id = $job['videoId'];
             return ['done' => ['externalId' => $id, 'url' => $short ? "https://www.youtube.com/shorts/$id" : "https://www.youtube.com/watch?v=$id"]];
     }
@@ -246,4 +246,20 @@ function youtube_stats(array $a, array $externalIds, int $days): array
     }
     $result['daily'] = array_values($byDate);
     return $result;
+}
+
+/** Short : choisi explicitement, sinon vidéo verticale (ou carrée) de 3 minutes maximum. */
+function youtube_is_short(string $format, array $media): bool
+{
+    if ($format === 'short') return true;
+    if ($format === 'long') return false;
+    return !empty($media['duration']) && !empty($media['width']) && $media['duration'] <= 180 && ($media['height'] ?? 0) >= $media['width'];
+}
+
+/** Short demandé explicitement : #Shorts aide YouTube à le classer comme tel. */
+function youtube_description(array $o): string
+{
+    $d = (string) $o['description'];
+    if (($o['format'] ?? 'auto') === 'short' && !preg_match('/#shorts\b/i', $o['title'] . ' ' . $d)) $d .= ($d !== '' ? "\n\n" : '') . '#Shorts';
+    return $d;
 }

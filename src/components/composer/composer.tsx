@@ -13,6 +13,8 @@ import {
   ChevronRight,
   Circle,
   Eye,
+  Film,
+  Images,
   Save,
   Send,
   Smartphone,
@@ -24,13 +26,14 @@ import { ApiError, api, fetcher } from "@/lib/api-client";
 import { defaultOptions, resolveOptions } from "@/lib/captions";
 import { formatDateTime, formatRelative, fromLocalInput, toLocalInput } from "@/lib/format";
 import { useAccounts, useSettings } from "@/lib/hooks";
-import { PLATFORMS, PLATFORM_ORDER, TIKTOK_PRIVACY_LABELS, YOUTUBE_PRIVACY_LABELS, isYoutubeShort } from "@/lib/platforms";
+import { PLATFORMS, PLATFORM_ORDER, TIKTOK_PRIVACY_LABELS, YOUTUBE_PRIVACY_LABELS, contentLabel, supportsKind, youtubeIsShort } from "@/lib/platforms";
 import type {
   CommonContent,
   MediaAsset,
   PlatformId,
   PlatformOptionsMap,
   PostInput,
+  PostKind,
   PostWithMedia,
   PublicAccount,
   SaveAction,
@@ -45,11 +48,14 @@ import { PostStatusBadge } from "../status";
 import { Avatar, Badge, Button, Card, CardHeader, Dialog, Field, Input, Segmented, Skeleton, Textarea } from "../ui";
 import { ChipsInput } from "./fields";
 import { CaptionSourceHint, InstagramPanel, TiktokPanel, YoutubePanel } from "./platform-panels";
+import { PhotoUploader } from "./photo-uploader";
 import { PlatformPreview, type PreviewData } from "./previews";
 import { VideoUploader, type UploadState } from "./video-uploader";
 
 interface Draft {
+  kind: PostKind;
   media: MediaAsset | null;
+  images: MediaAsset[];
   common: CommonContent;
   platforms: PlatformId[];
   options: PlatformOptionsMap;
@@ -58,7 +64,15 @@ interface Draft {
 }
 
 function snapshot(d: Draft) {
-  return JSON.stringify({ m: d.media?.id, c: d.common, p: d.platforms, o: d.options, s: d.scheduleMode === "later" ? d.scheduledAt : null });
+  return JSON.stringify({
+    k: d.kind,
+    m: d.media?.id,
+    i: d.images.map((x) => x.id),
+    c: d.common,
+    p: d.platforms,
+    o: d.options,
+    s: d.scheduleMode === "later" ? d.scheduledAt : null,
+  });
 }
 
 function nextAt(hour: number, dayOffset = 0, weekday?: number) {
@@ -94,6 +108,7 @@ export function Composer({ postId, presetDate }: { postId?: string; presetDate?:
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saved, setSaved] = useState<string>("");
   const [upload, setUpload] = useState<UploadState | null>(null);
+  const [photosBusy, setPhotosBusy] = useState(false);
   const [tab, setTab] = useState<PlatformId>("tiktok");
   const [previewPlatform, setPreviewPlatform] = useState<PlatformId>("tiktok");
   const [showErrors, setShowErrors] = useState(false);
@@ -108,7 +123,9 @@ export function Composer({ postId, presetDate }: { postId?: string; presetDate?:
     if (postId && !existing) return;
     if (existing) {
       const d: Draft = {
+        kind: existing.kind ?? "video",
         media: existing.media ?? null,
+        images: existing.images ?? [],
         common: existing.common,
         platforms: existing.platforms,
         options: { ...defaultOptions(settings.defaults), ...existing.options },
@@ -123,7 +140,9 @@ export function Composer({ postId, presetDate }: { postId?: string; presetDate?:
       }
     } else {
       const d: Draft = {
+        kind: "video",
         media: null,
+        images: [],
         common: { title: "", description: "", hashtags: [] },
         platforms: [...PLATFORM_ORDER],
         options: defaultOptions(settings.defaults),
@@ -169,7 +188,9 @@ export function Composer({ postId, presetDate }: { postId?: string; presetDate?:
 
   const input: PostInput | null = draft
     ? {
-        mediaId: draft.media?.id,
+        kind: draft.kind,
+        mediaId: draft.kind === "video" ? draft.media?.id : undefined,
+        imageIds: draft.kind === "photo" ? draft.images.map((m) => m.id) : [],
         common: draft.common,
         platforms: draft.platforms,
         options: draft.options,
@@ -180,13 +201,15 @@ export function Composer({ postId, presetDate }: { postId?: string; presetDate?:
   const issues: Issue[] = useMemo(() => {
     if (!input || !draft) return [];
     const connected = Object.fromEntries(Object.entries(accountBy).map(([k, a]) => [k, !a!.needsReconnect]));
-    const list = validatePost({ input, media: draft.media ?? undefined, connected, tiktokCreator: creator, mode: "publish" });
-    if (upload && !upload.error) list.unshift({ platform: "general", level: "error", message: "La vidéo est encore en cours d'envoi.", field: "media" });
+    const list = validatePost({ input, media: draft.media ?? undefined, images: draft.images, connected, tiktokCreator: creator, mode: "publish" });
+    if (draft.kind === "video" && upload && !upload.error)
+      list.unshift({ platform: "general", level: "error", message: "La vidéo est encore en cours d'envoi.", field: "media" });
+    if (draft.kind === "photo" && photosBusy) list.unshift({ platform: "general", level: "error", message: "Des photos sont encore en cours d'envoi.", field: "media" });
     if (draft.scheduleMode === "later" && !draft.scheduledAt)
       list.push({ platform: "general", level: "error", message: "Choisissez la date et l'heure de publication.", field: "schedule" });
     return list;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(input), draft?.media, accountBy, creator, upload]);
+  }, [JSON.stringify(input), draft?.media, draft?.images, accountBy, creator, upload, photosBusy]);
 
   const errors = issues.filter((i) => i.level === "error");
   const warnings = issues.filter((i) => i.level === "warning");
@@ -198,10 +221,32 @@ export function Composer({ postId, presetDate }: { postId?: string; presetDate?:
     update((d) => ({ ...d, options: { ...d.options, [platform]: { ...d.options[platform], ...patch } } }));
   }
 
-  const togglePlatform = (p: PlatformId) =>
+  const togglePlatform = (p: PlatformId) => {
+    if (draft && !supportsKind(p, draft.kind)) {
+      toast.info(`${PLATFORMS[p].name} n'accepte que des vidéos.`);
+      return;
+    }
     update((d) => {
       const platforms = d.platforms.includes(p) ? d.platforms.filter((x) => x !== p) : PLATFORM_ORDER.filter((x) => x === p || d.platforms.includes(x));
       return { ...d, platforms };
+    });
+  };
+
+  // Vidéo ↔ photos : YouTube (vidéo uniquement) est retiré puis remis automatiquement.
+  const youtubeRemovedBySwitch = useRef(false);
+  const setKind = (kind: PostKind) =>
+    update((d) => {
+      if (d.kind === kind) return d;
+      let platforms = d.platforms;
+      if (kind === "photo" && platforms.includes("youtube")) {
+        platforms = platforms.filter((x) => x !== "youtube");
+        youtubeRemovedBySwitch.current = true;
+        toast.info("YouTube retiré : il n'accepte que des vidéos.");
+      } else if (kind === "video" && youtubeRemovedBySwitch.current) {
+        platforms = PLATFORM_ORDER.filter((x) => x === "youtube" || platforms.includes(x));
+        youtubeRemovedBySwitch.current = false;
+      }
+      return { ...d, kind, platforms };
     });
 
   useEffect(() => {
@@ -287,7 +332,10 @@ export function Composer({ postId, presetDate }: { postId?: string; presetDate?:
   }
 
   const media = draft.media;
+  const photo = draft.kind === "photo";
   const resolved = resolveOptions(draft.common, draft.options);
+  const ytFormat = draft.options.youtube.format ?? "auto";
+  const label = (p: PlatformId) => contentLabel(p, draft.kind, { media, imageCount: draft.images.length, youtubeFormat: ytFormat });
   const scheduled = draft.scheduleMode === "later";
   const readOnly = existing?.status === "publishing";
 
@@ -296,6 +344,8 @@ export function Composer({ postId, presetDate }: { postId?: string; presetDate?:
     const fallbackName = settings.demoMode ? "Léa Créations" : "Votre compte";
     const caption = platform === "youtube" ? resolved.youtube.description : platform === "tiktok" ? resolved.tiktok.caption : resolved.instagram.caption;
     return {
+      kind: draft.kind,
+      images: draft.images.map((m) => mediaUrl(m.id)),
       videoSrc: media ? mediaUrl(media.id) : upload?.localUrl,
       posterSrc: media?.posterId ? mediaUrl(media.posterId) : undefined,
       name: acc?.name ?? fallbackName,
@@ -303,7 +353,7 @@ export function Composer({ postId, presetDate }: { postId?: string; presetDate?:
       avatarUrl: acc?.avatarUrl ?? (platform === "tiktok" ? creator?.creatorAvatarUrl : undefined),
       caption,
       title: resolved.youtube.title,
-      isShort: isYoutubeShort(media ?? undefined),
+      isShort: youtubeIsShort(ytFormat, media ?? undefined) || (ytFormat === "auto" && !media),
       vertical: media ? (media.height ?? 0) >= (media.width ?? 0) : true,
       duration: media?.duration,
       collaborators: resolved.instagram.collaborators,
@@ -384,7 +434,29 @@ export function Composer({ postId, presetDate }: { postId?: string; presetDate?:
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_400px]">
         <div className="min-w-0 space-y-6">
-          {/* 1. Vidéo */}
+          {/* 1. Média : vidéo, ou photos (publication / carrousel) */}
+          <div className="flex flex-wrap items-center gap-3">
+            <Segmented
+              value={draft.kind}
+              onChange={(v) => setKind(v as PostKind)}
+              options={[
+                { value: "video", label: "Vidéo", icon: <Film className="size-4" /> },
+                { value: "photo", label: "Photos", icon: <Images className="size-4" /> },
+              ]}
+            />
+            <span className="text-xs text-muted">
+              {photo ? "Publication ou carrousel Instagram, diaporama TikTok." : "Short ou vidéo longue YouTube, Reel Instagram, vidéo TikTok."}
+            </span>
+          </div>
+          {photo ? (
+            <PhotoUploader
+              images={draft.images}
+              onChange={(fn) => update((d) => ({ ...d, images: fn(d.images) }))}
+              onBusyChange={setPhotosBusy}
+              instagram={draft.platforms.includes("instagram")}
+              canDeleteFromServer={!id}
+            />
+          ) : (
           <VideoUploader
             media={media}
             upload={upload}
@@ -404,13 +476,15 @@ export function Composer({ postId, presetDate }: { postId?: string; presetDate?:
               if (old && !id) void api(`/api/media/${old}`, { method: "DELETE" }).catch(() => undefined);
             }}
           />
+          )}
 
           {/* 2. Plateformes */}
           <Card>
-            <CardHeader title="Plateformes" description="Choisissez où publier cette vidéo." />
+            <CardHeader title="Plateformes" description={photo ? "Choisissez où publier ces photos." : "Choisissez où publier cette vidéo."} />
             <div className="grid gap-3 p-5 sm:grid-cols-3">
               {PLATFORM_ORDER.map((p) => {
                 const selected = draft.platforms.includes(p);
+                const unsupported = !supportsKind(p, draft.kind);
                 const acc = accountBy[p];
                 const hasError = showErrors && errors.some((e) => e.platform === p);
                 return (
@@ -418,6 +492,7 @@ export function Composer({ postId, presetDate }: { postId?: string; presetDate?:
                     key={p}
                     role="checkbox"
                     aria-checked={selected}
+                    aria-disabled={unsupported}
                     tabIndex={0}
                     onClick={() => togglePlatform(p)}
                     onKeyDown={(e) => (e.key === " " || e.key === "Enter") && (e.preventDefault(), togglePlatform(p))}
@@ -425,6 +500,7 @@ export function Composer({ postId, presetDate }: { postId?: string; presetDate?:
                       "group relative cursor-pointer rounded-2xl border-2 p-3.5 transition-all select-none sm:p-4",
                       selected ? "border-accent bg-accent-soft/50 shadow-[0_0_0_4px_var(--ring)]" : "border-border hover:border-border-strong",
                       hasError && "border-danger/60",
+                      unsupported && "cursor-not-allowed opacity-50 hover:border-border",
                     )}
                   >
                     <div className="flex items-center gap-3 sm:block">
@@ -441,7 +517,7 @@ export function Composer({ postId, presetDate }: { postId?: string; presetDate?:
                       </div>
                       <div className="min-w-0 flex-1 sm:mt-3">
                         <p className="font-semibold">{PLATFORMS[p].name}</p>
-                        <p className="text-xs text-muted">{p === "youtube" && media ? (isYoutubeShort(media) ? "Short" : "Vidéo") : PLATFORMS[p].format}</p>
+                        <p className="text-xs text-muted">{label(p)}</p>
                       </div>
                       <span
                         className={cn(
@@ -536,7 +612,7 @@ export function Composer({ postId, presetDate }: { postId?: string; presetDate?:
                     value={draft.options.youtube}
                     onChange={(patch) => setOptions("youtube", patch)}
                     media={media}
-                    issues={visibleIssues.filter((i) => i.platform === "youtube")}
+                    issues={issues.filter((i) => i.platform === "youtube" && (showErrors || i.field === "format"))}
                   />
                 )}
                 {tab === "tiktok" && (
@@ -549,6 +625,8 @@ export function Composer({ postId, presetDate }: { postId?: string; presetDate?:
                     creatorError={creatorError ? (creatorError as Error).message : undefined}
                     account={accountBy.tiktok}
                     issues={visibleIssues.filter((i) => i.platform === "tiktok")}
+                    kind={draft.kind}
+                    imageCount={draft.images.length}
                   />
                 )}
                 {tab === "instagram" && (
@@ -560,6 +638,8 @@ export function Composer({ postId, presetDate }: { postId?: string; presetDate?:
                     settings={settings}
                     account={accountBy.instagram}
                     issues={visibleIssues.filter((i) => i.platform === "instagram")}
+                    kind={draft.kind}
+                    imageCount={draft.images.length}
                   />
                 )}
               </div>
@@ -656,8 +736,8 @@ export function Composer({ postId, presetDate }: { postId?: string; presetDate?:
         title={confirm === "schedule" ? "Programmer la publication" : "Publier maintenant"}
         description={
           confirm === "schedule"
-            ? `La vidéo sera publiée le ${formatDateTime(draft.scheduledAt)} sur ${draft.platforms.length} plateforme${draft.platforms.length > 1 ? "s" : ""}.`
-            : `La vidéo va être envoyée sur ${draft.platforms.length} plateforme${draft.platforms.length > 1 ? "s" : ""}.`
+            ? `${photo ? "Les photos seront publiées" : "La vidéo sera publiée"} le ${formatDateTime(draft.scheduledAt)} sur ${draft.platforms.length} plateforme${draft.platforms.length > 1 ? "s" : ""}.`
+            : `${photo ? "Les photos vont être envoyées" : "La vidéo va être envoyée"} sur ${draft.platforms.length} plateforme${draft.platforms.length > 1 ? "s" : ""}.`
         }
         footer={
           <>
@@ -676,12 +756,14 @@ export function Composer({ postId, presetDate }: { postId?: string; presetDate?:
             const acc = accountBy[p];
             const detail =
               p === "youtube"
-                ? `${isYoutubeShort(media ?? undefined) ? "Short" : "Vidéo"} · ${YOUTUBE_PRIVACY_LABELS[resolved.youtube.privacy].label}`
+                ? `${label("youtube")} · ${YOUTUBE_PRIVACY_LABELS[resolved.youtube.privacy].label}`
                 : p === "tiktok"
-                  ? resolved.tiktok.mode === "inbox"
-                    ? "Brouillon dans la boîte de réception TikTok"
-                    : `Visible par : ${resolved.tiktok.privacyLevel ? TIKTOK_PRIVACY_LABELS[resolved.tiktok.privacyLevel] : "—"}`
-                  : `Reel${resolved.instagram.shareToFeed ? " · partagé dans le fil" : ""}`;
+                  ? `${label("tiktok")} · ${
+                      resolved.tiktok.mode === "inbox"
+                        ? "brouillon dans la boîte de réception TikTok"
+                        : `visible par : ${resolved.tiktok.privacyLevel ? TIKTOK_PRIVACY_LABELS[resolved.tiktok.privacyLevel] : "—"}`
+                    }`
+                  : `${label("instagram")}${!photo && resolved.instagram.shareToFeed ? " · partagé dans le fil" : ""}`;
             return (
               <div key={p} className="flex items-center gap-3 rounded-xl border border-border p-3">
                 <PlatformBadge platform={p} size={36} />

@@ -31,6 +31,8 @@ export interface MediaAsset {
 /* ------------------------------------------------------------------ */
 
 export type YoutubePrivacy = "public" | "unlisted" | "private";
+/** auto : Short si la vidéo est verticale (ou carrée) et dure 3 min max · short · long : vidéo classique. */
+export type YoutubeFormat = "auto" | "short" | "long";
 
 export interface YoutubeOptions {
   title: string;
@@ -46,6 +48,7 @@ export interface YoutubeOptions {
   containsSyntheticMedia: boolean;
   defaultLanguage: string;
   thumbnailId?: string; // image personnalisée (MediaAsset de type image)
+  format?: YoutubeFormat;
 }
 
 export type TiktokPrivacy =
@@ -67,6 +70,8 @@ export interface TiktokOptions {
   yourBrand: boolean;
   brandedContent: boolean;
   isAigc: boolean;
+  /** Publications photo : TikTok ajoute une musique recommandée. */
+  autoAddMusic?: boolean;
 }
 
 export interface InstagramOptions {
@@ -94,6 +99,9 @@ export interface CommonContent {
   description: string;
   hashtags: string[];
 }
+
+/** video : une vidéo (Short / vidéo longue, Reel, vidéo TikTok) · photo : 1 à 35 photos (publication ou carrousel). */
+export type PostKind = "video" | "photo";
 
 export type PostStatus = "draft" | "scheduled" | "publishing" | "published" | "partial" | "failed";
 
@@ -143,7 +151,9 @@ export interface Publication {
 export interface Post {
   id: string;
   status: PostStatus;
+  kind?: PostKind;
   mediaId?: string;
+  imageIds?: string[];
   common: CommonContent;
   platforms: PlatformId[];
   options: PlatformOptionsMap;
@@ -156,7 +166,9 @@ export interface Post {
 
 /** Ce que le client envoie pour créer / modifier une publication. */
 export interface PostInput {
+  kind?: PostKind;
   mediaId?: string;
+  imageIds?: string[];
   common: CommonContent;
   platforms: PlatformId[];
   options: PlatformOptionsMap;
@@ -263,6 +275,8 @@ export interface PublicSettings {
    * les espaces). Absent = l'utilisateur peut tout modifier.
    */
   canManageApps?: boolean;
+  /** Fichier .env de l'hébergement (administrateurs) : jamais les valeurs, seulement les clés présentes. */
+  env?: { found: boolean; location: "outside" | "data" | null; public: boolean; keys: string[] } | null;
 }
 
 export type UserRole = "admin" | "member";
@@ -284,6 +298,8 @@ export interface SessionInfo {
   /** password : mot de passe unique (APP_PASSWORD) · twitch : connexion Twitch · none : accès libre. */
   loginMethod?: "password" | "twitch" | "none";
   twitchConfigured?: boolean;
+  /** Application Twitch définie dans le fichier .env de l'hébergement. */
+  twitchFromEnv?: boolean;
   /** Adresse de retour à déclarer dans l'application Twitch. */
   redirectUri?: string;
   user?: SessionUser | null;
@@ -303,7 +319,7 @@ export interface AdminUser extends SessionUser {
 export interface AdminOverview {
   access: { mode: AccessMode; allowed: string[] };
   users: AdminUser[];
-  twitch: { clientId: string; redirectUri: string };
+  twitch: { clientId: string; redirectUri: string; fromEnv?: boolean };
 }
 
 /* ------------------------------------------------------------------ */
@@ -498,6 +514,7 @@ export interface TiktokCreatorInfo {
 /** Publication renvoyée par l'API, accompagnée de sa vidéo. */
 export interface PostWithMedia extends Post {
   media?: MediaAsset | null;
+  images?: MediaAsset[];
 }
 
 export type SaveAction = "draft" | "schedule" | "publish";

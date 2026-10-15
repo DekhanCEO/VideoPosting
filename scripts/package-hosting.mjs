@@ -1,5 +1,5 @@
 // Fabrique le paquet pour hébergement mutualisé (OVH…) : dist/VideoPosting-hebergement.zip
-// Contenu : un dossier « posting » à déposer à la racine du site (www) + LISEZ-MOI.txt.
+// Contenu : un dossier « posting » à déposer à la racine du site, un modèle de .env (hors du dossier public) et LISEZ-MOI.txt.
 // Usage : node scripts/package-hosting.mjs [--base /posting] [--site https://votre-domaine.fr] [--skip-build]
 import { execSync } from "node:child_process";
 import crypto from "node:crypto";
@@ -39,10 +39,10 @@ fs.writeFileSync(
   `<?php\n// Configuration générée automatiquement — ne pas partager.\nreturn [\n    // Code demandé à la première connexion (installation et désignation de l'administrateur).\n    'setup_code' => '${setupCode}',\n];\n`,
 );
 
-// 4. Règles Apache
+// 4. Règles Apache (un .env déposé par erreur dans le dossier public reste illisible)
 fs.writeFileSync(
   path.join(app, ".htaccess"),
-  `# VideoPosting\nOptions -Indexes\nDirectoryIndex index.html index.php\nErrorDocument 404 ${base}/404.html\n\n<IfModule mod_headers.c>\n  Header always set X-Content-Type-Options "nosniff"\n  Header always set Referrer-Policy "strict-origin-when-cross-origin"\n</IfModule>\n`,
+  `# VideoPosting\nOptions -Indexes\nDirectoryIndex index.html index.php\nErrorDocument 404 ${base}/404.html\n\n<FilesMatch "(^\\.env|\\.env$)">\n  <IfModule mod_authz_core.c>\n    Require all denied\n  </IfModule>\n  <IfModule !mod_authz_core.c>\n    Deny from all\n  </IfModule>\n</FilesMatch>\n\n<IfModule mod_headers.c>\n  Header always set X-Content-Type-Options "nosniff"\n  Header always set Referrer-Policy "strict-origin-when-cross-origin"\n</IfModule>\n`,
 );
 fs.writeFileSync(
   path.join(app, "_next", ".htaccess"),
@@ -57,9 +57,15 @@ const readme = fs
   .replaceAll("{{BASE}}", base)
   .replaceAll("{{SITE}}", site);
 fs.writeFileSync(path.join(outRoot, "LISEZ-MOI.txt"), readme.replace(/\n/g, "\r\n"));
+// Modèle de .env, à déposer hors du dossier public.
+const env = fs
+  .readFileSync(path.join(root, "hosting", "env.example"), "utf8")
+  .replaceAll("{{BASE}}", base)
+  .replaceAll("{{SITE}}", site);
+fs.writeFileSync(path.join(outRoot, ".env"), env);
 
 // 6. Archive
 const zipName = "VideoPosting-hebergement.zip";
 fs.rmSync(path.join(root, "dist", zipName), { force: true });
-execSync(`zip -qr ../${zipName} ${folder} LISEZ-MOI.txt`, { cwd: outRoot });
+execSync(`zip -qr ../${zipName} ${folder} .env LISEZ-MOI.txt`, { cwd: outRoot });
 console.log(`✓ dist/${zipName} (code d'installation : ${setupCode})`);

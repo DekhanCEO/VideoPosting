@@ -67,7 +67,8 @@ const owner = browser();
 const { call, json } = owner;
 
 before(async () => {
-  docroot = fs.mkdtempSync(path.join(os.tmpdir(), "vp-php-"));
+  // Dossier public du site = …/www ; le .env de test sera déposé au-dessus (hors du dossier public).
+  docroot = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "vp-php-")), "www");
   appDir = path.join(docroot, "posting");
   fs.cpSync(path.join(root, "hosting", "php", "api"), path.join(appDir, "api"), { recursive: true });
   fs.cpSync(path.join(root, "hosting", "php", "data"), path.join(appDir, "data"), { recursive: true });
@@ -104,7 +105,7 @@ before(async () => {
 after(() => {
   php?.kill();
   mock?.server.close();
-  fs.rmSync(docroot, { recursive: true, force: true });
+  fs.rmSync(path.dirname(docroot), { recursive: true, force: true });
 });
 
 test("installation : code d'installation, application Twitch, puis connexion Twitch de l'administrateur", async () => {
@@ -242,6 +243,83 @@ test("envoi par morceaux puis publication réelle sur les trois plateformes", { 
   assert.equal((await fetch(forged)).status, 403);
 });
 
+test("publication photo : carrousel Instagram et photos TikTok ; YouTube refusé", { timeout: 60_000 }, async () => {
+  const upload = async (bytes, width, height) => {
+    const created = await json(api("/media"), { method: "POST", json: { fileName: "photo.jpg", size: bytes.length, mimeType: "image/jpeg" } });
+    assert.equal(created.status, 201, JSON.stringify(created.data));
+    await call(api(`/media/${created.data.id}/chunk`, "&offset=0"), { method: "POST", body: bytes, headers: { "content-type": "application/octet-stream" } });
+    const done = await json(api(`/media/${created.data.id}/complete`), { method: "POST", json: { width, height } });
+    assert.equal(done.data.status, "ready");
+    return created.data.id;
+  };
+  const photos = [crypto.randomBytes(40_000), crypto.randomBytes(55_000)];
+  const ids = [await upload(photos[0], 1080, 1350), await upload(photos[1], 1080, 1080)];
+  const base = (await json(api("/settings"))).data;
+  assert.ok(base);
+  const options = {
+    youtube: { title: "", description: "", tags: [], sync: { title: true, description: true, tags: true }, categoryId: "22", privacy: "public", madeForKids: false, notifySubscribers: true, embeddable: true, license: "youtube", containsSyntheticMedia: false, defaultLanguage: "fr", format: "auto" },
+    tiktok: { caption: "", sync: { caption: true }, mode: "direct", privacyLevel: "PUBLIC_TO_EVERYONE", allowComments: true, allowDuet: true, allowStitch: true, coverTimestampMs: 0, commercialContent: false, yourBrand: false, brandedContent: false, isAigc: false, autoAddMusic: true },
+    instagram: { caption: "", sync: { caption: true }, shareToFeed: true, thumbOffsetMs: 0, collaborators: [], audioName: "", locationId: "" },
+  };
+  const input = (platforms, extra = {}) => ({ kind: "photo", imageIds: ids, common: { title: "Carrousel test", description: "Deux photos", hashtags: ["photo"] }, platforms, options, ...extra });
+
+  const withYoutube = await json(api("/posts"), { method: "POST", json: { action: "publish", input: input(["youtube", "instagram"]) } });
+  assert.equal(withYoutube.status, 422);
+  assert.match(withYoutube.data.error, /YouTube n'accepte que des vidéos/);
+
+  const post = await json(api("/posts"), { method: "POST", json: { action: "publish", input: input(["tiktok", "instagram"]) } });
+  assert.equal(post.status, 200, JSON.stringify(post.data));
+  assert.equal(post.data.images.length, 2);
+  let current;
+  for (let i = 0; i < 100; i++) {
+    current = (await json(api(`/posts/${post.data.id}`))).data;
+    if (current.status !== "publishing") break;
+    await new Promise((r) => setTimeout(r, 300));
+  }
+  const pubs = current.publications;
+  assert.equal(current.status, "published", JSON.stringify(Object.fromEntries(Object.entries(pubs).map(([k, v]) => [k, [v.status, v.error]]))));
+  assert.equal(pubs.instagram.url, "https://www.instagram.com/p/PHOTO123/");
+  assert.equal(pubs.tiktok.url, "https://www.tiktok.com/@createur.tt/photo/7300000000000000002");
+  // Instagram : 2 éléments de carrousel téléchargés intacts, dans l'ordre.
+  const sha = (b) => crypto.createHash("sha256").update(b).digest("hex");
+  assert.deepEqual(mock.state.ig.images.map((x) => [x.status, x.hash, x.carouselItem]), [[200, sha(photos[0]), true], [200, sha(photos[1]), true]]);
+  assert.deepEqual(mock.state.ig.carousel.children, ["child1", "child2"]);
+  assert.equal(mock.state.ig.carousel.caption, "Carrousel test\n\nDeux photos\n\n#photo");
+  // TikTok : mode photo, images récupérées depuis l'hébergement, titre et description séparés.
+  const init = mock.state.tt.photoInit;
+  assert.equal(init.media_type, "PHOTO");
+  assert.equal(init.post_mode, "DIRECT_POST");
+  assert.equal(init.source_info.source, "PULL_FROM_URL");
+  assert.equal(init.post_info.title, "Carrousel test");
+  assert.equal(init.post_info.description, "Deux photos\n\n#photo");
+  assert.equal(init.post_info.auto_add_music, true);
+  assert.deepEqual(mock.state.tt.photoDownloads.map((d) => [d.status, d.hash]), [[200, sha(photos[0])], [200, sha(photos[1])]]);
+
+  // Format refusé par Instagram (trop vertical).
+  const tall = await upload(crypto.randomBytes(10_000), 1080, 1920);
+  const bad = await json(api("/posts"), { method: "POST", json: { action: "publish", input: input(["instagram"], { imageIds: [tall] }) } });
+  assert.equal(bad.status, 422);
+  assert.match(bad.data.error, /format refusé par Instagram/);
+});
+
+test("YouTube : Short demandé pour une vidéo horizontale refusé", async () => {
+  const created = await json(api("/media"), { method: "POST", json: { fileName: "h.mp4", size: 1000, mimeType: "video/mp4" } });
+  await call(api(`/media/${created.data.id}/chunk`, "&offset=0"), { method: "POST", body: crypto.randomBytes(1000), headers: { "content-type": "application/octet-stream" } });
+  await json(api(`/media/${created.data.id}/complete`), { method: "POST", json: { duration: 30, width: 1920, height: 1080 } });
+  const options = {
+    youtube: { title: "Horizontal", description: "", tags: [], sync: { title: false, description: true, tags: true }, categoryId: "22", privacy: "public", madeForKids: false, notifySubscribers: true, embeddable: true, license: "youtube", containsSyntheticMedia: false, defaultLanguage: "fr", format: "short" },
+    tiktok: { caption: "", sync: { caption: true }, mode: "direct", privacyLevel: "", allowComments: true, allowDuet: true, allowStitch: true, coverTimestampMs: 0, commercialContent: false, yourBrand: false, brandedContent: false, isAigc: false },
+    instagram: { caption: "", sync: { caption: true }, shareToFeed: true, thumbOffsetMs: 0, collaborators: [], audioName: "", locationId: "" },
+  };
+  const r = await json(api("/posts"), { method: "POST", json: { action: "publish", input: { mediaId: created.data.id, common: { title: "Horizontal", description: "", hashtags: [] }, platforms: ["youtube"], options } } });
+  assert.equal(r.status, 422);
+  assert.match(r.data.error, /Un Short doit être vertical/);
+  // Brouillon : accepté tel quel.
+  const draft = await json(api("/posts"), { method: "POST", json: { action: "draft", input: { mediaId: created.data.id, common: { title: "Horizontal", description: "", hashtags: [] }, platforms: ["youtube"], options } } });
+  assert.equal(draft.status, 200);
+  assert.equal(draft.data.options.youtube.format, "short");
+});
+
 test("synchronisation des statistiques", async () => {
   const sync = await json(api("/analytics/sync"), { method: "POST" });
   assert.ok(sync.data.reports.every((r) => r.ok), JSON.stringify(sync.data));
@@ -343,7 +421,8 @@ test("espaces séparés : accès sur invitation, données isolées, droits limit
 
   // Vue d'ensemble de l'administrateur.
   const overview = (await json(api("/admin"))).data;
-  assert.deepEqual(overview.users.map((u) => [u.login, u.role, u.posts]).sort(), [["invite", "member", 1], ["malabop", "admin", 2]]);
+  const ownerPosts = (await json(api("/posts"))).data.length;
+  assert.deepEqual(overview.users.map((u) => [u.login, u.role, u.posts]).sort(), [["invite", "member", 1], ["malabop", "admin", ownerPosts]]);
   assert.equal(overview.twitch.clientId, "tw-client");
 
   // Retrait de l'invitation : la session de l'invité ne fonctionne plus.
@@ -402,4 +481,39 @@ test("cron, déconnexion et réinitialisation de l'installation", async () => {
   assert.ok(!fs.existsSync(path.join(appDir, "data", "reset-setup")));
   const posts = (await json(api("/posts"))).data;
   assert.ok(posts.some((p) => p.id === "legacy-post"), "données conservées");
+});
+
+test("fichier .env hors du dossier public : prioritaire, jamais exposé", async () => {
+  const outside = path.join(path.dirname(docroot), ".env");
+  fs.writeFileSync(
+    outside,
+    ["# identifiants", "TWITCH_CLIENT_ID=tw-client", "TWITCH_CLIENT_SECRET='tw-secret'", 'YOUTUBE_CLIENT_ID="env-yt-id"', "YOUTUBE_CLIENT_SECRET=env-yt-secret # commentaire", "TIKTOK_CLIENT_KEY="].join("\n"),
+  );
+  try {
+    const s = (await json(api("/settings"))).data;
+    assert.equal(s.credentials.youtube.clientId, "env-yt-id");
+    assert.equal(s.credentials.youtube.fromEnv, true);
+    assert.equal(s.credentials.tiktok.fromEnv, false, "valeur vide ignorée");
+    assert.deepEqual(s.env, { found: true, location: "outside", public: false, keys: ["TWITCH_CLIENT_ID", "TWITCH_CLIENT_SECRET", "YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET"] });
+    assert.ok(!JSON.stringify(s).includes("env-yt-secret"), "secret jamais renvoyé");
+    const overview = (await json(api("/admin"))).data;
+    assert.equal(overview.twitch.fromEnv, true);
+    assert.equal((await json(api("/admin/twitch"), { ...PUT, json: { clientId: "x", clientSecret: "y" } })).status, 409);
+    assert.equal((await json(api("/session"))).data.twitchFromEnv, true);
+    // Le YouTube du .env est bien celui utilisé pour la connexion.
+    const connect = await call(api("/auth/youtube/connect"));
+    assert.equal(new URL(connect.headers.get("location")).searchParams.get("client_id"), "env-yt-id");
+
+    // Un .env oublié dans le dossier public est signalé.
+    fs.renameSync(outside, path.join(docroot, ".env"));
+    assert.equal((await json(api("/settings"))).data.env.public, true);
+    // Dans le dossier protégé posting/data : accepté.
+    fs.renameSync(path.join(docroot, ".env"), path.join(appDir, "data", ".env"));
+    const inData = (await json(api("/settings"))).data.env;
+    assert.equal(inData.location, "data");
+    assert.equal(inData.public, false);
+  } finally {
+    for (const f of [outside, path.join(docroot, ".env"), path.join(appDir, "data", ".env")]) fs.rmSync(f, { force: true });
+  }
+  assert.equal((await json(api("/settings"))).data.env.found, false);
 });

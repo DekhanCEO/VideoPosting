@@ -10,6 +10,7 @@ import {
   FlaskConical,
   Globe,
   Hash,
+  KeyRound,
   Lock,
   Plus,
   Save,
@@ -39,7 +40,7 @@ async function savePatch(patch: Record<string, unknown>) {
 const A = ExternalA;
 
 function StatusBadge({ configured, fromEnv }: { configured: boolean; fromEnv: boolean }) {
-  if (fromEnv) return <Badge tone="info">Variables d&apos;environnement</Badge>;
+  if (fromEnv) return <Badge tone="info">Fichier .env</Badge>;
   return configured ? <Badge tone="success" dot>Configuré</Badge> : <Badge>Non configuré</Badge>;
 }
 
@@ -100,6 +101,10 @@ function ApiCard({ platform, settings, highlight }: { platform: PlatformId; sett
       <>Demandez les autorisations : user.info.basic, user.info.profile, user.info.stats, video.list, video.publish, video.upload.</>,
       <>Dans Login Kit, ajoutez l&apos;URI de redirection ci-dessous (HTTPS obligatoire, utilisez un tunnel en local).</>,
       <>Copiez la Client key et le Client secret.</>,
+      <>
+        Publications <strong>photo</strong> : dans « URL properties », ajoutez et vérifiez l&apos;adresse de votre site (préfixe{" "}
+        <code className="rounded bg-surface-2 px-1">{settings.publicUrl}/</code>) : TikTok télécharge les photos depuis cette adresse.
+      </>,
     ],
     instagram:
       loginType === "facebook"
@@ -149,7 +154,7 @@ function ApiCard({ platform, settings, highlight }: { platform: PlatformId; sett
             />
           </Field>
         )}
-        {cred.fromEnv && <p className="rounded-xl bg-sky-500/8 p-3 text-xs text-sky-700 dark:text-sky-300">Identifiants définis par variables d&apos;environnement : ils sont prioritaires sur cette page.</p>}
+        {cred.fromEnv && <p className="rounded-xl bg-sky-500/8 p-3 text-xs text-sky-700 dark:text-sky-300">Identifiants définis dans le fichier .env : ils sont prioritaires sur cette page.</p>}
         <div className="grid gap-4 md:grid-cols-2">
           <Field label={labels.id}>
             <Input value={clientId} onChange={(e) => setClientId(e.target.value)} disabled={cred.fromEnv} placeholder="Collez la valeur ici" autoComplete="off" />
@@ -421,6 +426,35 @@ function Deployment({ settings }: { settings: PublicSettings }) {
               </p>
               <CopyField value={settings.cronUrl} />
             </div>
+          </div>
+        )}
+        {php && settings.env && (
+          <div className="flex items-start gap-3 p-5">
+            <KeyRound className="mt-0.5 size-4 shrink-0 text-muted" />
+            <div className="min-w-0 flex-1 space-y-1 text-sm">
+              <p className="font-medium">Fichier .env</p>
+              <p className="text-xs text-muted">
+                {!settings.env.found
+                  ? "Aucun fichier .env trouvé : les identifiants saisis sur cette page sont utilisés. Déposez le fichier .env fourni hors du dossier public du site pour les y regrouper (voir LISEZ-MOI)."
+                  : settings.env.public
+                    ? "Attention : le fichier .env se trouve dans le dossier public du site. Déplacez-le au-dessus du dossier du site (ou dans posting/data)."
+                    : settings.env.location === "data"
+                      ? "Fichier .env trouvé dans le dossier protégé posting/data."
+                      : "Fichier .env trouvé hors du dossier public : il n'est pas accessible depuis le web."}
+              </p>
+              {settings.env.found && settings.env.keys.length > 0 && (
+                <p className="flex flex-wrap gap-1.5 pt-1">
+                  {settings.env.keys.map((k) => (
+                    <code key={k} className="rounded-md bg-surface-2 px-1.5 py-0.5 text-[11px]">
+                      {k}
+                    </code>
+                  ))}
+                </p>
+              )}
+            </div>
+            <Badge tone={!settings.env.found ? "neutral" : settings.env.public ? "danger" : "success"}>
+              {!settings.env.found ? "Absent" : settings.env.public ? "Exposé" : "Protégé"}
+            </Badge>
           </div>
         )}
         <div className="flex items-start gap-3 p-5">

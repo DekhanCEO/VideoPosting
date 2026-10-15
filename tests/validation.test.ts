@@ -80,3 +80,37 @@ test("détection des Shorts YouTube", () => {
   assert.equal(isYoutubeShort({ duration: 181, width: 1080, height: 1920 }), false);
   assert.equal(isYoutubeShort({ duration: 30, width: 1920, height: 1080 }), false);
 });
+
+test("publication photo : YouTube refusé, limites et format Instagram", () => {
+  const img = (width: number, height: number) => ({ width, height, status: "ready" as const, mimeType: "image/jpeg" });
+  const photo = (patch: Partial<PostInput> = {}) => input({ kind: "photo", mediaId: undefined, imageIds: ["a", "b"], ...patch });
+  const ok = validatePost({ input: photo({ platforms: ["tiktok", "instagram"] }), images: [img(1080, 1350), img(1080, 1080)], connected: all, mode: "publish" });
+  assert.equal(hasErrors(ok), false, JSON.stringify(ok));
+  const yt = validatePost({ input: photo(), images: [img(1080, 1350), img(1080, 1080)], connected: all, mode: "publish" });
+  assert.ok(yt.some((i) => i.platform === "youtube" && i.level === "error"));
+  const tall = validatePost({ input: photo({ platforms: ["instagram"] }), images: [img(1080, 1920), img(1080, 1080)], connected: all, mode: "publish" });
+  assert.ok(tall.some((i) => i.platform === "instagram" && /Photo 1/.test(i.message)));
+  const tiktokOnly = validatePost({ input: photo({ platforms: ["tiktok"] }), images: [img(1080, 1920)], connected: all, mode: "publish" });
+  assert.equal(hasErrors(tiktokOnly), false, "TikTok accepte le 9:16");
+  const many = validatePost({ input: photo({ platforms: ["instagram"], imageIds: Array.from({ length: 11 }, (_, i) => String(i)) }), images: [], connected: all, mode: "publish" });
+  assert.ok(many.some((i) => /10 photos maximum/.test(i.message)));
+  const empty = validatePost({ input: photo({ imageIds: [] }), connected: all, mode: "publish" });
+  assert.ok(empty.some((i) => i.message === "Ajoutez au moins une photo."));
+});
+
+test("YouTube : Short ou vidéo longue au choix", () => {
+  const horizontal = { ...media, width: 1920, height: 1080 };
+  const withFormat = (format: "auto" | "short" | "long") => {
+    const i = input({ platforms: ["youtube"] });
+    i.options.youtube.format = format;
+    return i;
+  };
+  const shortH = validatePost({ input: withFormat("short"), media: horizontal, connected: all, mode: "publish" });
+  assert.ok(shortH.some((i) => i.field === "format" && i.level === "error"));
+  const shortLong = validatePost({ input: withFormat("short"), media: { ...media, duration: 240 }, connected: all, mode: "publish" });
+  assert.ok(shortLong.some((i) => i.field === "format" && i.level === "error"));
+  const longVertical = validatePost({ input: withFormat("long"), media, connected: all, mode: "publish" });
+  assert.ok(longVertical.some((i) => i.field === "format" && i.level === "warning"));
+  assert.equal(hasErrors(longVertical), false);
+  assert.equal(hasErrors(validatePost({ input: withFormat("long"), media: horizontal, connected: all, mode: "publish" })), false);
+});

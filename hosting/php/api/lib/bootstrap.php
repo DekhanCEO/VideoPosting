@@ -36,6 +36,7 @@ function vp_config(string $key, $default = null)
 }
 
 require __DIR__ . '/util.php';
+require __DIR__ . '/env.php';
 require __DIR__ . '/http.php';
 require __DIR__ . '/store.php';
 require __DIR__ . '/auth.php';

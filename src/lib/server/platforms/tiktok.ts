@@ -1,9 +1,12 @@
 import "server-only";
+import { buildYoutubeDescription } from "../../captions";
 import { tiktokChunks } from "../../chunks";
 import { parseTiktokJson } from "../../tiktok-json";
 import type { Account, TiktokCreatorInfo, TiktokPrivacy } from "../../types";
+import { isPubliclyReachable } from "../config";
 import { PlatformError, form, parseBody, readChunk, sleep, throwIfAborted } from "../http";
-import type { AccountData, PlatformAdapter, StatsResult } from "./types";
+import { signedMediaUrl } from "../media";
+import type { AccountData, PlatformAdapter, PublishContext, PublishResult, StatsResult } from "./types";
 
 const AUTH_URL = "https://www.tiktok.com/v2/auth/authorize/";
 const API = "https://open.tiktokapis.com/v2";
@@ -184,6 +187,7 @@ export const tiktok: PlatformAdapter<"tiktok"> = {
 
     ctx.progress(2, "Vérification du compte TikTok");
     const creator = await fetchCreatorInfo(account);
+    if (ctx.kind === "photo") return publishPhotos(ctx, creator);
     if (media.duration && media.duration > creator.maxVideoPostDurationSec) {
       throw new PlatformError(`Vidéo trop longue pour ce compte TikTok (max ${creator.maxVideoPostDurationSec} s).`);
     }
@@ -251,39 +255,7 @@ export const tiktok: PlatformAdapter<"tiktok"> = {
     }
 
     ctx.progress(86, "TikTok traite la vidéo");
-    const started = Date.now();
-    while (true) {
-      throwIfAborted(signal);
-      const status = await tiktokApi<{
-        status: string;
-        fail_reason?: string;
-        publicaly_available_post_id?: (string | number)[];
-      }>("/post/publish/status/fetch/", account, { publish_id: init.publish_id }, signal);
-
-      if (status.status === "FAILED") {
-        const reason = status.fail_reason ?? "";
-        throw new PlatformError(ERROR_MESSAGES[reason] || `TikTok a refusé la vidéo (${reason || "raison inconnue"}).`, status);
-      }
-      if (status.status === "SEND_TO_USER_INBOX") {
-        ctx.log("Vidéo envoyée dans la boîte de réception TikTok : ouvrez l'application pour finaliser.");
-        return { externalId: init.publish_id, url: account.username ? `https://www.tiktok.com/@${account.username}` : undefined };
-      }
-      if (status.status === "PUBLISH_COMPLETE") {
-        const postId = status.publicaly_available_post_id?.[0];
-        if (postId && account.username) {
-          return { externalId: String(postId), url: `https://www.tiktok.com/@${account.username}/video/${postId}` };
-        }
-        // Les vidéos privées n'ont pas d'identifiant public.
-        return {
-          externalId: postId ? String(postId) : init.publish_id,
-          url: account.username ? `https://www.tiktok.com/@${account.username}` : undefined,
-        };
-      }
-      const elapsed = Date.now() - started;
-      if (elapsed > 30 * 60_000) throw new PlatformError("TikTok met trop de temps à traiter la vidéo. Vérifiez votre profil TikTok.");
-      ctx.progress(Math.min(98, 86 + Math.round(elapsed / 15_000)), "TikTok traite la vidéo");
-      await sleep(4000, signal);
-    }
+    return waitForTiktok(ctx, init.publish_id, "video");
   },
 
   async fetchStats({ account, externalIds }) {
@@ -322,3 +294,86 @@ export const tiktok: PlatformAdapter<"tiktok"> = {
     return result;
   },
 };
+
+/** Suit le traitement d'une publication TikTok jusqu'à sa mise en ligne. */
+async function waitForTiktok(ctx: PublishContext<"tiktok">, publishId: string, kind: "video" | "photo"): Promise<PublishResult> {
+  const { account, signal } = ctx;
+  const init = { publish_id: publishId };
+  const label = kind === "photo" ? "les photos" : "la vidéo";
+  const started = Date.now();
+  while (true) {
+    throwIfAborted(signal);
+    const status = await tiktokApi<{
+      status: string;
+      fail_reason?: string;
+      publicaly_available_post_id?: (string | number)[];
+    }>("/post/publish/status/fetch/", account, { publish_id: init.publish_id }, signal);
+
+    if (status.status === "FAILED") {
+      const reason = status.fail_reason ?? "";
+      throw new PlatformError(ERROR_MESSAGES[reason] || `TikTok a refusé ${label} (${reason || "raison inconnue"}).`, status);
+    }
+    if (status.status === "SEND_TO_USER_INBOX") {
+      ctx.log(`${kind === "photo" ? "Photos envoyées" : "Vidéo envoyée"} dans la boîte de réception TikTok : ouvrez l'application pour finaliser.`);
+      return { externalId: init.publish_id, url: account.username ? `https://www.tiktok.com/@${account.username}` : undefined };
+    }
+    if (status.status === "PUBLISH_COMPLETE") {
+      const postId = status.publicaly_available_post_id?.[0];
+      if (postId && account.username) {
+        return { externalId: String(postId), url: `https://www.tiktok.com/@${account.username}/${kind}/${postId}` };
+      }
+      // Les vidéos privées n'ont pas d'identifiant public.
+      return {
+        externalId: postId ? String(postId) : init.publish_id,
+        url: account.username ? `https://www.tiktok.com/@${account.username}` : undefined,
+      };
+    }
+    const elapsed = Date.now() - started;
+    if (elapsed > 30 * 60_000) throw new PlatformError(`TikTok met trop de temps à traiter ${label}. Vérifiez votre profil TikTok.`);
+    ctx.progress(Math.min(98, 86 + Math.round(elapsed / 15_000)), `TikTok traite ${label}`);
+    await sleep(4000, signal);
+  }
+}
+
+/** Publication photo (carrousel de 1 à 35 images) : TikTok télécharge les images depuis l'hébergement. */
+async function publishPhotos(ctx: PublishContext<"tiktok">, creator: TiktokCreatorInfo): Promise<PublishResult> {
+  const { options: o, images, account, signal, post } = ctx;
+  const direct = o.mode === "direct";
+  if (direct && (!o.privacyLevel || !creator.privacyLevelOptions.includes(o.privacyLevel))) {
+    throw new PlatformError("Le niveau de confidentialité choisi n'est pas disponible pour ce compte TikTok.");
+  }
+  const urls = images.map((img) => signedMediaUrl(img.id, 6 * 3600));
+  if (urls.some((u) => !isPubliclyReachable(u)) && !process.env.VP_API_MOCK_BASE) {
+    throw new PlatformError("TikTok doit télécharger les photos depuis une URL publique HTTPS (domaine vérifié dans TikTok for Developers).");
+  }
+  // Titre court (90 caractères) + description : la légende sans le titre lorsqu'elle est synchronisée.
+  const title = Array.from(post.common.title.trim()).slice(0, 90).join("");
+  const description = o.sync.caption ? buildYoutubeDescription(post.common) : o.caption;
+  ctx.progress(20, "TikTok récupère les photos");
+  const init = await tiktokApi<{ publish_id: string }>(
+    "/post/publish/content/init/",
+    account,
+    {
+      post_info: {
+        title,
+        description: Array.from(description).slice(0, 4000).join(""),
+        ...(direct
+          ? {
+              privacy_level: o.privacyLevel,
+              disable_comment: creator.commentDisabled || !o.allowComments,
+              auto_add_music: o.autoAddMusic ?? true,
+              brand_content_toggle: o.commercialContent && o.brandedContent,
+              brand_organic_toggle: o.commercialContent && o.yourBrand,
+            }
+          : {}),
+      },
+      source_info: { source: "PULL_FROM_URL", photo_cover_index: 0, photo_images: urls },
+      post_mode: direct ? "DIRECT_POST" : "MEDIA_UPLOAD",
+      media_type: "PHOTO",
+    },
+    signal,
+  );
+  ctx.log(`Publication photo TikTok initialisée (${init.publish_id})`);
+  ctx.progress(60, "TikTok traite les photos");
+  return waitForTiktok(ctx, init.publish_id, "photo");
+}

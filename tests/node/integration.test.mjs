@@ -129,6 +129,47 @@ test("publication réelle sur les trois plateformes", { timeout: 120_000 }, asyn
   assert.equal(mock.state.ig.hash, hash);
 });
 
+test("publication photo : carrousel Instagram et photos TikTok", { timeout: 60_000 }, async () => {
+  const upload = async (bytes, width, height) => {
+    const created = await json("/api/media", { method: "POST", json: { fileName: "photo.jpg", size: bytes.length, mimeType: "image/jpeg" } });
+    assert.equal(created.status, 201, JSON.stringify(created.data));
+    await call(`/api/media/${created.data.id}/chunk?offset=0`, { method: "POST", body: bytes, headers: { "content-type": "application/octet-stream" } });
+    const done = await json(`/api/media/${created.data.id}/complete`, { method: "POST", json: { width, height } });
+    assert.equal(done.data.status, "ready");
+    return created.data.id;
+  };
+  const photos = [crypto.randomBytes(30_000), crypto.randomBytes(20_000), crypto.randomBytes(25_000)];
+  const ids = [];
+  for (const p of photos) ids.push(await upload(p, 1080, 1350));
+  const options = {
+    youtube: { title: "", description: "", tags: [], sync: { title: true, description: true, tags: true }, categoryId: "22", privacy: "public", madeForKids: false, notifySubscribers: true, embeddable: true, license: "youtube", containsSyntheticMedia: false, defaultLanguage: "fr", format: "auto" },
+    tiktok: { caption: "", sync: { caption: true }, mode: "direct", privacyLevel: "SELF_ONLY", allowComments: false, allowDuet: true, allowStitch: true, coverTimestampMs: 0, commercialContent: false, yourBrand: false, brandedContent: false, isAigc: false, autoAddMusic: false },
+    instagram: { caption: "", sync: { caption: true }, shareToFeed: true, thumbOffsetMs: 0, collaborators: [], audioName: "", locationId: "" },
+  };
+  const input = (platforms) => ({ kind: "photo", imageIds: ids, common: { title: "Trois photos", description: "", hashtags: [] }, platforms, options });
+  const refused = await json("/api/posts", { method: "POST", json: { action: "publish", input: input(["youtube"]) } });
+  assert.equal(refused.status, 422);
+  const post = await json("/api/posts", { method: "POST", json: { action: "publish", input: input(["tiktok", "instagram"]) } });
+  assert.equal(post.status, 200, JSON.stringify(post.data));
+  let current;
+  for (let i = 0; i < 100; i++) {
+    current = (await json(`/api/posts/${post.data.id}`)).data;
+    if (current.status !== "publishing") break;
+    await new Promise((r) => setTimeout(r, 300));
+  }
+  const pubs = current.publications;
+  assert.equal(current.status, "published", JSON.stringify(Object.fromEntries(Object.entries(pubs).map(([k, v]) => [k, [v.status, v.error]]))));
+  assert.equal(pubs.instagram.url, "https://www.instagram.com/p/PHOTO123/");
+  assert.equal(pubs.tiktok.url, "https://www.tiktok.com/@createur.tt/photo/7300000000000000002");
+  const sha = (b) => crypto.createHash("sha256").update(b).digest("hex");
+  assert.deepEqual(mock.state.ig.images.map((x) => x.hash), photos.map(sha));
+  assert.equal(mock.state.ig.carousel.children.length, 3);
+  assert.deepEqual(mock.state.tt.photoDownloads.map((d) => d.hash), photos.map(sha));
+  assert.equal(mock.state.tt.photoInit.post_info.auto_add_music, false);
+  assert.equal(mock.state.tt.photoInit.post_info.disable_comment, true);
+  assert.equal(current.images.length, 3);
+});
+
 test("synchronisation des statistiques", async () => {
   const sync = await json("/api/analytics/sync", { method: "POST" });
   assert.ok(sync.data.reports.every((r) => r.ok), JSON.stringify(sync.data));

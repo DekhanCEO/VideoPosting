@@ -5,8 +5,8 @@ import http from "node:http";
 export function startMock(port) {
   const state = {
     yt: { sessions: new Map(), failedOnce: false, hash: null, meta: null },
-    tt: { bytes: [], init: null, statusCalls: 0, hash: null },
-    ig: { container: null, downloaded: null, hash: null, published: false, statusCalls: 0 },
+    tt: { bytes: [], init: null, statusCalls: 0, hash: null, photoInit: null, photoDownloads: [] },
+    ig: { container: null, downloaded: null, hash: null, published: false, statusCalls: 0, images: [], carousel: null, children: 0 },
     twitch: { tokenCalls: [], revoked: [] },
     log: [],
   };
@@ -114,6 +114,17 @@ export function startMock(port) {
     if (p === "/open.tiktokapis.com/v2/post/publish/creator_info/query/") {
       return send(res, 200, tt({ creator_username: "createur.tt", creator_nickname: "Créateur TT", privacy_level_options: ["PUBLIC_TO_EVERYONE", "SELF_ONLY"], comment_disabled: false, duet_disabled: true, stitch_disabled: false, max_video_post_duration_sec: 600 }));
     }
+    if (p === "/open.tiktokapis.com/v2/post/publish/content/init/") {
+      state.tt.photoInit = JSON.parse(body.toString());
+      // TikTok télécharge les photos depuis l'hébergement (PULL_FROM_URL).
+      state.tt.photoDownloads = await Promise.all(
+        state.tt.photoInit.source_info.photo_images.map(async (u) => {
+          const r = await fetch(u);
+          return { status: r.status, hash: crypto.createHash("sha256").update(Buffer.from(await r.arrayBuffer())).digest("hex") };
+        }),
+      );
+      return send(res, 200, tt({ publish_id: "p_pub_photo~1" }));
+    }
     if (p === "/open.tiktokapis.com/v2/post/publish/video/init/") {
       state.tt.init = JSON.parse(body.toString());
       return send(res, 200, tt({ publish_id: "v_pub_file~1", upload_url: `${base}/upload/tt/1` }));
@@ -128,6 +139,10 @@ export function startMock(port) {
         return send(res, 201, {});
       }
       return send(res, 206, {});
+    }
+    if (p === "/open.tiktokapis.com/v2/post/publish/status/fetch/" && JSON.parse(body.toString()).publish_id === "p_pub_photo~1") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      return res.end('{"data":{"status":"PUBLISH_COMPLETE","publicaly_available_post_id":[7300000000000000002]},"error":{"code":"ok","message":""}}');
     }
     if (p === "/open.tiktokapis.com/v2/post/publish/status/fetch/") {
       state.tt.statusCalls++;
@@ -145,6 +160,21 @@ export function startMock(port) {
     if (ig) {
       const rest = ig[1];
       if (rest === "me") return send(res, 200, { id: "app-scoped", user_id: "17841400000", username: "createur.ig", name: "Créateur IG", account_type: "MEDIA_CREATOR" });
+      if (rest === "17841400000/media" && req.method === "POST" && !form().video_url) {
+        const f = form();
+        if (f.image_url) {
+          const r = await fetch(f.image_url);
+          state.ig.images.push({ status: r.status, hash: crypto.createHash("sha256").update(Buffer.from(await r.arrayBuffer())).digest("hex"), carouselItem: f.is_carousel_item === "true" });
+          if (f.is_carousel_item === "true") return send(res, 200, { id: `child${++state.ig.children}` });
+          state.ig.carousel = { single: true, caption: f.caption };
+          return send(res, 200, { id: "image1" });
+        }
+        if (f.media_type === "CAROUSEL") {
+          state.ig.carousel = { children: f.children.split(","), caption: f.caption, collaborators: f.collaborators };
+          return send(res, 200, { id: "carousel1" });
+        }
+        return send(res, 400, { error: { message: "mock: conteneur inconnu" } });
+      }
       if (rest === "17841400000/media" && req.method === "POST") {
         const f = form();
         state.ig.container = f;
@@ -162,11 +192,14 @@ export function startMock(port) {
         state.ig.statusCalls++;
         return send(res, 200, { status_code: state.ig.hash && state.ig.statusCalls > 1 ? "FINISHED" : "IN_PROGRESS" });
       }
+      if (rest === "carousel1" || rest === "image1") return send(res, 200, { status_code: "FINISHED" });
       if (rest === "17841400000/media_publish") {
+        if (form().creation_id !== "container1") return send(res, 200, { id: "media2" });
         state.ig.published = true;
         return send(res, 200, { id: "media1" });
       }
       if (rest === "media1") return send(res, 200, { permalink: "https://www.instagram.com/reel/ABC123/" });
+      if (rest === "media2") return send(res, 200, { permalink: "https://www.instagram.com/p/PHOTO123/" });
       if (rest === "17841400000") return send(res, 200, { followers_count: 3200, media_count: 80 });
       if (rest === "17841400000/insights" && url.searchParams.get("metric") === "follower_demographics") {
         const rows = {

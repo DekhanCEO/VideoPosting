@@ -1,11 +1,25 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { AlertTriangle, ExternalLink, ImagePlus, Info, Loader2, Sparkles, Trash2, Wand2 } from "lucide-react";
+import {
+  AlertTriangle,
+  Clapperboard,
+  ExternalLink,
+  ImagePlus,
+  Images,
+  Info,
+  Loader2,
+  MonitorPlay,
+  Smartphone,
+  Sparkles,
+  Trash2,
+  Wand2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { buildCaption, buildYoutubeDescription, countHashtags, countMentions, formatHashtags } from "@/lib/captions";
 import {
   LIMITS,
+  PHOTO_LIMITS,
   TIKTOK_PRIVACY_LABELS,
   YOUTUBE_CATEGORIES,
   YOUTUBE_LANGUAGES,
@@ -16,11 +30,13 @@ import type {
   CommonContent,
   InstagramOptions,
   MediaAsset,
+  PostKind,
   PublicAccount,
   PublicSettings,
   TiktokCreatorInfo,
   TiktokOptions,
   TiktokPrivacy,
+  YoutubeFormat,
   YoutubeOptions,
 } from "@/lib/types";
 import type { Issue } from "@/lib/validation";
@@ -184,25 +200,63 @@ export function YoutubePanel({
   const title = value.sync.title ? common.title : value.title;
   const description = value.sync.description ? buildYoutubeDescription(common) : value.description;
   const tags = value.sync.tags ? common.hashtags : value.tags;
-  const short = isYoutubeShort(media ?? undefined);
+  const detectedShort = isYoutubeShort(media ?? undefined);
+  const format = value.format ?? "auto";
+  const formatError = fieldError(issues, "format");
+  const formatWarning = issues.find((i) => i.field === "format" && i.level === "warning")?.message;
+  const FORMATS: { value: YoutubeFormat; title: string; description: string; icon: React.ReactNode }[] = [
+    {
+      value: "auto",
+      title: "Automatique",
+      description:
+        media?.status === "ready"
+          ? detectedShort
+            ? "Détecté : Short (vertical, 3 min max)"
+            : "Détecté : vidéo longue"
+          : "Short si la vidéo est verticale et dure 3 min max",
+      icon: <Wand2 className="size-4" />,
+    },
+    { value: "short", title: "Short", description: "Vertical ou carré, 3 min max · flux Shorts", icon: <Smartphone className="size-4" /> },
+    {
+      value: "long",
+      title: "Vidéo longue",
+      description: "Format classique · page vidéo, recherche, abonnés",
+      icon: <MonitorPlay className="size-4" />,
+    },
+  ];
 
   return (
     <div className="space-y-6">
-      {media?.status === "ready" && (
-        <Notice>
-          {short ? (
-            <>
-              Vidéo verticale de moins de 3 minutes : elle sera publiée en <strong>Short</strong>.
-            </>
-          ) : (
-            <>
-              Elle sera publiée en <strong>vidéo YouTube classique</strong>
-              {(media.height ?? 0) >= (media.width ?? 0) ? " (plus de 3 minutes)." : " (format horizontal)."}
-            </>
-          )}
-        </Notice>
-      )}
+      <Section title="Format" description="Short pour le flux vertical, vidéo longue pour la page vidéo classique.">
+        <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Format YouTube">
+          {FORMATS.map((f) => (
+            <button
+              key={f.value}
+              type="button"
+              role="radio"
+              aria-checked={format === f.value}
+              onClick={() => onChange({ format: f.value })}
+              className={cn(
+                "flex flex-col gap-1 rounded-xl border p-3 text-left transition-all",
+                format === f.value
+                  ? "border-accent bg-accent-soft/60 ring-4 ring-[var(--ring)]"
+                  : "border-border hover:border-border-strong hover:bg-surface-2",
+              )}
+            >
+              <span className={cn("flex items-center gap-2 text-sm font-semibold", format === f.value && "text-accent")}>
+                {f.icon}
+                {f.title}
+              </span>
+              <span className="text-xs text-muted">{f.description}</span>
+            </button>
+          ))}
+        </div>
+        {formatError && <Notice tone="warning">{formatError}</Notice>}
+        {!formatError && formatWarning && <Notice tone="warning">{formatWarning}</Notice>}
+        {format === "short" && !formatError && <Notice>#Shorts sera ajouté à la description pour aider YouTube à classer la vidéo.</Notice>}
+      </Section>
 
+      <Divider />
       <Section title="Détails">
         <SyncedTextField
           label="Titre"
@@ -227,7 +281,12 @@ export function YoutubePanel({
           placeholder="Présentez votre vidéo, ajoutez des liens, des chapitres (00:00 Intro)…"
           error={fieldError(issues, "description")}
         />
-        <Field label="Tags" action={<SyncBadge synced={value.sync.tags} onResync={() => onChange({ sync: { ...value.sync, tags: true } })} />} error={fieldError(issues, "tags")} hint="Mots-clés pour aider YouTube à comprendre votre vidéo (500 caractères max).">
+        <Field
+          label="Tags"
+          action={<SyncBadge synced={value.sync.tags} onResync={() => onChange({ sync: { ...value.sync, tags: true } })} />}
+          error={fieldError(issues, "tags")}
+          hint="Mots-clés pour aider YouTube à comprendre votre vidéo (500 caractères max)."
+        >
           <ChipsInput
             value={tags}
             prefix=""
@@ -278,7 +337,12 @@ export function YoutubePanel({
                 value.madeForKids === o.v ? "border-accent bg-accent-soft" : "border-border hover:border-border-strong",
               )}
             >
-              <input type="radio" checked={value.madeForKids === o.v} onChange={() => onChange({ madeForKids: o.v })} className="accent-[var(--accent)]" />
+              <input
+                type="radio"
+                checked={value.madeForKids === o.v}
+                onChange={() => onChange({ madeForKids: o.v })}
+                className="accent-[var(--accent)]"
+              />
               {o.label}
             </label>
           ))}
@@ -308,8 +372,18 @@ export function YoutubePanel({
           </Field>
         </div>
         <div className="space-y-4 rounded-xl border border-border p-4">
-          <Switch label="Notifier les abonnés" description="Envoie une notification et l'affiche dans leur fil." checked={value.notifySubscribers} onChange={(v) => onChange({ notifySubscribers: v })} />
-          <Switch label="Autoriser l'intégration" description="Permet d'intégrer la vidéo sur d'autres sites." checked={value.embeddable} onChange={(v) => onChange({ embeddable: v })} />
+          <Switch
+            label="Notifier les abonnés"
+            description="Envoie une notification et l'affiche dans leur fil."
+            checked={value.notifySubscribers}
+            onChange={(v) => onChange({ notifySubscribers: v })}
+          />
+          <Switch
+            label="Autoriser l'intégration"
+            description="Permet d'intégrer la vidéo sur d'autres sites."
+            checked={value.embeddable}
+            onChange={(v) => onChange({ embeddable: v })}
+          />
           <Switch
             label="Contenu modifié ou synthétique"
             description="À activer si la vidéo contient du contenu réaliste généré ou modifié par IA."
@@ -341,6 +415,8 @@ export function TiktokPanel({
   creatorError,
   account,
   issues,
+  kind = "video",
+  imageCount = 0,
 }: {
   common: CommonContent;
   value: TiktokOptions;
@@ -350,9 +426,14 @@ export function TiktokPanel({
   creatorError?: string;
   account?: PublicAccount;
   issues: Issue[];
+  kind?: PostKind;
+  imageCount?: number;
 }) {
-  const caption = value.sync.caption ? buildCaption(common) : value.caption;
+  const photo = kind === "photo";
+  // Publication photo : le titre (90 caractères) est envoyé à part, la description reprend le texte et les hashtags.
+  const caption = value.sync.caption ? (photo ? buildYoutubeDescription(common) : buildCaption(common)) : value.caption;
   const direct = value.mode === "direct";
+  const photoTitle = Array.from(common.title.trim()).slice(0, PHOTO_LIMITS.tiktok.titleMax).join("");
   const options: TiktokPrivacy[] = creator?.privacyLevelOptions ?? [];
 
   return (
@@ -364,15 +445,25 @@ export function TiktokPanel({
             <p className="truncate text-sm font-medium">{creator?.creatorNickname ?? account.name}</p>
             <p className="truncate text-xs text-muted">@{creator?.creatorUsername ?? account.username ?? "compte TikTok"}</p>
           </div>
-          {creator && <Badge tone="neutral">Max {Math.round(creator.maxVideoPostDurationSec / 60)} min</Badge>}
+          {creator && !photo && <Badge tone="neutral">Max {Math.round(creator.maxVideoPostDurationSec / 60)} min</Badge>}
         </div>
       )}
       {creatorError && <Notice tone="warning">Impossible de récupérer les informations du compte TikTok : {creatorError}</Notice>}
+      {photo && (
+        <Notice>
+          Publication <strong>photo</strong> ({imageCount || "aucune"} photo{imageCount > 1 ? "s" : ""}, défilement horizontal). TikTok télécharge les
+          images depuis votre site : le domaine doit être vérifié dans TikTok for Developers (voir le guide des paramètres).
+        </Notice>
+      )}
 
       <Section title="Mode de publication">
         <div className="grid gap-2 sm:grid-cols-2">
           {[
-            { v: "direct" as const, label: "Publier directement", hint: "La vidéo est mise en ligne sur votre profil." },
+            {
+              v: "direct" as const,
+              label: "Publier directement",
+              hint: photo ? "Les photos sont mises en ligne sur votre profil." : "La vidéo est mise en ligne sur votre profil.",
+            },
             { v: "inbox" as const, label: "Envoyer en brouillon", hint: "Finalisez dans l'app TikTok (sons, effets…)." },
           ].map((o) => (
             <button
@@ -393,23 +484,30 @@ export function TiktokPanel({
 
       {direct ? (
         <>
+          {photo && (
+            <Field label="Titre" hint={`Repris du titre commun (${PHOTO_LIMITS.tiktok.titleMax} caractères max pour une publication photo).`}>
+              <Input value={photoTitle} readOnly placeholder="Ajoutez un titre dans le contenu commun" />
+            </Field>
+          )}
           <SyncedTextField
-            label="Légende"
+            label={photo ? "Description" : "Légende"}
             value={caption}
             synced={value.sync.caption}
             onChange={(v) => onChange({ caption: v, sync: { caption: false } })}
             onResync={() => onChange({ sync: { caption: true } })}
-            max={LIMITS.tiktok.captionMax}
+            max={photo ? PHOTO_LIMITS.tiktok.descriptionMax : LIMITS.tiktok.captionMax}
             length={caption.length}
             multiline
             rows={5}
-            placeholder="Décrivez votre vidéo, ajoutez des #hashtags et @mentions"
+            placeholder={
+              photo ? "Racontez l'histoire de vos photos, ajoutez des #hashtags" : "Décrivez votre vidéo, ajoutez des #hashtags et @mentions"
+            }
             error={fieldError(issues, "caption")}
             footer={<HashtagCount count={countHashtags(caption)} />}
           />
 
           <Divider />
-          <Section title="Qui peut voir cette vidéo ?">
+          <Section title={photo ? "Qui peut voir ces photos ?" : "Qui peut voir cette vidéo ?"}>
             <Field error={fieldError(issues, "privacyLevel")}>
               <Select value={value.privacyLevel} onChange={(e) => onChange({ privacyLevel: e.target.value as TiktokPrivacy })}>
                 <option value="" disabled>
@@ -433,29 +531,46 @@ export function TiktokPanel({
                   onChange={(v) => onChange({ allowComments: v })}
                   description={creator?.commentDisabled ? "Désactivé dans vos réglages TikTok" : undefined}
                 />
-                <Checkbox
-                  label="Duo"
-                  checked={value.allowDuet && !creator?.duetDisabled}
-                  disabled={creator?.duetDisabled}
-                  onChange={(v) => onChange({ allowDuet: v })}
-                  description={creator?.duetDisabled ? "Désactivé dans vos réglages TikTok" : undefined}
-                />
-                <Checkbox
-                  label="Collage (Stitch)"
-                  checked={value.allowStitch && !creator?.stitchDisabled}
-                  disabled={creator?.stitchDisabled}
-                  onChange={(v) => onChange({ allowStitch: v })}
-                  description={creator?.stitchDisabled ? "Désactivé dans vos réglages TikTok" : undefined}
-                />
+                {!photo && (
+                  <>
+                    <Checkbox
+                      label="Duo"
+                      checked={value.allowDuet && !creator?.duetDisabled}
+                      disabled={creator?.duetDisabled}
+                      onChange={(v) => onChange({ allowDuet: v })}
+                      description={creator?.duetDisabled ? "Désactivé dans vos réglages TikTok" : undefined}
+                    />
+                    <Checkbox
+                      label="Collage (Stitch)"
+                      checked={value.allowStitch && !creator?.stitchDisabled}
+                      disabled={creator?.stitchDisabled}
+                      onChange={(v) => onChange({ allowStitch: v })}
+                      description={creator?.stitchDisabled ? "Désactivé dans vos réglages TikTok" : undefined}
+                    />
+                  </>
+                )}
               </div>
             </div>
+            {photo && (
+              <Switch
+                label="Musique automatique"
+                description="TikTok ajoute une musique recommandée au diaporama (modifiable ensuite dans l'application)."
+                checked={value.autoAddMusic ?? true}
+                onChange={(v) => onChange({ autoAddMusic: v })}
+              />
+            )}
           </Section>
 
-          {media?.status === "ready" && (
+          {!photo && media?.status === "ready" && (
             <>
               <Divider />
               <Section title="Couverture">
-                <CoverPicker src={mediaUrl(media.id)} duration={media.duration ?? 1} valueMs={value.coverTimestampMs} onChange={(ms) => onChange({ coverTimestampMs: ms })} />
+                <CoverPicker
+                  src={mediaUrl(media.id)}
+                  duration={media.duration ?? 1}
+                  valueMs={value.coverTimestampMs}
+                  onChange={(ms) => onChange({ coverTimestampMs: ms })}
+                />
               </Section>
             </>
           )}
@@ -493,13 +608,14 @@ export function TiktokPanel({
             />
           </Section>
           <Notice>
-            Après la publication, le traitement peut prendre quelques minutes avant que la vidéo n&apos;apparaisse sur votre profil.
+            Après la publication, le traitement peut prendre quelques minutes avant que{" "}
+            {photo ? "les photos n'apparaissent" : "la vidéo n'apparaisse"} sur votre profil.
           </Notice>
         </>
       ) : (
         <Notice>
-          La vidéo sera envoyée dans votre boîte de réception TikTok. Ouvrez l&apos;application pour ajouter la légende, les sons et la
-          publier. Légende et confidentialité se règlent alors dans TikTok.
+          {photo ? "Les photos seront envoyées" : "La vidéo sera envoyée"} dans votre boîte de réception TikTok. Ouvrez l&apos;application pour
+          ajouter la légende, les sons et publier. Légende et confidentialité se règlent alors dans TikTok.
         </Notice>
       )}
     </div>
@@ -518,6 +634,8 @@ export function InstagramPanel({
   settings,
   account,
   issues,
+  kind = "video",
+  imageCount = 0,
 }: {
   common: CommonContent;
   value: InstagramOptions;
@@ -526,18 +644,37 @@ export function InstagramPanel({
   settings?: PublicSettings;
   account?: PublicAccount;
   issues: Issue[];
+  kind?: PostKind;
+  imageCount?: number;
 }) {
+  const photo = kind === "photo";
   const caption = value.sync.caption ? buildCaption(common) : value.caption;
   const [advanced, setAdvanced] = useState(false);
   const needsPublicUrl =
-    !account?.demo && (account?.meta?.loginType ?? settings?.credentials.instagram.loginType) === "instagram" && settings && !settings.publicUrlIsReachable;
+    !account?.demo &&
+    (account?.meta?.loginType ?? settings?.credentials.instagram.loginType) === "instagram" &&
+    settings &&
+    !settings.publicUrlIsReachable;
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center gap-3 rounded-xl bg-surface-2 p-3">
+        <span className="flex size-9 items-center justify-center rounded-lg bg-surface text-accent shadow-card">
+          {photo ? <Images className="size-4" /> : <Clapperboard className="size-4" />}
+        </span>
+        <div className="min-w-0 text-sm">
+          <p className="font-medium">{photo ? (imageCount > 1 ? `Carrousel · ${imageCount} photos` : "Publication photo") : "Reel"}</p>
+          <p className="text-xs text-muted">
+            {photo
+              ? "Publiée dans le fil et sur votre profil. Jusqu'à 10 photos, formats entre 4:5 et 1,91:1."
+              : "Vidéo verticale, onglet Reels et (en option) le fil."}
+          </p>
+        </div>
+      </div>
       {needsPublicUrl && (
         <Notice tone="warning">
-          Avec la connexion Instagram, Instagram télécharge la vidéo depuis votre serveur : l&apos;application doit être accessible en HTTPS
-          (variable <code>PUBLIC_URL</code>). Sinon, utilisez la connexion via Facebook dans les paramètres.
+          Avec la connexion Instagram, Instagram télécharge {photo ? "les photos" : "la vidéo"} depuis votre serveur : l&apos;application doit être
+          accessible en HTTPS (variable <code>PUBLIC_URL</code>). Sinon, utilisez la connexion via Facebook dans les paramètres.
         </Notice>
       )}
       <SyncedTextField
@@ -563,30 +700,47 @@ export function InstagramPanel({
 
       <Divider />
       <Section title="Diffusion">
-        <Switch
-          label="Partager aussi dans le fil"
-          description="Le Reel apparaît dans la grille de votre profil et dans le fil de vos abonnés."
-          checked={value.shareToFeed}
-          onChange={(v) => onChange({ shareToFeed: v })}
-        />
-        <Field label="Collaborateurs" hint="Jusqu'à 3 comptes publics invités à co-signer le Reel." error={fieldError(issues, "collaborators")}>
+        {!photo && (
+          <Switch
+            label="Partager aussi dans le fil"
+            description="Le Reel apparaît dans la grille de votre profil et dans le fil de vos abonnés."
+            checked={value.shareToFeed}
+            onChange={(v) => onChange({ shareToFeed: v })}
+          />
+        )}
+        <Field
+          label="Collaborateurs"
+          hint={`Jusqu'à 3 comptes publics invités à co-signer ${photo ? "la publication" : "le Reel"}.`}
+          error={fieldError(issues, "collaborators")}
+        >
           <ChipsInput
             value={value.collaborators}
             onChange={(v) => onChange({ collaborators: v })}
             prefix="@"
             max={LIMITS.instagram.maxCollaborators}
-            normalize={(t) => t.trim().replace(/^@/, "").replace(/[^\w.]/g, "").slice(0, 30)}
+            normalize={(t) =>
+              t
+                .trim()
+                .replace(/^@/, "")
+                .replace(/[^\w.]/g, "")
+                .slice(0, 30)
+            }
             splitter={(raw) => raw.split(/[\s,;]+/)}
             placeholder="nom_utilisateur"
           />
         </Field>
       </Section>
 
-      {media?.status === "ready" && (
+      {!photo && media?.status === "ready" && (
         <>
           <Divider />
           <Section title="Couverture" description="Image affichée dans la grille et dans l'onglet Reels.">
-            <CoverPicker src={mediaUrl(media.id)} duration={media.duration ?? 1} valueMs={value.thumbOffsetMs} onChange={(ms) => onChange({ thumbOffsetMs: ms })} />
+            <CoverPicker
+              src={mediaUrl(media.id)}
+              duration={media.duration ?? 1}
+              valueMs={value.thumbOffsetMs}
+              onChange={(ms) => onChange({ thumbOffsetMs: ms })}
+            />
           </Section>
         </>
       )}
@@ -597,21 +751,32 @@ export function InstagramPanel({
       </button>
       {advanced && (
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Nom de l'audio" hint="Renomme l'audio original (impossible si la vidéo utilise une musique sous licence).">
-            <Input value={value.audioName} onChange={(e) => onChange({ audioName: e.target.value })} placeholder="Audio original" />
-          </Field>
+          {!photo && (
+            <Field label="Nom de l'audio" hint="Renomme l'audio original (impossible si la vidéo utilise une musique sous licence).">
+              <Input value={value.audioName} onChange={(e) => onChange({ audioName: e.target.value })} placeholder="Audio original" />
+            </Field>
+          )}
           <Field
             label="Identifiant de lieu"
             hint={
               <>
                 ID d&apos;une Page Facebook avec adresse.{" "}
-                <a className="inline-flex items-center gap-0.5 text-accent" href="https://developers.facebook.com/docs/instagram-platform/content-publishing" target="_blank" rel="noreferrer">
+                <a
+                  className="inline-flex items-center gap-0.5 text-accent"
+                  href="https://developers.facebook.com/docs/instagram-platform/content-publishing"
+                  target="_blank"
+                  rel="noreferrer"
+                >
                   En savoir plus <ExternalLink className="size-3" />
                 </a>
               </>
             }
           >
-            <Input value={value.locationId} onChange={(e) => onChange({ locationId: e.target.value.replace(/\D/g, "") })} placeholder="Ex. 110774245616525" />
+            <Input
+              value={value.locationId}
+              onChange={(e) => onChange({ locationId: e.target.value.replace(/\D/g, "") })}
+              placeholder="Ex. 110774245616525"
+            />
           </Field>
         </div>
       )}

@@ -233,11 +233,26 @@ function TwitchCard({ overview }: { overview: AdminOverview }) {
         title="Application Twitch"
         description="Utilisée uniquement pour identifier les personnes qui se connectent."
         actions={
-          <Badge tone="success" dot>
-            Active
-          </Badge>
+          overview.twitch.fromEnv ? (
+            <Badge tone="info">Fichier .env</Badge>
+          ) : (
+            <Badge tone="success" dot>
+              Active
+            </Badge>
+          )
         }
       />
+      {overview.twitch.fromEnv ? (
+        <div className="space-y-4 p-5">
+          <p className="rounded-xl bg-sky-500/8 p-3 text-sm text-sky-700 dark:text-sky-300">
+            L&apos;application Twitch est définie dans le fichier .env de l&apos;hébergement (TWITCH_CLIENT_ID / TWITCH_CLIENT_SECRET). Modifiez-la
+            directement dans ce fichier.
+          </p>
+          <Field label="URL de redirection OAuth (console Twitch)">
+            <CopyField value={overview.twitch.redirectUri} />
+          </Field>
+        </div>
+      ) : (
       <div className="space-y-4 p-5">
         <div className="grid gap-4 md:grid-cols-2">
           <Field htmlFor="admin-twitch-id" label="ID client">
@@ -256,6 +271,7 @@ function TwitchCard({ overview }: { overview: AdminOverview }) {
           </Button>
         </div>
       </div>
+      )}
     </Card>
   );
 }

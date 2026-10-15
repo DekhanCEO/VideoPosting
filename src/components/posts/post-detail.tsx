@@ -27,8 +27,8 @@ import { api } from "@/lib/api-client";
 import { resolveOptions } from "@/lib/captions";
 import { formatCompact, formatDateTime, formatRelative, formatTime } from "@/lib/format";
 import { usePost } from "@/lib/hooks";
-import { PLATFORMS, TIKTOK_PRIVACY_LABELS, YOUTUBE_PRIVACY_LABELS } from "@/lib/platforms";
-import type { PlatformId, PostWithMedia, Publication } from "@/lib/types";
+import { PLATFORMS, TIKTOK_PRIVACY_LABELS, YOUTUBE_PRIVACY_LABELS, contentLabel } from "@/lib/platforms";
+import type { MediaAsset, PlatformId, PostWithMedia, Publication } from "@/lib/types";
 import { mediaUrl } from "@/lib/upload-client";
 import { cn } from "@/lib/utils";
 import { PageContainer } from "../app-shell";
@@ -66,7 +66,10 @@ function PublicationCard({
   const status = pub?.status;
   const running = status === "pending" || status === "uploading" || status === "processing";
   const resolved = resolveOptions(post.common, post.options);
-  const meta =
+  const kind = post.kind ?? "video";
+  const type = contentLabel(platform, kind, { media: post.media, imageCount: post.images?.length ?? 0, youtubeFormat: post.options.youtube.format });
+  const meta = [
+    type,
     platform === "youtube"
       ? YOUTUBE_PRIVACY_LABELS[resolved.youtube.privacy].label
       : platform === "tiktok"
@@ -75,9 +78,12 @@ function PublicationCard({
           : resolved.tiktok.privacyLevel
             ? TIKTOK_PRIVACY_LABELS[resolved.tiktok.privacyLevel]
             : ""
-        : resolved.instagram.shareToFeed
-          ? "Reel + fil"
-          : "Reel";
+        : kind === "video" && resolved.instagram.shareToFeed
+          ? "partagé dans le fil"
+          : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <Card className={cn("overflow-hidden transition-colors", status === "failed" && "border-danger/40", status === "published" && "border-success/30")}>
@@ -186,7 +192,7 @@ export function PostDetail({ id }: { id: string }) {
     if (post.status === "publishing") wasActive.current = true;
     else if (wasActive.current) {
       wasActive.current = false;
-      if (post.status === "published") toast.success("Votre vidéo est en ligne partout 🎉");
+      if (post.status === "published") toast.success(post.kind === "photo" ? "Vos photos sont en ligne partout 🎉" : "Votre vidéo est en ligne partout 🎉");
       else if (post.status === "partial") toast.warning("Publiée sur une partie des plateformes");
       else if (post.status === "failed") toast.error("La publication a échoué");
     }
@@ -294,7 +300,7 @@ export function PostDetail({ id }: { id: string }) {
         <div className="mt-6 flex animate-slide-up items-center gap-3 rounded-2xl border border-success/30 bg-success/8 px-4 py-3 text-sm">
           <PartyPopper className="size-5 animate-pop text-success" />
           <span>
-            <strong>Bravo !</strong> Votre vidéo est en ligne sur {post.platforms.length > 1 ? `les ${post.platforms.length} plateformes` : PLATFORMS[post.platforms[0]].name}.
+            <strong>Bravo !</strong> {post.kind === "photo" ? "Vos photos sont en ligne" : "Votre vidéo est en ligne"} sur {post.platforms.length > 1 ? `les ${post.platforms.length} plateformes` : PLATFORMS[post.platforms[0]].name}.
           </span>
         </div>
       )}
@@ -320,6 +326,9 @@ export function PostDetail({ id }: { id: string }) {
       <div className="mt-6 grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
         <div className="space-y-4">
           <Card className="overflow-hidden p-3">
+            {post.kind === "photo" ? (
+              <PhotoGallery images={post.images ?? []} />
+            ) : (
             <div className={cn("overflow-hidden rounded-xl bg-black", vertical ? "aspect-[9/16]" : "aspect-video")}>
               {post.media ? (
                 <video
@@ -334,6 +343,7 @@ export function PostDetail({ id }: { id: string }) {
                 <div className="flex size-full items-center justify-center text-sm text-white/50">Aucune vidéo</div>
               )}
             </div>
+            )}
           </Card>
           <Card className="space-y-2 p-4 text-sm">
             <div className="flex justify-between gap-2">
@@ -401,5 +411,41 @@ export function PostDetail({ id }: { id: string }) {
         </div>
       </div>
     </PageContainer>
+  );
+}
+
+/** Photos d'une publication photo : image principale et vignettes. */
+function PhotoGallery({ images }: { images: MediaAsset[] }) {
+  const [index, setIndex] = useState(0);
+  const current = images[Math.min(index, images.length - 1)];
+  if (!current) return <div className="flex aspect-[4/5] items-center justify-center rounded-xl bg-surface-2 text-sm text-muted">Aucune photo</div>;
+  return (
+    <div className="space-y-2">
+      <div className="relative aspect-[4/5] overflow-hidden rounded-xl bg-black">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={mediaUrl(current.id)} alt={`Photo ${index + 1}`} className="size-full object-contain" />
+        {images.length > 1 && (
+          <span className="absolute top-2 right-2 rounded-full bg-black/60 px-2 py-0.5 text-[11px] font-semibold text-white tabular-nums">
+            {index + 1}/{images.length}
+          </span>
+        )}
+      </div>
+      {images.length > 1 && (
+        <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+          {images.map((m, i) => (
+            <button
+              key={m.id}
+              type="button"
+              onClick={() => setIndex(i)}
+              className={cn("size-12 shrink-0 overflow-hidden rounded-lg border-2", i === index ? "border-accent" : "border-transparent opacity-70 hover:opacity-100")}
+              aria-label={`Afficher la photo ${i + 1}`}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={mediaUrl(m.id)} alt="" className="size-full object-cover" />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

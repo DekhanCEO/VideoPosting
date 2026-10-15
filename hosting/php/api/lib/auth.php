@@ -28,6 +28,7 @@ function is_https(): bool
 /** URL publique de l'application (mémorisée pour les tâches lancées par cron en ligne de commande). */
 function public_url(): string
 {
+    if ($forced = vp_env('PUBLIC_URL')) return rtrim($forced, '/');
     if (PHP_SAPI === 'cli' || empty($_SERVER['HTTP_HOST'])) {
         return rtrim((string) (app_read()['publicUrl'] ?? ''), '/');
     }
@@ -59,9 +60,24 @@ function sign_value(string $value): string
 /* Utilisateurs et règles d'accès                                      */
 /* ------------------------------------------------------------------ */
 
+/** Application Twitch : celle du .env si présente, sinon celle enregistrée à l'installation. */
+function twitch_app(array $app): array
+{
+    $id = vp_env('TWITCH_CLIENT_ID');
+    $secret = vp_env('TWITCH_CLIENT_SECRET');
+    if ($id !== null && $secret !== null) return ['clientId' => $id, 'clientSecret' => $secret, 'fromEnv' => true];
+    return ['clientId' => (string) $app['twitch']['clientId'], 'clientSecret' => (string) $app['twitch']['clientSecret'], 'fromEnv' => false];
+}
+
 function twitch_configured(array $app): bool
 {
-    return $app['twitch']['clientId'] !== '' && $app['twitch']['clientSecret'] !== '';
+    $t = twitch_app($app);
+    return $t['clientId'] !== '' && $t['clientSecret'] !== '';
+}
+
+function setup_code(): string
+{
+    return (string) (vp_env('SETUP_CODE') ?? vp_config('setup_code', ''));
 }
 
 function has_admin(array $app): bool
@@ -162,6 +178,7 @@ function session_info(): array
         'setupRequired' => $setup,
         'loginMethod' => 'twitch',
         'twitchConfigured' => twitch_configured($app),
+        'twitchFromEnv' => twitch_app($app)['fromEnv'],
         'redirectUri' => redirect_uri(),
         'user' => $user ? public_user($user) : null,
     ];
@@ -186,7 +203,7 @@ function twitch_login_url(): string
     setcookie('vp_oauth', $state, cookie_options(time() + 600));
     return TWITCH_AUTH . '/authorize?' . http_build_query([
         'response_type' => 'code',
-        'client_id' => $app['twitch']['clientId'],
+        'client_id' => twitch_app($app)['clientId'],
         'redirect_uri' => redirect_uri(),
         'scope' => 'user:read:email',
         'state' => $state,
@@ -197,21 +214,23 @@ function twitch_login_url(): string
 function session_setup(array $body): array
 {
     if (!setup_required()) throw new HttpError('L\'installation est déjà terminée.', 409);
-    $code = (string) vp_config('setup_code', '');
+    $code = setup_code();
     $given = strtoupper(trim((string) ($body['setupCode'] ?? '')));
     if ($code === '' || !hash_equals(strtoupper($code), $given)) {
         sleep(1);
         throw new HttpError('Code d\'installation incorrect (voir LISEZ-MOI.txt).', 401);
     }
-    // Application Twitch déjà enregistrée (réinitialisation, connexion annulée…) : champs facultatifs.
-    $saved = app_read()['twitch'];
-    $clientId = trim((string) ($body['clientId'] ?? '')) ?: $saved['clientId'];
-    $clientSecret = trim((string) ($body['clientSecret'] ?? '')) ?: $saved['clientSecret'];
+    // Application Twitch du .env, ou déjà enregistrée (réinitialisation, connexion annulée…) : champs facultatifs.
+    $saved = twitch_app(app_read());
+    $clientId = $saved['fromEnv'] ? $saved['clientId'] : (trim((string) ($body['clientId'] ?? '')) ?: $saved['clientId']);
+    $clientSecret = $saved['fromEnv'] ? $saved['clientSecret'] : (trim((string) ($body['clientSecret'] ?? '')) ?: $saved['clientSecret']);
     if ($clientId === '' || $clientSecret === '') throw new HttpError('Renseignez l\'ID client et le secret de votre application Twitch.', 422);
     twitch_validate_app($clientId, $clientSecret);
-    app_update(function (array &$a) use ($clientId, $clientSecret) {
-        $a['twitch'] = ['clientId' => $clientId, 'clientSecret' => $clientSecret];
-    });
+    if (!$saved['fromEnv']) {
+        app_update(function (array &$a) use ($clientId, $clientSecret) {
+            $a['twitch'] = ['clientId' => $clientId, 'clientSecret' => $clientSecret];
+        });
+    }
     $exp = time() + 900;
     setcookie('vp_setup', $exp . '.' . sign_value('setup|' . $exp), cookie_options($exp));
     return ['redirect' => twitch_login_url()];
@@ -230,7 +249,7 @@ function setup_cookie_valid(): bool
 function twitch_callback(string $code): string
 {
     $app = app_read();
-    $t = $app['twitch'];
+    $t = twitch_app($app);
     [$status, , $token] = http_request('POST', TWITCH_AUTH . '/token', [], [
         'client_id' => $t['clientId'], 'client_secret' => $t['clientSecret'], 'code' => $code,
         'grant_type' => 'authorization_code', 'redirect_uri' => redirect_uri(),
@@ -310,7 +329,7 @@ function admin_overview(): array
     return [
         'access' => $app['access'],
         'users' => $users,
-        'twitch' => ['clientId' => $app['twitch']['clientId'], 'redirectUri' => redirect_uri()],
+        'twitch' => ['clientId' => twitch_app($app)['clientId'], 'redirectUri' => redirect_uri(), 'fromEnv' => twitch_app($app)['fromEnv']],
     ];
 }
 
@@ -348,6 +367,7 @@ function admin_set_role(string $id, string $role, array $me): array
 function admin_set_twitch(array $body): array
 {
     $app = app_read();
+    if (twitch_app($app)['fromEnv']) throw new HttpError('L\'application Twitch est définie dans le fichier .env : modifiez-la là-bas.', 409);
     $clientId = trim((string) ($body['clientId'] ?? $app['twitch']['clientId']));
     $clientSecret = trim((string) ($body['clientSecret'] ?? '')) ?: $app['twitch']['clientSecret'];
     twitch_validate_app($clientId, $clientSecret);

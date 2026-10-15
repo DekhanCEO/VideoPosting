@@ -8,6 +8,7 @@ import type {
   PlatformId,
   PlatformOptionsMap,
   Post,
+  PostKind,
   PostMetrics,
 } from "../../types";
 import type { ResolvedCredentials } from "../config";
@@ -16,8 +17,12 @@ export type AccountData = Omit<Account, "connectedAt">;
 
 export interface PublishContext<P extends PlatformId = PlatformId> {
   post: Post;
+  /** video : la vidéo · photo : la première photo (voir images). */
   media: MediaAsset;
   filePath: string;
+  kind: PostKind;
+  /** Publication photo : toutes les photos, dans l'ordre. */
+  images: MediaAsset[];
   account: Account;
   credentials: ResolvedCredentials;
   options: PlatformOptionsMap[P];

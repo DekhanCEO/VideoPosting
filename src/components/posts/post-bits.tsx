@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Copy, ExternalLink, Film, Loader2, MoreHorizontal, Pencil, Trash2, XCircle, Ban, Clock, Eye } from "lucide-react";
+import { Ban, CheckCircle2, Clock, Copy, ExternalLink, Eye, Film, Images, Loader2, MoreHorizontal, Pencil, Trash2, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api-client";
 import { formatCompact, formatDateTime, formatRelative } from "@/lib/format";
@@ -23,9 +23,16 @@ export function postHref(post: PostWithMedia) {
 }
 
 export function Thumb({ post, className }: { post: PostWithMedia; className?: string }) {
-  const poster = post.media?.posterId;
+  const photos = post.kind === "photo" ? (post.images ?? []) : [];
+  const poster = photos[0]?.id ?? post.media?.posterId;
   return (
     <div className={cn("relative shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-surface-3 to-surface-2", className)}>
+      {photos.length > 1 && (
+        <span className="absolute top-1 right-1 z-[1] flex items-center gap-0.5 rounded-md bg-black/60 px-1 py-0.5 text-[9px] font-semibold text-white">
+          <Images className="size-2.5" />
+          {photos.length}
+        </span>
+      )}
       {poster ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={mediaUrl(poster)} alt="" className="size-full object-cover" loading="lazy" />

@@ -14,8 +14,13 @@ function sanitize_post_input(array $in): array
     $platforms = array_values(array_unique(array_filter((array) ($in['platforms'] ?? []), 'is_platform')));
     $scheduledAt = isset($in['scheduledAt']) && is_numeric($in['scheduledAt']) && $in['scheduledAt'] > 0 ? (int) $in['scheduledAt'] : null;
 
+    $imageIds = [];
+    foreach (array_slice(is_array($in['imageIds'] ?? null) ? $in['imageIds'] : [], 0, 35) as $img) if (is_uuid($img) && !in_array($img, $imageIds, true)) $imageIds[] = $img;
+
     return [
+        'kind' => ($in['kind'] ?? '') === 'photo' ? 'photo' : 'video',
         'mediaId' => is_uuid($in['mediaId'] ?? null) ? $in['mediaId'] : null,
+        'imageIds' => $imageIds,
         'common' => [
             'title' => str_limit($in['common']['title'] ?? '', 500),
             'description' => str_limit($in['common']['description'] ?? '', 10000),
@@ -41,6 +46,7 @@ function sanitize_post_input(array $in): array
                 'containsSyntheticMedia' => bool_val($yt['containsSyntheticMedia'] ?? null, false),
                 'defaultLanguage' => str_limit($yt['defaultLanguage'] ?? $dy['defaultLanguage'], 10),
                 'thumbnailId' => is_uuid($yt['thumbnailId'] ?? null) ? $yt['thumbnailId'] : null,
+                'format' => in_array($yt['format'] ?? '', ['auto', 'short', 'long'], true) ? $yt['format'] : 'auto',
             ],
             'tiktok' => [
                 'caption' => str_limit($tt['caption'] ?? '', 5000),
@@ -55,6 +61,7 @@ function sanitize_post_input(array $in): array
                 'yourBrand' => bool_val($tt['yourBrand'] ?? null),
                 'brandedContent' => bool_val($tt['brandedContent'] ?? null),
                 'isAigc' => bool_val($tt['isAigc'] ?? null),
+                'autoAddMusic' => bool_val($tt['autoAddMusic'] ?? null, true),
             ],
             'instagram' => [
                 'caption' => str_limit($ig['caption'] ?? '', 5000),
@@ -73,10 +80,27 @@ function sanitize_post_input(array $in): array
 /** Vérifications essentielles avant programmation / publication (l'interface fait le contrôle détaillé). */
 function validate_for_publish(array $input, bool $schedule): void
 {
-    if (!$input['mediaId']) throw new HttpError('Ajoutez une vidéo à publier.', 422);
-    $media = get_media($input['mediaId']);
-    if (!$media) throw new HttpError('La vidéo est introuvable, ajoutez-la à nouveau.', 422);
-    if ($media['status'] !== 'ready') throw new HttpError('La vidéo est encore en cours d\'envoi.', 422);
+    $photo = $input['kind'] === 'photo';
+    $media = null;
+    if ($photo) {
+        if (!$input['imageIds']) throw new HttpError('Ajoutez au moins une photo.', 422);
+        foreach ($input['imageIds'] as $i => $imgId) {
+            $img = get_media($imgId);
+            if (!$img || $img['kind'] !== 'image') throw new HttpError('Une photo est introuvable, ajoutez-la à nouveau.', 422);
+            if ($img['status'] !== 'ready') throw new HttpError('Des photos sont encore en cours d\'envoi.', 422);
+            if (in_array('instagram', $input['platforms'], true) && !empty($img['width']) && !empty($img['height'])) {
+                $r = $img['width'] / $img['height'];
+                if ($r < 0.79 || $r > 1.92) throw new HttpError('Photo ' . ($i + 1) . ' : format refusé par Instagram (entre 4:5 et 1,91:1).', 422);
+            }
+        }
+        if (in_array('youtube', $input['platforms'], true)) throw new HttpError('YouTube n\'accepte que des vidéos : retirez YouTube ou passez en mode Vidéo.', 422);
+        if (in_array('instagram', $input['platforms'], true) && count($input['imageIds']) > 10) throw new HttpError('Un carrousel Instagram contient 10 photos maximum.', 422);
+    } else {
+        if (!$input['mediaId']) throw new HttpError('Ajoutez une vidéo à publier.', 422);
+        $media = get_media($input['mediaId']);
+        if (!$media) throw new HttpError('La vidéo est introuvable, ajoutez-la à nouveau.', 422);
+        if ($media['status'] !== 'ready') throw new HttpError('La vidéo est encore en cours d\'envoi.', 422);
+    }
     if (!$input['platforms']) throw new HttpError('Sélectionnez au moins une plateforme.', 422);
     if ($schedule && (!$input['scheduledAt'] || $input['scheduledAt'] < now_ms() - 60000)) throw new HttpError('La date de programmation est déjà passée.', 422);
     $accounts = [];
@@ -85,7 +109,11 @@ function validate_for_publish(array $input, bool $schedule): void
     foreach ($input['platforms'] as $p) {
         if (empty($accounts[$p]) || $accounts[$p]['needsReconnect']) throw new HttpError('Connectez votre compte ' . PLATFORM_NAMES[$p] . ' pour publier.', 422);
         if ($p === 'youtube' && trim($opts['youtube']['title']) === '') throw new HttpError('Le titre YouTube est obligatoire.', 422);
-        if ($p === 'tiktok' && $opts['tiktok']['mode'] === 'direct' && !$opts['tiktok']['privacyLevel']) throw new HttpError('Choisissez qui peut voir la vidéo TikTok.', 422);
+        if ($p === 'youtube' && $media && $opts['youtube']['format'] === 'short' && !empty($media['width']) && !empty($media['height'])
+            && ($media['width'] > $media['height'] || ($media['duration'] ?? 0) > 180)) {
+            throw new HttpError('Un Short doit être vertical (ou carré) et durer 3 minutes maximum : choisissez « Vidéo longue ».', 422);
+        }
+        if ($p === 'tiktok' && $opts['tiktok']['mode'] === 'direct' && !$opts['tiktok']['privacyLevel']) throw new HttpError($photo ? 'Choisissez qui peut voir les photos sur TikTok.' : 'Choisissez qui peut voir la vidéo TikTok.', 422);
     }
 }
 
@@ -118,6 +146,7 @@ function save_post(?string $id, array $body): array
 
     if ($old) {
         if (($old['mediaId'] ?? null) && $old['mediaId'] !== $input['mediaId']) delete_media_if_unused($old['mediaId']);
+        foreach ($old['imageIds'] ?? [] as $img) if (!in_array($img, $input['imageIds'], true)) delete_media_if_unused($img);
         $oldThumb = $old['options']['youtube']['thumbnailId'] ?? null;
         if ($oldThumb && $oldThumb !== $input['options']['youtube']['thumbnailId']) delete_media_if_unused($oldThumb);
     }
@@ -134,6 +163,7 @@ function delete_post(string $id): void
     });
     delete_media_if_unused($post['mediaId'] ?? null);
     delete_media_if_unused($post['options']['youtube']['thumbnailId'] ?? null);
+    foreach ($post['imageIds'] ?? [] as $img) delete_media_if_unused($img);
 }
 
 function duplicate_post(string $id): array
@@ -143,7 +173,7 @@ function duplicate_post(string $id): array
     $copy = db_update(function (array &$d) use ($post) {
         $now = now_ms();
         $p = [
-            'id' => uuid4(), 'status' => 'draft', 'mediaId' => $post['mediaId'] ?? null,
+            'id' => uuid4(), 'status' => 'draft', 'kind' => $post['kind'] ?? 'video', 'mediaId' => $post['mediaId'] ?? null, 'imageIds' => $post['imageIds'] ?? [],
             'common' => $post['common'], 'platforms' => $post['platforms'], 'options' => $post['options'],
             'scheduledAt' => null, 'publications' => [], 'createdAt' => $now, 'updatedAt' => $now,
         ];
@@ -163,7 +193,9 @@ function list_posts(): array
 /** Publication renvoyée à l'interface : vidéo jointe, métriques, sans l'état interne des tâches. */
 function with_media(array $post): array
 {
-    $post['media'] = !empty($post['mediaId']) ? get_media($post['mediaId']) : null;
+    $photo = ($post['kind'] ?? 'video') === 'photo';
+    $post['media'] = !$photo && !empty($post['mediaId']) ? get_media($post['mediaId']) : null;
+    $post['images'] = array_values(array_filter(array_map('get_media', $post['imageIds'] ?? [])));
     $pubs = [];
     foreach ($post['publications'] ?? [] as $platform => $pub) {
         unset($pub['job']);

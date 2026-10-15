@@ -121,8 +121,28 @@ function instagram_step(array $ctx): array
     $base = ig_base($a, credentials('instagram'));
     $token = $a['accessToken'];
 
+    $photo = ($ctx['kind'] ?? 'video') === 'photo';
+    $shared = fn() => [
+        'caption' => $o['caption'],
+        'collaborators' => $o['collaborators'] ? json_encode(array_map(fn($c) => ltrim($c, '@'), $o['collaborators'])) : null,
+        'location_id' => $o['locationId'] ?: null,
+        'access_token' => $token,
+    ];
+    $imageUrl = function (array $img): string {
+        $url = signed_media_url($img['id']);
+        if (!str_starts_with($url, 'https://') && !vp_config('api_mock_base')) throw new PlatformError('Instagram exige que l\'application soit accessible en HTTPS : activez le certificat SSL de votre hébergement.');
+        return $url;
+    };
+
     switch ($job['state']) {
         case 'start':
+            if ($photo && count($ctx['images']) === 1) {
+                $c = graph_call('POST', $base . '/' . ig_user($a) . '/media', ['image_url' => $imageUrl($ctx['images'][0])] + $shared(), 'Instagram a refusé la photo.');
+                return ['job' => ['state' => 'status', 'containerId' => $c['id'], 'startedAt' => now_ms()], 'progress' => 60, 'step' => 'Instagram traite la photo', 'delay' => 2, 'log' => 'Conteneur Instagram créé (' . $c['id'] . ')'];
+            }
+            if ($photo) {
+                return ['job' => ['state' => 'children', 'index' => 0, 'children' => []], 'progress' => 5, 'step' => 'Envoi des photos à Instagram'];
+            }
             $url = signed_media_url($ctx['media']['id']);
             if (!str_starts_with($url, 'https://') && !vp_config('api_mock_base')) throw new PlatformError('Instagram exige que l\'application soit accessible en HTTPS : activez le certificat SSL de votre hébergement.');
             $c = graph_call('POST', $base . '/' . ig_user($a) . '/media', [
@@ -138,15 +158,27 @@ function instagram_step(array $ctx): array
             ], 'Instagram a refusé la création du Reel.');
             return ['job' => ['state' => 'status', 'containerId' => $c['id'], 'startedAt' => now_ms()], 'progress' => 10, 'step' => 'Instagram récupère la vidéo', 'delay' => 5, 'log' => 'Conteneur Instagram créé (' . $c['id'] . ')'];
 
+        case 'children':
+            // Carrousel : une photo par étape (courtes requêtes, compatibles avec les limites de l'hébergement).
+            $i = (int) $job['index'];
+            $images = $ctx['images'];
+            $child = graph_call('POST', $base . '/' . ig_user($a) . '/media', ['image_url' => $imageUrl($images[$i]), 'is_carousel_item' => 'true', 'access_token' => $token], 'Instagram a refusé la photo ' . ($i + 1) . '.');
+            $children = array_merge($job['children'], [$child['id']]);
+            if ($i + 1 < count($images)) {
+                return ['job' => ['state' => 'children', 'index' => $i + 1, 'children' => $children], 'progress' => 5 + (int) round(($i + 1) / count($images) * 60), 'step' => 'Envoi des photos à Instagram (' . ($i + 1) . '/' . count($images) . ')'];
+            }
+            $c = graph_call('POST', $base . '/' . ig_user($a) . '/media', ['media_type' => 'CAROUSEL', 'children' => implode(',', $children)] + $shared(), 'Instagram a refusé le carrousel.');
+            return ['job' => ['state' => 'status', 'containerId' => $c['id'], 'startedAt' => now_ms()], 'progress' => 75, 'step' => 'Instagram prépare le carrousel', 'delay' => 2, 'log' => 'Carrousel Instagram créé (' . $c['id'] . ', ' . count($children) . ' photos)'];
+
         case 'status':
             $s = graph_call('GET', $base . '/' . $job['containerId'] . '?fields=status_code,status&access_token=' . rawurlencode($token), null, 'Impossible de suivre le traitement Instagram.');
             $code = $s['status_code'] ?? '';
-            if ($code === 'FINISHED') return ['job' => ['state' => 'publish', 'containerId' => $job['containerId'], 'attempts' => 0], 'progress' => 94, 'step' => 'Publication du Reel'];
+            if ($code === 'FINISHED') return ['job' => ['state' => 'publish', 'containerId' => $job['containerId'], 'attempts' => 0], 'progress' => 94, 'step' => $photo ? 'Mise en ligne de la publication' : 'Publication du Reel'];
             if ($code === 'ERROR') throw new PlatformError(ig_container_error($s['status'] ?? null), $s);
             if ($code === 'EXPIRED') throw new PlatformError('Le conteneur Instagram a expiré (24 h). Relancez la publication.');
             $elapsed = now_ms() - $job['startedAt'];
-            if ($elapsed > 20 * 60000) throw new PlatformError('Instagram met trop de temps à traiter la vidéo.');
-            return ['job' => $job, 'progress' => min(92, 12 + (int) round($elapsed / 10000)), 'step' => 'Instagram traite la vidéo', 'delay' => 5];
+            if ($elapsed > 20 * 60000) throw new PlatformError('Instagram met trop de temps à traiter le média.');
+            return ['job' => $job, 'progress' => min(92, ($photo ? 76 : 12) + (int) round($elapsed / 10000)), 'step' => $photo ? 'Instagram traite les photos' : 'Instagram traite la vidéo', 'delay' => $photo ? 2 : 5];
 
         case 'publish':
             try {
@@ -161,7 +193,7 @@ function instagram_step(array $ctx): array
                 $info = graph_call('GET', $base . '/' . $p['id'] . '?fields=permalink&access_token=' . rawurlencode($token), null, '');
                 $url = $info['permalink'] ?? null;
             } catch (PlatformError $e) {
-                $url = !empty($a['username']) ? 'https://www.instagram.com/' . $a['username'] . '/reels/' : null;
+                $url = !empty($a['username']) ? 'https://www.instagram.com/' . $a['username'] . ($photo ? '/' : '/reels/') : null;
             }
             return ['done' => ['externalId' => $p['id'], 'url' => $url]];
     }

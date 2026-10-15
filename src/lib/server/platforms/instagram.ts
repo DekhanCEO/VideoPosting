@@ -3,7 +3,7 @@ import { AGE_BUCKETS, type Account, type AgeBucket } from "../../types";
 import { isPubliclyReachable, type ResolvedCredentials } from "../config";
 import { PlatformError, form, parseBody, sleep, streamUpload, throwIfAborted } from "../http";
 import { signedMediaUrl } from "../media";
-import type { AccountData, PlatformAdapter, StatsResult } from "./types";
+import type { AccountData, PlatformAdapter, PublishContext, PublishResult, StatsResult } from "./types";
 
 /**
  * Deux façons de connecter Instagram :
@@ -65,7 +65,8 @@ function igUserId(account: Account): string {
 function containerError(status: string | undefined): string {
   const s = status ?? "";
   if (s.includes("2207026")) return "Format vidéo non pris en charge par Instagram (codec, durée ou ratio).";
-  if (s.includes("2207076") || s.includes("2207077")) return "Instagram n'a pas pu télécharger la vidéo : vérifiez que PUBLIC_URL est accessible depuis Internet.";
+  if (s.includes("2207076") || s.includes("2207077"))
+    return "Instagram n'a pas pu télécharger la vidéo : vérifiez que PUBLIC_URL est accessible depuis Internet.";
   if (s.includes("2207003")) return "Le téléchargement de la vidéo par Instagram a expiré.";
   if (s.includes("2207004")) return "Vidéo trop volumineuse pour Instagram.";
   if (s.includes("2207050")) return "Le compte Instagram est restreint ou inactif.";
@@ -221,6 +222,7 @@ export const instagram: PlatformAdapter<"instagram"> = {
     const base = `${host(account)}/${version(account, credentials)}`;
     const userId = igUserId(account);
     const viaFacebook = account.meta?.loginType === "facebook";
+    if (ctx.kind === "photo") return publishPhotos(ctx, base, userId);
 
     const params: Record<string, string | number | boolean | undefined> = {
       media_type: "REELS",
@@ -284,124 +286,197 @@ export const instagram: PlatformAdapter<"instagram"> = {
       ctx.progress(10, "Instagram récupère la vidéo");
     }
 
-    const started = Date.now();
-    while (true) {
-      throwIfAborted(signal);
-      const status = await graph<{ status_code?: string; status?: string }>(
-        `${base}/${container.id}?fields=status_code,status&access_token=${account.accessToken}`,
-        { signal },
-        "Impossible de suivre le traitement Instagram.",
-      );
-      if (status.status_code === "FINISHED") break;
-      if (status.status_code === "ERROR") throw new PlatformError(containerError(status.status), status);
-      if (status.status_code === "EXPIRED") throw new PlatformError("Le conteneur Instagram a expiré (24 h). Relancez la publication.");
-      const elapsed = Date.now() - started;
-      if (elapsed > 20 * 60_000) throw new PlatformError("Instagram met trop de temps à traiter la vidéo.");
-      ctx.progress(Math.min(92, (viaFacebook ? 76 : 12) + Math.round(elapsed / 10_000)), "Instagram traite la vidéo");
-      await sleep(5000, signal);
-    }
-
-    ctx.progress(94, "Publication du Reel");
-    let published: { id: string } | null = null;
-    for (let attempt = 0; attempt < 5 && !published; attempt++) {
-      try {
-        published = await graph<{ id: string }>(
-          `${base}/${userId}/media_publish`,
-          { method: "POST", body: form({ creation_id: container.id, access_token: account.accessToken }), signal },
-          "Instagram a refusé la publication.",
-        );
-      } catch (err) {
-        if (attempt === 4) throw err;
-        ctx.log(`Publication pas encore possible, nouvelle tentative… (${(err as Error).message})`, "warn");
-        await sleep(5000, signal);
-      }
-    }
-
-    let url: string | undefined;
-    try {
-      const info = await graph<{ permalink?: string }>(
-        `${base}/${published!.id}?fields=permalink&access_token=${account.accessToken}`,
-        { signal },
-        "",
-      );
-      url = info.permalink;
-    } catch {
-      url = account.username ? `https://www.instagram.com/${account.username}/reels/` : undefined;
-    }
-    return { externalId: published!.id, url };
+    return finishContainer(ctx, base, userId, container.id, viaFacebook ? 76 : 12, "Reel");
   },
 
   async fetchStats({ account, credentials, externalIds }) {
-    const base = `${host(account)}/${version(account, credentials)}`;
-    const token = account.accessToken;
-    const result: StatsResult = { posts: {}, warnings: [] };
-
-    const me = await graph<{ followers_count?: number; media_count?: number }>(
-      `${base}/${igUserId(account)}?fields=followers_count,media_count&access_token=${token}`,
-      undefined,
-      "Impossible de lire les statistiques Instagram.",
-    );
-    result.snapshot = { followers: me.followers_count ?? 0, videoCount: me.media_count ?? 0 };
-
-    for (const id of externalIds) {
-      try {
-        const insights = await graph<{ data?: { name: string; values?: { value: number }[]; total_value?: { value: number } }[] }>(
-          `${base}/${id}/insights?metric=views,reach,likes,comments,shares,saved&access_token=${token}`,
-          undefined,
-          "Insights indisponibles",
-        );
-        const get = (name: string) => {
-          const m = insights.data?.find((d) => d.name === name);
-          return m?.total_value?.value ?? m?.values?.[0]?.value ?? 0;
-        };
-        result.posts![id] = {
-          views: get("views"),
-          likes: get("likes"),
-          comments: get("comments"),
-          shares: get("shares"),
-          saves: get("saved"),
-          reach: get("reach") || undefined,
-        };
-      } catch {
-        try {
-          const media = await graph<{ like_count?: number; comments_count?: number }>(
-            `${base}/${id}?fields=like_count,comments_count&access_token=${token}`,
-            undefined,
-            "",
-          );
-          result.posts![id] = { views: 0, likes: media.like_count ?? 0, comments: media.comments_count ?? 0, shares: 0 };
-        } catch (err) {
-          result.warnings!.push(`Reel ${id} : ${(err as Error).message}`);
-        }
-      }
-    }
-
-    // Audience des abonnés (comptes professionnels d'au moins 100 abonnés).
-    try {
-      const breakdown = async (dimension: "age" | "gender" | "country" | "city") => {
-        const r = await graph<{ data?: { total_value?: { breakdowns?: { results?: { dimension_values: string[]; value: number }[] }[] } }[] }>(
-          `${base}/${igUserId(account)}/insights?metric=follower_demographics&period=lifetime&metric_type=total_value&breakdown=${dimension}&access_token=${token}`,
-          undefined,
-          "Audience Instagram indisponible (compte professionnel d'au moins 100 abonnés requis)",
-        );
-        return (r.data?.[0]?.total_value?.breakdowns?.[0]?.results ?? []).map((x) => [String(x.dimension_values[0] ?? ""), Number(x.value) || 0] as const);
-      };
-      const shares = (rows: (readonly [string, number])[]) => {
-        const total = rows.reduce((n, [, v]) => n + v, 0);
-        return total ? rows.map(([k, v]) => [k, v / total] as const).sort((a, b) => b[1] - a[1]) : [];
-      };
-      const [age, gender, country, city] = await Promise.all([breakdown("age"), breakdown("gender"), breakdown("country"), breakdown("city")]);
-      const g = Object.fromEntries(shares(gender));
-      result.audience = {
-        basis: "followers",
-        gender: gender.length ? { female: g.F ?? 0, male: g.M ?? 0, other: g.U ?? 0 } : undefined,
-        ages: age.length ? (Object.fromEntries(shares(age).filter(([k]) => (AGE_BUCKETS as readonly string[]).includes(k))) as Partial<Record<AgeBucket, number>>) : undefined,
-        countries: country.length ? shares(country).slice(0, 30).map(([code, share]) => ({ code: code.toUpperCase(), share })) : undefined,
-        cities: city.length ? shares(city).slice(0, 10).map(([name, share]) => ({ name: name.split(",")[0], share })) : undefined,
-      };
-    } catch (err) {
-      result.warnings!.push(`Audience Instagram : ${(err as Error).message}`);
-    }
-    return result;
+    return fetchInstagramStats(account, credentials, externalIds);
   },
 };
+
+/** Publication photo : une image, ou un carrousel de 2 à 10 images. */
+async function publishPhotos(ctx: PublishContext<"instagram">, base: string, userId: string): Promise<PublishResult> {
+  const { options: o, images, account, signal } = ctx;
+  const urls = images.map((img) => signedMediaUrl(img.id, 6 * 3600));
+  if (urls.some((u) => !isPubliclyReachable(u)) && !process.env.VP_API_MOCK_BASE) {
+    throw new PlatformError("Instagram doit télécharger les photos depuis une URL publique HTTPS : définissez PUBLIC_URL (ex. via un tunnel).");
+  }
+  const shared = {
+    caption: o.caption,
+    collaborators: o.collaborators.length ? JSON.stringify(o.collaborators.map((c) => c.replace(/^@/, ""))) : undefined,
+    location_id: o.locationId || undefined,
+    access_token: account.accessToken,
+  };
+  let containerId: string;
+  if (urls.length === 1) {
+    ctx.progress(10, "Création de la publication Instagram");
+    containerId = (
+      await graph<{ id: string }>(
+        `${base}/${userId}/media`,
+        { method: "POST", body: form({ image_url: urls[0], ...shared }), signal },
+        "Instagram a refusé la photo.",
+      )
+    ).id;
+  } else {
+    const children: string[] = [];
+    for (const [i, url] of urls.entries()) {
+      ctx.progress(5 + Math.round((i / urls.length) * 60), `Envoi des photos à Instagram (${i + 1}/${urls.length})`);
+      const child = await graph<{ id: string }>(
+        `${base}/${userId}/media`,
+        { method: "POST", body: form({ image_url: url, is_carousel_item: true, access_token: account.accessToken }), signal },
+        `Instagram a refusé la photo ${i + 1}.`,
+      );
+      children.push(child.id);
+    }
+    ctx.progress(70, "Création du carrousel");
+    containerId = (
+      await graph<{ id: string }>(
+        `${base}/${userId}/media`,
+        { method: "POST", body: form({ media_type: "CAROUSEL", children: children.join(","), ...shared }), signal },
+        "Instagram a refusé le carrousel.",
+      )
+    ).id;
+  }
+  ctx.log(`Conteneur Instagram créé (${containerId})`);
+  return finishContainer(ctx, base, userId, containerId, 75, urls.length > 1 ? "carrousel" : "publication");
+}
+
+/** Attend la fin du traitement d'un conteneur puis le publie. */
+async function finishContainer(
+  ctx: PublishContext<"instagram">,
+  base: string,
+  userId: string,
+  containerId: string,
+  startProgress: number,
+  label: string,
+): Promise<PublishResult> {
+  const { account, signal } = ctx;
+  const container = { id: containerId };
+  const started = Date.now();
+  while (true) {
+    throwIfAborted(signal);
+    const status = await graph<{ status_code?: string; status?: string }>(
+      `${base}/${container.id}?fields=status_code,status&access_token=${account.accessToken}`,
+      { signal },
+      "Impossible de suivre le traitement Instagram.",
+    );
+    if (status.status_code === "FINISHED") break;
+    if (status.status_code === "ERROR") throw new PlatformError(containerError(status.status), status);
+    if (status.status_code === "EXPIRED") throw new PlatformError("Le conteneur Instagram a expiré (24 h). Relancez la publication.");
+    const elapsed = Date.now() - started;
+    if (elapsed > 20 * 60_000) throw new PlatformError("Instagram met trop de temps à traiter le média.");
+    ctx.progress(Math.min(92, startProgress + Math.round(elapsed / 10_000)), "Instagram traite le média");
+    await sleep(ctx.kind === "photo" ? 2000 : 5000, signal);
+  }
+
+  ctx.progress(94, `Publication du ${label}`);
+  let published: { id: string } | null = null;
+  for (let attempt = 0; attempt < 5 && !published; attempt++) {
+    try {
+      published = await graph<{ id: string }>(
+        `${base}/${userId}/media_publish`,
+        { method: "POST", body: form({ creation_id: container.id, access_token: account.accessToken }), signal },
+        "Instagram a refusé la publication.",
+      );
+    } catch (err) {
+      if (attempt === 4) throw err;
+      ctx.log(`Publication pas encore possible, nouvelle tentative… (${(err as Error).message})`, "warn");
+      await sleep(5000, signal);
+    }
+  }
+
+  let url: string | undefined;
+  try {
+    const info = await graph<{ permalink?: string }>(`${base}/${published!.id}?fields=permalink&access_token=${account.accessToken}`, { signal }, "");
+    url = info.permalink;
+  } catch {
+    url = account.username ? `https://www.instagram.com/${account.username}/${ctx.kind === "photo" ? "" : "reels/"}` : undefined;
+  }
+  return { externalId: published!.id, url };
+}
+
+async function fetchInstagramStats(account: Account, credentials: ResolvedCredentials, externalIds: string[]): Promise<StatsResult> {
+  const base = `${host(account)}/${version(account, credentials)}`;
+  const token = account.accessToken;
+  const result: StatsResult = { posts: {}, warnings: [] };
+
+  const me = await graph<{ followers_count?: number; media_count?: number }>(
+    `${base}/${igUserId(account)}?fields=followers_count,media_count&access_token=${token}`,
+    undefined,
+    "Impossible de lire les statistiques Instagram.",
+  );
+  result.snapshot = { followers: me.followers_count ?? 0, videoCount: me.media_count ?? 0 };
+
+  for (const id of externalIds) {
+    try {
+      const insights = await graph<{ data?: { name: string; values?: { value: number }[]; total_value?: { value: number } }[] }>(
+        `${base}/${id}/insights?metric=views,reach,likes,comments,shares,saved&access_token=${token}`,
+        undefined,
+        "Insights indisponibles",
+      );
+      const get = (name: string) => {
+        const m = insights.data?.find((d) => d.name === name);
+        return m?.total_value?.value ?? m?.values?.[0]?.value ?? 0;
+      };
+      result.posts![id] = {
+        views: get("views"),
+        likes: get("likes"),
+        comments: get("comments"),
+        shares: get("shares"),
+        saves: get("saved"),
+        reach: get("reach") || undefined,
+      };
+    } catch {
+      try {
+        const media = await graph<{ like_count?: number; comments_count?: number }>(
+          `${base}/${id}?fields=like_count,comments_count&access_token=${token}`,
+          undefined,
+          "",
+        );
+        result.posts![id] = { views: 0, likes: media.like_count ?? 0, comments: media.comments_count ?? 0, shares: 0 };
+      } catch (err) {
+        result.warnings!.push(`Reel ${id} : ${(err as Error).message}`);
+      }
+    }
+  }
+
+  // Audience des abonnés (comptes professionnels d'au moins 100 abonnés).
+  try {
+    const breakdown = async (dimension: "age" | "gender" | "country" | "city") => {
+      const r = await graph<{ data?: { total_value?: { breakdowns?: { results?: { dimension_values: string[]; value: number }[] }[] } }[] }>(
+        `${base}/${igUserId(account)}/insights?metric=follower_demographics&period=lifetime&metric_type=total_value&breakdown=${dimension}&access_token=${token}`,
+        undefined,
+        "Audience Instagram indisponible (compte professionnel d'au moins 100 abonnés requis)",
+      );
+      return (r.data?.[0]?.total_value?.breakdowns?.[0]?.results ?? []).map(
+        (x) => [String(x.dimension_values[0] ?? ""), Number(x.value) || 0] as const,
+      );
+    };
+    const shares = (rows: (readonly [string, number])[]) => {
+      const total = rows.reduce((n, [, v]) => n + v, 0);
+      return total ? rows.map(([k, v]) => [k, v / total] as const).sort((a, b) => b[1] - a[1]) : [];
+    };
+    const [age, gender, country, city] = await Promise.all([breakdown("age"), breakdown("gender"), breakdown("country"), breakdown("city")]);
+    const g = Object.fromEntries(shares(gender));
+    result.audience = {
+      basis: "followers",
+      gender: gender.length ? { female: g.F ?? 0, male: g.M ?? 0, other: g.U ?? 0 } : undefined,
+      ages: age.length
+        ? (Object.fromEntries(shares(age).filter(([k]) => (AGE_BUCKETS as readonly string[]).includes(k))) as Partial<Record<AgeBucket, number>>)
+        : undefined,
+      countries: country.length
+        ? shares(country)
+            .slice(0, 30)
+            .map(([code, share]) => ({ code: code.toUpperCase(), share }))
+        : undefined,
+      cities: city.length
+        ? shares(city)
+            .slice(0, 10)
+            .map(([name, share]) => ({ name: name.split(",")[0], share }))
+        : undefined,
+    };
+  } catch (err) {
+    result.warnings!.push(`Audience Instagram : ${(err as Error).message}`);
+  }
+  return result;
+}

@@ -1,4 +1,4 @@
-import type { MediaAsset, PlatformId, TiktokPrivacy, YoutubePrivacy } from "./types";
+import type { MediaAsset, PlatformId, PostKind, TiktokPrivacy, YoutubeFormat, YoutubePrivacy } from "./types";
 
 export interface PlatformMeta {
   id: PlatformId;
@@ -15,7 +15,7 @@ export const PLATFORMS: Record<PlatformId, PlatformMeta> = {
   tiktok: {
     id: "tiktok",
     name: "TikTok",
-    format: "Vidéo TikTok",
+    format: "Vidéo ou photos",
     color: "#25F4EE",
     accentClass: "ring-cyan-400/60 border-cyan-400/60",
     softClass: "bg-cyan-400/10",
@@ -33,7 +33,7 @@ export const PLATFORMS: Record<PlatformId, PlatformMeta> = {
   instagram: {
     id: "instagram",
     name: "Instagram",
-    format: "Reel",
+    format: "Reel ou publication",
     color: "#E1306C",
     accentClass: "ring-pink-500/60 border-pink-500/60",
     softClass: "bg-pink-500/10",
@@ -113,6 +113,43 @@ export const TIKTOK_PRIVACY_LABELS: Record<TiktokPrivacy, string> = {
   FOLLOWER_OF_CREATOR: "Abonnés",
   SELF_ONLY: "Moi uniquement",
 };
+
+/** Publications photo : nombre maximal de photos et formats acceptés par plateforme. */
+export const PHOTO_LIMITS = {
+  instagram: { max: 10, minRatio: 4 / 5, maxRatio: 1.91 },
+  tiktok: { max: 35, titleMax: 90, descriptionMax: 4000 },
+} as const;
+
+/** YouTube n'accepte que des vidéos (les publications Communauté ne sont pas disponibles via l'API). */
+export function supportsKind(platform: PlatformId, kind: PostKind): boolean {
+  return kind === "video" || platform !== "youtube";
+}
+
+/** La vidéo sera-t-elle publiée comme Short ? (format choisi, sinon détection automatique) */
+export function youtubeIsShort(format: YoutubeFormat | undefined, media?: Pick<MediaAsset, "duration" | "width" | "height">): boolean {
+  if (format === "short") return true;
+  if (format === "long") return false;
+  return isYoutubeShort(media);
+}
+
+/** Libellé du type de contenu publié sur une plateforme (« Short », « Carrousel · 4 photos »…). */
+export function contentLabel(
+  platform: PlatformId,
+  kind: PostKind,
+  opts: { media?: Pick<MediaAsset, "duration" | "width" | "height"> | null; imageCount?: number; youtubeFormat?: YoutubeFormat },
+): string {
+  const n = opts.imageCount ?? 0;
+  if (kind === "photo") {
+    if (platform === "youtube") return "Vidéo uniquement";
+    if (platform === "instagram") return n > 1 ? `Carrousel · ${n} photos` : "Publication photo";
+    return n > 1 ? `Photos · ${n}` : "Photo";
+  }
+  if (platform === "youtube") {
+    if (!opts.media && opts.youtubeFormat !== "short" && opts.youtubeFormat !== "long") return "Short ou vidéo longue";
+    return youtubeIsShort(opts.youtubeFormat, opts.media ?? undefined) ? "Short" : "Vidéo longue";
+  }
+  return platform === "instagram" ? "Reel" : "Vidéo";
+}
 
 /** Une vidéo verticale (ou carrée) de 3 minutes max devient un Short sur YouTube. */
 export function isYoutubeShort(media?: Pick<MediaAsset, "duration" | "width" | "height">): boolean {

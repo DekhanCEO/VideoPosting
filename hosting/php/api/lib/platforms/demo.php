@@ -17,6 +17,7 @@ function demo_step(array $ctx): array
         'youtube' => ['Envoi de la vidéo vers YouTube', 'YouTube finalise la vidéo'],
         'instagram' => ['Envoi de la vidéo vers Instagram', 'Instagram traite la vidéo'],
     ][$platform];
+    if (($ctx['kind'] ?? 'video') === 'photo') $steps = ["Envoi des photos vers $name", "$name traite les photos"];
     if ($elapsed < $job['upload']) {
         return ['job' => $job, 'progress' => 5 + (int) round($elapsed / $job['upload'] * 80), 'step' => $steps[0], 'delay' => 0.5];
     }

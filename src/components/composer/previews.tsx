@@ -4,6 +4,9 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Bookmark,
   Camera,
+  ChevronLeft,
+  ChevronRight,
+  ImageIcon,
   Film,
   Forward,
   Heart,
@@ -28,11 +31,14 @@ import {
   Share2,
 } from "lucide-react";
 import { formatDuration } from "@/lib/format";
-import type { PlatformId } from "@/lib/types";
+import type { PlatformId, PostKind } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { PlatformLogo } from "../icons";
 
 export interface PreviewData {
+  kind?: PostKind;
+  /** Publication photo : adresses des images, dans l'ordre. */
+  images?: string[];
   videoSrc?: string;
   posterSrc?: string;
   name: string;
@@ -133,6 +139,48 @@ function VideoLayer({ data, fit = "cover" }: { data: PreviewData; fit?: "cover" 
   );
 }
 
+/** Diaporama de photos (TikTok, carrousel Instagram) : flèches, points, compteur. */
+function PhotoLayer({ images, fit = "cover", dark = true }: { images: string[]; fit?: "cover" | "contain"; dark?: boolean }) {
+  const [index, setIndex] = useState(0);
+  useEffect(() => setIndex((i) => Math.min(i, Math.max(0, images.length - 1))), [images.length]);
+  if (!images.length) {
+    return (
+      <div className={cn("absolute inset-0 flex flex-col items-center justify-center gap-2", dark ? "bg-gradient-to-br from-neutral-800 via-neutral-900 to-black text-white/50" : "bg-neutral-100 text-neutral-400")}>
+        <ImageIcon className="size-8" />
+        <span className="text-xs">Ajoutez des photos</span>
+      </div>
+    );
+  }
+  return (
+    <div className="absolute inset-0 bg-black">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img key={images[index]} src={images[index]} alt="" className={cn("size-full animate-fade-in", fit === "cover" ? "object-cover" : "object-contain")} />
+      {images.length > 1 && (
+        <>
+          <span className="absolute top-3 right-3 z-[3] rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-semibold text-white tabular-nums">
+            {index + 1}/{images.length}
+          </span>
+          {index > 0 && (
+            <button type="button" aria-label="Photo précédente" onClick={() => setIndex(index - 1)} className="absolute top-1/2 left-1.5 z-[3] -translate-y-1/2 rounded-full bg-white/80 p-1 text-black shadow">
+              <ChevronLeft className="size-3.5" />
+            </button>
+          )}
+          {index < images.length - 1 && (
+            <button type="button" aria-label="Photo suivante" onClick={() => setIndex(index + 1)} className="absolute top-1/2 right-1.5 z-[3] -translate-y-1/2 rounded-full bg-white/80 p-1 text-black shadow">
+              <ChevronRight className="size-3.5" />
+            </button>
+          )}
+          <div className="absolute inset-x-0 bottom-2 z-[3] flex justify-center gap-1">
+            {images.slice(0, 12).map((_, i) => (
+              <span key={i} className={cn("size-1.5 rounded-full", i === index ? "bg-white" : "bg-white/45")} />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function RailButton({ icon, label }: { icon: ReactNode; label?: string }) {
   return (
     <div className="flex flex-col items-center gap-0.5">
@@ -147,9 +195,16 @@ const shade = "pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient
 /* ------------------------------------------------------------------ */
 
 function TikTokScreen({ data }: { data: PreviewData }) {
+  const photo = data.kind === "photo";
   return (
     <div className="absolute inset-0 bg-black text-white">
-      <VideoLayer data={data} />
+      {photo ? (
+        <div className="absolute inset-x-0 top-0 bottom-28">
+          <PhotoLayer images={data.images ?? []} fit="contain" />
+        </div>
+      ) : (
+        <VideoLayer data={data} />
+      )}
       <div className={shade} />
       <div className="pointer-events-none absolute inset-x-0 top-9 z-[2] flex items-center justify-center gap-4 text-[13px] font-semibold">
         <span className="text-white/60">Abonnements</span>
@@ -178,9 +233,10 @@ function TikTokScreen({ data }: { data: PreviewData }) {
         {data.brandLabel && <span className="inline-block rounded bg-white/20 px-1.5 py-0.5 text-[10px] font-medium">{data.brandLabel}</span>}
         <p className="text-[13px] font-semibold">@{data.username}</p>
         {data.caption && <RichText text={data.caption} className="line-clamp-3 text-[12px] leading-snug whitespace-pre-line" tagClass="font-bold" />}
+        {photo && data.title && <p className="line-clamp-1 text-[12px] font-semibold">{data.title}</p>}
         <p className="flex items-center gap-1.5 text-[11px]">
           <Music2 className="size-3" />
-          <span className="truncate">son original - {data.name}</span>
+          <span className="truncate">{photo ? "Musique recommandée" : `son original - ${data.name}`}</span>
         </p>
       </div>
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[2] flex h-12 items-center justify-around border-t border-white/10 bg-black text-[9px]">
@@ -235,6 +291,53 @@ function InstagramScreen({ data }: { data: PreviewData }) {
         <Plus className="size-5 rounded-md border-2 border-white p-px" strokeWidth={3} />
         <Clapperboard className="size-5" />
         <MiniAvatar src={data.avatarUrl} name={data.name} size={22} />
+      </div>
+    </div>
+  );
+}
+
+/** Publication du fil Instagram (photo ou carrousel). */
+function InstagramFeedScreen({ data }: { data: PreviewData }) {
+  const collab = data.collaborators?.filter(Boolean) ?? [];
+  return (
+    <div className="absolute inset-0 overflow-y-auto bg-white text-neutral-900 scrollbar-thin dark:bg-black dark:text-white">
+      <div className="flex h-16 items-end justify-between px-3 pb-2">
+        <span className="font-[cursive] text-[20px] font-semibold tracking-tight">Instagram</span>
+        <span className="flex gap-3.5">
+          <Heart className="size-5" />
+          <Send className="size-5" />
+        </span>
+      </div>
+      <div className="flex items-center gap-2 px-3 py-2">
+        <span className="rounded-full bg-gradient-to-tr from-amber-400 via-pink-500 to-purple-600 p-[2px]">
+          <MiniAvatar src={data.avatarUrl} name={data.name} size={28} className="ring-2 ring-white dark:ring-black" />
+        </span>
+        <span className="min-w-0 flex-1 truncate text-[12px] font-semibold">
+          {data.username}
+          {collab.length > 0 && <span className="font-normal"> et {collab.length === 1 ? collab[0] : `${collab.length} autres`}</span>}
+        </span>
+        <MoreHorizontal className="size-4" />
+      </div>
+      <div className="relative aspect-[4/5] bg-neutral-100 dark:bg-neutral-900">
+        <PhotoLayer images={data.images ?? []} dark={false} />
+      </div>
+      <div className="flex items-center gap-3.5 px-3 pt-2.5">
+        <Heart className="size-[22px]" />
+        <MessageCircle className="size-[22px] -scale-x-100" />
+        <Send className="size-[22px]" />
+        <Bookmark className="ml-auto size-[22px]" />
+      </div>
+      <div className="space-y-1 px-3 py-2 text-[12px]">
+        <p className="font-semibold">0 J&apos;aime</p>
+        {data.caption ? (
+          <p className="line-clamp-4 whitespace-pre-line">
+            <span className="font-semibold">{data.username} </span>
+            <RichText text={data.caption} tagClass="text-sky-700 dark:text-sky-400" />
+          </p>
+        ) : (
+          <p className="text-neutral-400">Votre légende apparaîtra ici.</p>
+        )}
+        <p className="text-[10px] text-neutral-400">À l&apos;instant</p>
       </div>
     </div>
   );
@@ -355,11 +458,22 @@ export function PhoneFrame({ children, className }: { children: ReactNode; class
 }
 
 export function PlatformPreview({ platform, data }: { platform: PlatformId; data: PreviewData }) {
+  const photo = data.kind === "photo";
   return (
     <PhoneFrame>
       {platform === "tiktok" && <TikTokScreen data={data} />}
-      {platform === "instagram" && <InstagramScreen data={data} />}
-      {platform === "youtube" && (data.isShort || (data.vertical && !data.videoSrc) ? <YoutubeShortScreen data={data} /> : <YoutubeWatchScreen data={data} />)}
+      {platform === "instagram" && (photo ? <InstagramFeedScreen data={data} /> : <InstagramScreen data={data} />)}
+      {platform === "youtube" &&
+        (photo ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-neutral-950 px-8 text-center text-sm text-white/70">
+            <PlatformLogo platform="youtube" className="size-8 text-[#FF0033]" />
+            YouTube n&apos;accepte que des vidéos.
+          </div>
+        ) : data.isShort ? (
+          <YoutubeShortScreen data={data} />
+        ) : (
+          <YoutubeWatchScreen data={data} />
+        ))}
     </PhoneFrame>
   );
 }

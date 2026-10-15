@@ -54,7 +54,7 @@ try {
         stream_media($m);
     } elseif ($route === '/cron') {
         $secret = (string) ($_GET['secret'] ?? '');
-        if ($secret === '' || !hash_equals((string) app_read()['cronSecret'], $secret)) throw new HttpError('Non autorisé', 401);
+        if ($secret === '' || !hash_equals(cron_secret(), $secret)) throw new HttpError('Non autorisé', 401);
         $spaces = spaces_with_work();
         json_out(['ok' => true, 'pending' => count($spaces)]);
         finish_request();

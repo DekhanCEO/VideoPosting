@@ -43,12 +43,12 @@ function default_options(array $d): array
             'sync' => ['title' => true, 'description' => true, 'tags' => true],
             'categoryId' => $d['youtubeCategoryId'], 'privacy' => $d['youtubePrivacy'],
             'madeForKids' => false, 'notifySubscribers' => true, 'embeddable' => true,
-            'license' => 'youtube', 'containsSyntheticMedia' => false, 'defaultLanguage' => $d['youtubeLanguage'],
+            'license' => 'youtube', 'containsSyntheticMedia' => false, 'defaultLanguage' => $d['youtubeLanguage'], 'format' => 'auto',
         ],
         'tiktok' => [
             'caption' => '', 'sync' => ['caption' => true], 'mode' => 'direct', 'privacyLevel' => '',
             'allowComments' => $d['tiktokAllowComments'], 'allowDuet' => $d['tiktokAllowDuet'], 'allowStitch' => $d['tiktokAllowStitch'],
-            'coverTimestampMs' => 0, 'commercialContent' => false, 'yourBrand' => false, 'brandedContent' => false, 'isAigc' => false,
+            'coverTimestampMs' => 0, 'commercialContent' => false, 'yourBrand' => false, 'brandedContent' => false, 'isAigc' => false, 'autoAddMusic' => true,
         ],
         'instagram' => [
             'caption' => '', 'sync' => ['caption' => true], 'shareToFeed' => $d['instagramShareToFeed'],

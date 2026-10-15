@@ -46,7 +46,8 @@ const STEPS: Record<PlatformId, { upload: string; processing: string }> = {
  * Astuce : ajoutez « #echec » dans la légende pour simuler une erreur et tester la relance.
  */
 export async function demoPublish(platform: PlatformId, ctx: PublishContext): Promise<PublishResult> {
-  const steps = STEPS[platform];
+  const name = PLATFORMS[platform].name;
+  const steps = ctx.kind === "photo" ? { upload: `Envoi des photos vers ${name}`, processing: `${name} traite les photos` } : STEPS[platform];
   const sizeFactor = Math.min(3, Math.max(1, ctx.media.size / (60 * 1024 ** 2)));
   const uploadMs = (3500 + Math.random() * 3000) * sizeFactor;
   const ticks = 14;

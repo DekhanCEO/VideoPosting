@@ -62,7 +62,7 @@ function refreshPostStatus(postId: string) {
 export function startPublishing(postId: string, only?: PlatformId[]) {
   const post = getPost(postId);
   if (!post) throw new Error("Publication introuvable.");
-  if (!post.mediaId) throw new Error("Aucune vidéo associée à cette publication.");
+  if (post.kind === "photo" ? !post.imageIds?.length : !post.mediaId) throw new Error("Aucun média associé à cette publication.");
 
   const targets = (only ?? post.platforms).filter(
     (p) => post.platforms.includes(p) && !running.has(key(postId, p)) && post.publications[p]?.status !== "published",
@@ -102,8 +102,12 @@ async function runPublication(postId: string, platform: PlatformId) {
 
   try {
     const post = getPost(postId);
-    const media = post?.mediaId ? getMedia(post.mediaId) : undefined;
-    if (!post || !media || media.status !== "ready") throw new PlatformError("La vidéo n'est pas disponible.");
+    const kind = post?.kind ?? "video";
+    const images = kind === "photo" ? (post?.imageIds ?? []).map((id) => getMedia(id)) : [];
+    if (images.some((i) => !i || i.status !== "ready")) throw new PlatformError("Une photo n'est pas disponible.");
+    const media = kind === "photo" ? images[0] : post?.mediaId ? getMedia(post.mediaId) : undefined;
+    if (!post || !media || media.status !== "ready") throw new PlatformError(kind === "photo" ? "Aucune photo à publier." : "La vidéo n'est pas disponible.");
+    if (kind === "photo" && platform === "youtube") throw new PlatformError("YouTube n'accepte que des vidéos.");
 
     const account = await getUsableAccount(platform);
     const options = resolveOptions(post.common, post.options)[platform];
@@ -121,6 +125,8 @@ async function runPublication(postId: string, platform: PlatformId) {
       post,
       media,
       filePath: mediaPath(media),
+      kind,
+      images: images as NonNullable<(typeof images)[number]>[],
       account,
       credentials: getCredentials(platform),
       options,

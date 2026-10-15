@@ -96,6 +96,7 @@ export function defaultOptions(d: Settings["defaults"] = DEFAULT_SETTINGS_DEFAUL
       license: "youtube",
       containsSyntheticMedia: false,
       defaultLanguage: d.youtubeLanguage,
+      format: "auto",
     },
     tiktok: {
       caption: "",
@@ -111,6 +112,7 @@ export function defaultOptions(d: Settings["defaults"] = DEFAULT_SETTINGS_DEFAUL
       yourBrand: false,
       brandedContent: false,
       isAigc: false,
+      autoAddMusic: true,
     },
     instagram: {
       caption: "",

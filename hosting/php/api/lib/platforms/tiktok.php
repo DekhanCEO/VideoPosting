@@ -148,6 +148,7 @@ function tiktok_step(array $ctx): array
     switch ($job['state']) {
         case 'start':
             $creator = tiktok_creator_info($account);
+            if (($ctx['kind'] ?? 'video') === 'photo') return tiktok_photo_start($ctx, $creator);
             if (!empty($media['duration']) && $media['duration'] > $creator['maxVideoPostDurationSec']) {
                 throw new PlatformError('Vidéo trop longue pour ce compte TikTok (max ' . $creator['maxVideoPostDurationSec'] . ' s).');
             }
@@ -203,19 +204,20 @@ function tiktok_step(array $ctx): array
             $username = $account['username'] ?? null;
             if (($s['status'] ?? '') === 'FAILED') {
                 $reason = $s['fail_reason'] ?? '';
-                throw new PlatformError(TT_ERRORS[$reason] ?? ('TikTok a refusé la vidéo (' . ($reason ?: 'raison inconnue') . ').'), $s);
+                throw new PlatformError(TT_ERRORS[$reason] ?? ('TikTok a refusé ' . (!empty($job['photo']) ? 'les photos' : 'la vidéo') . ' (' . ($reason ?: 'raison inconnue') . ').'), $s);
             }
             if (($s['status'] ?? '') === 'SEND_TO_USER_INBOX') {
                 return ['done' => ['externalId' => $job['publishId'], 'url' => $username ? "https://www.tiktok.com/@$username" : null], 'log' => 'Vidéo envoyée dans la boîte de réception TikTok : ouvrez l\'application pour finaliser.'];
             }
             if (($s['status'] ?? '') === 'PUBLISH_COMPLETE') {
                 $postId = $s['publicaly_available_post_id'][0] ?? null;
-                if ($postId && $username) return ['done' => ['externalId' => (string) $postId, 'url' => "https://www.tiktok.com/@$username/video/$postId"]];
+                $type = !empty($job['photo']) ? 'photo' : 'video';
+                if ($postId && $username) return ['done' => ['externalId' => (string) $postId, 'url' => "https://www.tiktok.com/@$username/$type/$postId"]];
                 return ['done' => ['externalId' => $postId ? (string) $postId : $job['publishId'], 'url' => $username ? "https://www.tiktok.com/@$username" : null]];
             }
             $elapsed = now_ms() - $job['startedAt'];
             if ($elapsed > 30 * 60000) throw new PlatformError('TikTok met trop de temps à traiter la vidéo. Vérifiez votre profil TikTok.');
-            return ['job' => $job, 'progress' => min(98, 86 + (int) round($elapsed / 15000)), 'step' => 'TikTok traite la vidéo', 'delay' => 4];
+            return ['job' => $job, 'progress' => min(98, 86 + (int) round($elapsed / 15000)), 'step' => !empty($job['photo']) ? 'TikTok traite les photos' : 'TikTok traite la vidéo', 'delay' => 4];
     }
     throw new PlatformError('État de publication inconnu.');
 }
@@ -240,4 +242,40 @@ function tiktok_stats(array $a, array $externalIds): array
         }
     }
     return $result;
+}
+
+/** Publication photo (1 à 35 images) : TikTok télécharge les images depuis l'hébergement (domaine vérifié). */
+function tiktok_photo_start(array $ctx, array $creator): array
+{
+    $o = $ctx['options'];
+    $direct = $o['mode'] === 'direct';
+    if ($direct && (!$o['privacyLevel'] || !in_array($o['privacyLevel'], $creator['privacyLevelOptions'], true))) {
+        throw new PlatformError('Le niveau de confidentialité choisi n\'est pas disponible pour ce compte TikTok.');
+    }
+    $urls = [];
+    foreach ($ctx['images'] as $img) {
+        $url = signed_media_url($img['id']);
+        if (!str_starts_with($url, 'https://') && !vp_config('api_mock_base')) throw new PlatformError('TikTok exige une adresse HTTPS : activez le certificat SSL de votre hébergement.');
+        $urls[] = $url;
+    }
+    // Titre court (90 caractères) + description : la légende sans le titre lorsqu'elle est synchronisée.
+    $common = $ctx['post']['common'];
+    $description = !empty($o['sync']['caption']) ? build_youtube_description($common) : $o['caption'];
+    $info = ['title' => mb_substr(trim($common['title']), 0, 90), 'description' => mb_substr($description, 0, 4000)];
+    if ($direct) {
+        $info += [
+            'privacy_level' => $o['privacyLevel'],
+            'disable_comment' => $creator['commentDisabled'] || !$o['allowComments'],
+            'auto_add_music' => (bool) ($o['autoAddMusic'] ?? true),
+            'brand_content_toggle' => $o['commercialContent'] && $o['brandedContent'],
+            'brand_organic_toggle' => $o['commercialContent'] && $o['yourBrand'],
+        ];
+    }
+    $init = tiktok_api('/post/publish/content/init/', $ctx['account'], [
+        'post_info' => $info,
+        'source_info' => ['source' => 'PULL_FROM_URL', 'photo_cover_index' => 0, 'photo_images' => $urls],
+        'post_mode' => $direct ? 'DIRECT_POST' : 'MEDIA_UPLOAD',
+        'media_type' => 'PHOTO',
+    ]);
+    return ['job' => ['state' => 'status', 'publishId' => $init['publish_id'], 'startedAt' => now_ms(), 'photo' => true], 'progress' => 60, 'step' => 'TikTok récupère les photos', 'delay' => 3, 'log' => 'Publication photo TikTok initialisée (' . $init['publish_id'] . ', ' . count($urls) . ' photos)'];
 }

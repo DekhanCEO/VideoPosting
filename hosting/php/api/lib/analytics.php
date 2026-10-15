@@ -197,7 +197,7 @@ function analytics_summary(int $range): array
         $day = iso_day($post['publishedAt'] ?? $post['updatedAt']);
         $entry = ['postId' => $post['id'], 'title' => $post['common']['title'] ?: ($post['options']['youtube']['title'] ?: 'Sans titre'),
             'publishedAt' => $post['publishedAt'] ?? null, 'totalViews' => 0, 'totalEngagement' => 0, 'platforms' => [],
-            'posterId' => $posters[$post['mediaId'] ?? ''] ?? null];
+            'posterId' => ($post['kind'] ?? 'video') === 'photo' ? ($post['imageIds'][0] ?? null) : ($posters[$post['mediaId'] ?? ''] ?? null)];
         foreach ($post['platforms'] as $p) {
             $m = metrics_for($post, $p);
             if (!$m) continue;

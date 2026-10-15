@@ -41,7 +41,7 @@ function start_publishing(string $postId, ?array $only = null): void
 {
     $post = get_post($postId);
     if (!$post) throw new HttpError('Publication introuvable.', 404);
-    if (empty($post['mediaId'])) throw new HttpError('Aucune vidéo associée à cette publication.', 422);
+    if (($post['kind'] ?? 'video') === 'photo' ? empty($post['imageIds']) : empty($post['mediaId'])) throw new HttpError('Aucun média associé à cette publication.', 422);
     db_update(function (array &$d) use ($postId, $only) {
         foreach ($d['posts'] as &$p) {
             if ($p['id'] !== $postId) continue;
@@ -165,14 +165,18 @@ function run_step(string $postId, string $platform): void
 
     $name = PLATFORM_NAMES[$platform];
     try {
-        $media = !empty($post['mediaId']) ? get_media($post['mediaId']) : null;
-        if (!$media || $media['status'] !== 'ready') throw new PlatformError('La vidéo n\'est pas disponible.');
+        $kind = $post['kind'] ?? 'video';
+        $images = $kind === 'photo' ? array_map('get_media', $post['imageIds'] ?? []) : [];
+        foreach ($images as $img) if (!$img || $img['status'] !== 'ready') throw new PlatformError('Une photo n\'est pas disponible.');
+        $media = $kind === 'photo' ? ($images[0] ?? null) : (!empty($post['mediaId']) ? get_media($post['mediaId']) : null);
+        if (!$media || $media['status'] !== 'ready') throw new PlatformError($kind === 'photo' ? 'Aucune photo à publier.' : 'La vidéo n\'est pas disponible.');
+        if ($kind === 'photo' && $platform === 'youtube') throw new PlatformError('YouTube n\'accepte que des vidéos.');
         $account = usable_account($platform);
         $options = resolve_options($post['common'], $post['options'])[$platform];
         $thumbId = $platform === 'youtube' ? ($post['options']['youtube']['thumbnailId'] ?? null) : null;
         $thumb = $thumbId ? get_media($thumbId) : null;
         $ctx = [
-            'post' => $post, 'platform' => $platform, 'media' => $media, 'file' => media_path($media),
+            'post' => $post, 'platform' => $platform, 'media' => $media, 'file' => media_path($media), 'kind' => $kind, 'images' => $images,
             'account' => $account, 'options' => $options, 'job' => $job,
             'thumbnail' => $thumb ? ['file' => media_path($thumb), 'mimeType' => $thumb['mimeType']] : null,
         ];

@@ -314,7 +314,9 @@ export function getAnalyticsSummary(range: AnalyticsRange): AnalyticsSummary {
   }
 
   // Couverture de la vidéo pour l'affichage.
-  const posters = db().read((d) => new Map(d.posts.map((p) => [p.id, d.media.find((m) => m.id === p.mediaId)?.posterId])));
+  const posters = db().read(
+    (d) => new Map(d.posts.map((p) => [p.id, p.kind === "photo" ? p.imageIds?.[0] : d.media.find((m) => m.id === p.mediaId)?.posterId])),
+  );
   for (const t of top) t.posterId = posters.get(t.postId);
   top.sort((a, b) => b.totalViews - a.totalViews);
 

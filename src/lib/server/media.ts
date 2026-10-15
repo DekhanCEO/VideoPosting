@@ -144,7 +144,7 @@ export function setPoster(id: string, posterId: string) {
 export function deleteMediaIfUnused(id: string | undefined) {
   if (!id) return;
   const used = db().read((d) =>
-    d.posts.some((p) => p.mediaId === id || p.options.youtube.thumbnailId === id),
+    d.posts.some((p) => p.mediaId === id || p.options.youtube.thumbnailId === id || !!p.imageIds?.includes(id)),
   );
   if (used) return;
   const asset = getMedia(id);

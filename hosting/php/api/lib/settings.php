@@ -14,18 +14,33 @@ function redirect_uri(): string
     return public_url() . '/api/callback.php';
 }
 
+/** Variables du .env par plateforme (prioritaires sur les valeurs saisies dans l'application). */
+const ENV_KEYS = [
+    'youtube' => ['YOUTUBE_CLIENT_ID', 'YOUTUBE_CLIENT_SECRET'],
+    'tiktok' => ['TIKTOK_CLIENT_KEY', 'TIKTOK_CLIENT_SECRET'],
+    'instagram' => ['INSTAGRAM_APP_ID', 'INSTAGRAM_APP_SECRET'],
+];
+
 function credentials(string $platform): array
 {
     $c = app_read()['credentials'];
     $ig = $c['instagram'];
     $id = $platform === 'youtube' ? $c['youtube']['clientId'] : ($platform === 'tiktok' ? $c['tiktok']['clientKey'] : $ig['appId']);
     $secret = $platform === 'youtube' ? $c['youtube']['clientSecret'] : ($platform === 'tiktok' ? $c['tiktok']['clientSecret'] : $ig['appSecret']);
+    [$envId, $envSecret] = array_map('vp_env', ENV_KEYS[$platform]);
+    $fromEnv = $envId !== null && $envSecret !== null;
+    if ($fromEnv) {
+        $id = $envId;
+        $secret = $envSecret;
+    }
+    $loginType = in_array(vp_env('INSTAGRAM_LOGIN_TYPE'), ['instagram', 'facebook'], true) ? vp_env('INSTAGRAM_LOGIN_TYPE') : ($ig['loginType'] ?? 'instagram');
     return [
         'clientId' => trim((string) $id),
         'clientSecret' => trim((string) $secret),
         'configured' => trim((string) $id) !== '' && trim((string) $secret) !== '',
-        'loginType' => $ig['loginType'] ?? 'instagram',
-        'graphVersion' => $ig['graphVersion'] ?: 'v24.0',
+        'fromEnv' => $fromEnv,
+        'loginType' => $loginType,
+        'graphVersion' => vp_env('META_GRAPH_VERSION') ?? ($ig['graphVersion'] ?: 'v24.0'),
     ];
 }
 
@@ -45,10 +60,10 @@ function public_settings(?array $user = null): array
         'publicUrl' => $url,
         'publicUrlIsReachable' => str_starts_with($url, 'https://') && !preg_match('#^https://(localhost|127\.|10\.|192\.168\.)#', $url),
         'credentials' => [
-            'youtube' => ['clientId' => $admin ? $yt['clientId'] : '', 'hasSecret' => $yt['clientSecret'] !== '', 'fromEnv' => false, 'configured' => $yt['configured']],
-            'tiktok' => ['clientKey' => $admin ? $tt['clientId'] : '', 'hasSecret' => $tt['clientSecret'] !== '', 'fromEnv' => false, 'configured' => $tt['configured']],
+            'youtube' => ['clientId' => $admin ? $yt['clientId'] : '', 'hasSecret' => $yt['clientSecret'] !== '', 'fromEnv' => $yt['fromEnv'], 'configured' => $yt['configured']],
+            'tiktok' => ['clientKey' => $admin ? $tt['clientId'] : '', 'hasSecret' => $tt['clientSecret'] !== '', 'fromEnv' => $tt['fromEnv'], 'configured' => $tt['configured']],
             'instagram' => [
-                'appId' => $admin ? $ig['clientId'] : '', 'hasSecret' => $ig['clientSecret'] !== '', 'fromEnv' => false, 'configured' => $ig['configured'],
+                'appId' => $admin ? $ig['clientId'] : '', 'hasSecret' => $ig['clientSecret'] !== '', 'fromEnv' => $ig['fromEnv'], 'configured' => $ig['configured'],
                 'loginType' => $ig['loginType'], 'graphVersion' => $ig['graphVersion'],
             ],
         ],
@@ -60,7 +75,8 @@ function public_settings(?array $user = null): array
         'passwordProtected' => true,
         'hosting' => 'php',
         'canManageApps' => $admin,
-        'cronUrl' => $admin ? $url . '/api/index.php?r=' . rawurlencode('/cron') . '&secret=' . $app['cronSecret'] : null,
+        'cronUrl' => $admin ? $url . '/api/index.php?r=' . rawurlencode('/cron') . '&secret=' . cron_secret($app) : null,
+        'env' => $admin ? vp_env_info() : null,
     ];
 }
 
@@ -120,4 +136,9 @@ function apply_credentials_patch(array &$s, array $c): void
         if (in_array($i['loginType'] ?? '', ['instagram', 'facebook'], true)) $s['credentials']['instagram']['loginType'] = $i['loginType'];
         if (isset($i['graphVersion']) && preg_match('/^v\d+\.\d+$/', $i['graphVersion'])) $s['credentials']['instagram']['graphVersion'] = $i['graphVersion'];
     }
+}
+
+function cron_secret(?array $app = null): string
+{
+    return vp_env('CRON_SECRET') ?? (string) ($app ?? app_read())['cronSecret'];
 }

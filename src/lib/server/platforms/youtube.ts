@@ -1,5 +1,5 @@
 import "server-only";
-import { isYoutubeShort } from "../../platforms";
+import { youtubeIsShort } from "../../platforms";
 import { normalize } from "../../influence";
 import type { Account, AgeBucket } from "../../types";
 import { getSettings } from "../store";
@@ -161,10 +161,15 @@ export const youtube: PlatformAdapter<"youtube"> = {
     const { options: o, media, account, signal } = ctx;
     ctx.progress(2, "Préparation de l'envoi vers YouTube");
 
+    // Short demandé explicitement : #Shorts aide YouTube à le classer comme tel.
+    const short = youtubeIsShort(o.format, media);
+    const description =
+      o.format === "short" && !/#shorts\b/i.test(`${o.title} ${o.description}`) ? `${o.description}${o.description ? "\n\n" : ""}#Shorts` : o.description;
+
     const metadata = {
       snippet: {
         title: o.title.trim(),
-        description: o.description,
+        description,
         tags: o.tags.length ? o.tags : undefined,
         categoryId: o.categoryId,
         defaultLanguage: o.defaultLanguage || undefined,
@@ -285,7 +290,6 @@ export const youtube: PlatformAdapter<"youtube"> = {
       }
     }
 
-    const short = isYoutubeShort(media);
     return {
       externalId: video.id,
       url: short ? `https://www.youtube.com/shorts/${video.id}` : `https://www.youtube.com/watch?v=${video.id}`,
