@@ -39,7 +39,7 @@ export interface DbShape {
 
 // Le commentaire évite que le bundler trace (et surveille) tout le projet à cause de ce chemin dynamique.
 export const DATA_DIR = path.resolve(/*turbopackIgnore: true*/ process.env.DATA_DIR || path.join(process.cwd(), "data"));
-const DB_FILE = path.join(DATA_DIR, "db.json");
+const DB_FILE = path.join(/*turbopackIgnore: true*/ DATA_DIR, "db.json");
 
 function defaultSettings(): Settings {
   return {

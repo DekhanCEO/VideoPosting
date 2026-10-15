@@ -12,6 +12,7 @@ import {
   Menu as MenuIcon,
   Moon,
   Plus,
+  Power,
   Settings,
   Sun,
   Users,
@@ -99,6 +100,15 @@ function SidebarFooter() {
     await api("/api/session", { method: "DELETE" });
     router.replace("/login");
   };
+  const [stopped, setStopped] = useState(false);
+  const quit = async () => {
+    if (!confirm("Quitter VideoPosting ? Les publications programmées ne partiront pas tant que l'application est fermée.")) return;
+    await api("/api/desktop/quit", { method: "POST" }).catch(() => undefined);
+    setStopped(true);
+  };
+  if (stopped) {
+    return <p className="rounded-xl bg-surface-2 p-3 text-xs text-muted">VideoPosting est arrêté. Vous pouvez fermer cet onglet.</p>;
+  }
   return (
     <div className="space-y-3">
       {settings?.demoMode && (
@@ -121,6 +131,11 @@ function SidebarFooter() {
         {settings?.passwordProtected && (
           <button onClick={logout} className={buttonClass("ghost", "icon-sm")} aria-label="Se déconnecter" title="Se déconnecter">
             <LogOut className="size-4" />
+          </button>
+        )}
+        {settings?.hosting === "desktop" && (
+          <button onClick={quit} className={buttonClass("ghost", "icon-sm")} aria-label="Quitter VideoPosting" title="Quitter VideoPosting">
+            <Power className="size-4" />
           </button>
         )}
       </div>

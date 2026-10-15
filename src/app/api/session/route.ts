@@ -1,5 +1,21 @@
 import { NextResponse } from "next/server";
-import { SESSION_COOKIE, SESSION_TTL_SECONDS, createSessionToken, passwordMatches } from "@/lib/session";
+import { SESSION_COOKIE, SESSION_TTL_SECONDS, createSessionToken, passwordMatches, verifySessionToken } from "@/lib/session";
+import type { SessionInfo } from "@/lib/types";
+
+export async function GET(req: Request) {
+  const password = process.env.APP_PASSWORD;
+  const token = req.headers
+    .get("cookie")
+    ?.split(/;\s*/)
+    .find((c) => c.startsWith(`${SESSION_COOKIE}=`))
+    ?.slice(SESSION_COOKIE.length + 1);
+  const info: SessionInfo = {
+    passwordRequired: !!password,
+    setupRequired: false,
+    authenticated: !password || (await verifySessionToken(password, token)),
+  };
+  return NextResponse.json(info, { headers: { "Cache-Control": "no-store" } });
+}
 
 export async function POST(req: Request) {
   const password = process.env.APP_PASSWORD;

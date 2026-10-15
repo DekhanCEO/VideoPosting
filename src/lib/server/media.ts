@@ -8,7 +8,7 @@ import { getPublicUrl } from "./config";
 import { extractFrame, probeVideo } from "./probe";
 import { DATA_DIR, db, getMedia, getSecret } from "./store";
 
-export const MEDIA_DIR = path.join(DATA_DIR, "media");
+export const MEDIA_DIR = path.join(/*turbopackIgnore: true*/ DATA_DIR, "media");
 
 export const ACCEPTED_TYPES: Record<string, { kind: MediaKind; ext: string; maxSize: number }> = {
   "video/mp4": { kind: "video", ext: ".mp4", maxSize: 20 * 1024 ** 3 },
@@ -24,7 +24,7 @@ export const MAX_CHUNK_SIZE = 32 * 1024 * 1024;
 
 export function mediaPath(asset: Pick<MediaAsset, "id" | "mimeType">): string {
   const ext = ACCEPTED_TYPES[asset.mimeType]?.ext ?? "";
-  return path.join(MEDIA_DIR, `${asset.id}${ext}`);
+  return path.join(/*turbopackIgnore: true*/ MEDIA_DIR, `${asset.id}${ext}`);
 }
 
 export function createMedia(input: { fileName: string; size: number; mimeType: string }): MediaAsset {

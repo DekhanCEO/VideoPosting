@@ -7,7 +7,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: { default: "VideoPosting", template: "%s · VideoPosting" },
   description: "Publiez la même vidéo sur TikTok, YouTube et Instagram, suivez vos statistiques et vos revenus.",
-  icons: { icon: "/icon.svg" },
+  icons: { icon: `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/icon.svg` },
 };
 
 export const viewport: Viewport = {

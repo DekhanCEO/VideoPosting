@@ -234,8 +234,6 @@ export function Composer({ postId, presetDate }: { postId?: string; presetDate?:
     const post = await save("draft");
     if (post) {
       toast.success("Brouillon enregistré");
-      // Met à jour l'URL sans remonter le composant (un envoi peut être en cours).
-      if (!postId) window.history.replaceState(null, "", `/compose?id=${post.id}`);
     }
   };
 
@@ -261,7 +259,7 @@ export function Composer({ postId, presetDate }: { postId?: string; presetDate?:
     } else {
       toast.success("Publication lancée 🚀");
     }
-    router.push(`/posts/${post.id}`);
+    router.push(`/post?id=${post.id}`);
   };
 
   if (loadError) {
@@ -378,7 +376,7 @@ export function Composer({ postId, presetDate }: { postId?: string; presetDate?:
       {readOnly && (
         <div className="mt-6 flex items-center gap-3 rounded-2xl border border-accent/30 bg-accent-soft px-4 py-3 text-sm">
           <Zap className="size-4 text-accent" /> Cette publication est en cours d&apos;envoi.
-          <Link href={`/posts/${id}`} className="font-medium text-accent hover:underline">
+          <Link href={`/post?id=${id}`} className="font-medium text-accent hover:underline">
             Suivre la progression →
           </Link>
         </div>

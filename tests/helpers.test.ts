@@ -39,3 +39,12 @@ test("session : jeton signé valide pour le bon mot de passe uniquement", async 
   assert.equal(await passwordMatches("secret", "secret"), true);
   assert.equal(await passwordMatches("secret", "Secret"), false);
 });
+
+test("TikTok : les identifiants 64 bits restent exacts", async () => {
+  const { parseTiktokJson } = await import("../src/lib/tiktok-json");
+  const parsed = parseTiktokJson('{"data":{"status":"PUBLISH_COMPLETE","publicaly_available_post_id":[7300000000000000001, 7300000000000000003]},"error":{"code":"ok"}}') as {
+    data: { publicaly_available_post_id: string[] };
+  };
+  assert.deepEqual(parsed.data.publicaly_available_post_id, ["7300000000000000001", "7300000000000000003"]);
+  assert.equal(parseTiktokJson(""), null);
+});

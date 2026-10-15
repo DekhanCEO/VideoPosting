@@ -1,5 +1,6 @@
 import "server-only";
 import { tiktokChunks } from "../../chunks";
+import { parseTiktokJson } from "../../tiktok-json";
 import type { Account, TiktokCreatorInfo, TiktokPrivacy } from "../../types";
 import { PlatformError, form, parseBody, readChunk, sleep, throwIfAborted } from "../http";
 import type { AccountData, PlatformAdapter, StatsResult } from "./types";
@@ -45,7 +46,7 @@ async function tiktokApi<T>(path: string, account: Account, body?: unknown, sign
     body: body === undefined ? undefined : JSON.stringify(body),
     signal,
   });
-  const parsed = (await parseBody(res)) as TiktokEnvelope<T> | null;
+  const parsed = parseTiktokJson(await res.text()) as TiktokEnvelope<T> | null;
   const code = parsed?.error?.code;
   if (!res.ok || (code && code !== "ok")) {
     const message = (code && ERROR_MESSAGES[code]) || parsed?.error?.message || `Erreur TikTok (${res.status})`;

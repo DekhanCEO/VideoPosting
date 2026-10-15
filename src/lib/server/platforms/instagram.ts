@@ -237,7 +237,7 @@ export const instagram: PlatformAdapter<"instagram"> = {
       params.upload_type = "resumable";
     } else {
       const url = signedMediaUrl(media.id, 6 * 3600);
-      if (!isPubliclyReachable(url)) {
+      if (!isPubliclyReachable(url) && !process.env.VP_API_MOCK_BASE) {
         throw new PlatformError(
           "Instagram doit télécharger la vidéo depuis une URL publique HTTPS. Définissez PUBLIC_URL (ex. via un tunnel) ou passez à la connexion « Facebook Login » dans les paramètres.",
         );

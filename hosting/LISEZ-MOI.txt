@@ -1,0 +1,68 @@
+VIDEOPOSTING - INSTALLATION SUR HEBERGEMENT MUTUALISE (OVH, o2switch, IONOS...)
+================================================================================
+
+VOTRE CODE D'INSTALLATION :  {{SETUP_CODE}}
+
+Gardez-le pour vous : il est demandé une seule fois, à la première connexion,
+pour choisir votre mot de passe. Personne d'autre ne peut donc s'approprier l'outil.
+
+
+1. AVANT DE COMMENCER
+---------------------
+- PHP 8.1 ou plus récent.
+  OVH : Web Cloud > Hébergements > votre hébergement > onglet "Informations générales"
+  > "Version PHP globale" : choisissez 8.2 ou 8.3.
+- HTTPS activé (certificat SSL), indispensable pour TikTok et Instagram.
+  OVH : onglet "Multisite" > colonne SSL (le certificat Let's Encrypt est gratuit).
+
+
+2. ENVOYER LE DOSSIER SUR L'HEBERGEMENT
+---------------------------------------
+- Installez FileZilla (gratuit) et connectez-vous avec vos identifiants FTP
+  (OVH : onglet "FTP - SSH" de votre hébergement).
+- Glissez le dossier "{{FOLDER}}" dans le dossier "www".
+- Vérifiez que vous obtenez bien :  www/{{FOLDER}}/index.html
+                                    www/{{FOLDER}}/api/index.php
+                                    www/{{FOLDER}}/data/
+- Le dossier doit garder le nom "{{FOLDER}}" et rester directement dans "www".
+
+
+3. PREMIERE CONNEXION
+---------------------
+- Ouvrez  https://votre-domaine{{BASE}}/   (par exemple https://malabop.fr{{BASE}}/)
+- Saisissez le code d'installation ci-dessus, puis choisissez votre mot de passe.
+- Le mode démo est activé au départ : vous pouvez tout essayer sans rien configurer
+  (comptes, publications, statistiques et revenus sont simulés).
+
+
+4. PUBLICATIONS PROGRAMMEES (fortement recommandé)
+--------------------------------------------------
+Un hébergement mutualisé ne travaille que lorsque quelqu'un visite le site. Pour que
+les publications programmées partent à l'heure, même application fermée :
+- Dans l'application : Paramètres > Serveur & sécurité > copiez "l'URL cron".
+- Créez un compte gratuit sur https://cron-job.org puis "Create cronjob" :
+  collez l'URL, choisissez "Every minute", enregistrez.
+(Les tâches planifiées intégrées à OVH sont limitées à une exécution par heure.)
+
+
+5. CONNECTER VOS VRAIS COMPTES
+------------------------------
+- Paramètres : désactivez le mode démo et renseignez les identifiants de vos
+  applications développeur Google (YouTube), TikTok et Meta (Instagram).
+  Chaque carte contient un guide pas à pas.
+- Adresse de retour (redirect URI) à déclarer chez Google, TikTok et Meta :
+      https://votre-domaine{{BASE}}/api/callback.php
+- Puis, dans "Comptes", cliquez sur "Connecter".
+
+
+6. BON A SAVOIR
+---------------
+- Vos données (comptes connectés, vidéos, statistiques, revenus) sont dans
+  {{FOLDER}}/data. Sauvegardez ce dossier de temps en temps.
+- Mise à jour : remplacez le dossier {{FOLDER}} SAUF son sous-dossier "data".
+- Les vidéos sont stockées sur l'hébergement : supprimez les anciennes publications
+  pour libérer de l'espace disque.
+- Mot de passe oublié : créez par FTP un fichier vide nommé "reset-password" dans
+  {{FOLDER}}/data, puis ouvrez l'application : elle vous redemandera le code
+  d'installation et un nouveau mot de passe (vos données sont conservées).
+- Le dossier "data" est protégé : son contenu n'est pas accessible depuis le web.

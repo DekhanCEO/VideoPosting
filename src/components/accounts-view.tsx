@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { AlertTriangle, CheckCircle2, ExternalLink, FlaskConical, KeyRound, LogOut, RefreshCw, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api-client";
+import { apiUrl } from "@/lib/paths";
 import { formatDate, formatRelative } from "@/lib/format";
 import { useAccounts, useSettings } from "@/lib/hooks";
 import { PLATFORMS, PLATFORM_ORDER } from "@/lib/platforms";
@@ -45,7 +46,7 @@ function AccountCard({
   configured: boolean;
   onDisconnect: () => void;
 }) {
-  const connectHref = `/api/auth/${platform}/connect`;
+  const connectHref = apiUrl(`/api/auth/${platform}/connect`);
   const canConnect = demo || configured;
   return (
     <Card className="flex flex-col overflow-hidden">

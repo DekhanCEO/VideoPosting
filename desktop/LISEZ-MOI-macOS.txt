@@ -1,0 +1,39 @@
+VIDEOPOSTING POUR MAC
+=====================
+
+INSTALLATION
+------------
+1. Double-cliquez sur le fichier ZIP téléchargé : l'application "VideoPosting"
+   apparaît. Glissez-la dans le dossier "Applications".
+2. Premier lancement (l'application n'est pas signée par Apple) :
+   - Double-cliquez sur VideoPosting. macOS affiche un message d'avertissement :
+     cliquez sur "OK" (ou "Terminé").
+   - Ouvrez Réglages Système > Confidentialité et sécurité, descendez jusqu'à
+     "VideoPosting a été bloquée" et cliquez sur "Ouvrir quand même", puis
+     confirmez avec votre mot de passe.
+   - Sur macOS 14 ou plus ancien, vous pouvez aussi faire clic droit (ou
+     Ctrl + clic) sur l'application > "Ouvrir" > "Ouvrir".
+   Ces étapes ne sont nécessaires qu'une seule fois.
+3. Votre navigateur s'ouvre sur http://localhost:3737 : c'est l'application.
+
+Compatible Mac Apple Silicon (M1, M2, M3, M4…) et Intel, macOS 11 ou plus récent.
+
+UTILISATION
+-----------
+- L'application fonctionne en arrière-plan (pas d'icône dans le Dock).
+  Relancer VideoPosting rouvre simplement l'onglet du navigateur.
+- Pour quitter : bouton "Quitter" (icône marche/arrêt) en bas du menu.
+- Les publications programmées partent tant que l'application est ouverte et
+  que le Mac n'est pas en veille.
+- Vos données sont dans ~/Library/Application Support/VideoPosting
+  (comptes, vidéos, statistiques). Elles sont conservées lors des mises à jour.
+
+CONNECTER VOS COMPTES
+---------------------
+- YouTube fonctionne directement depuis le Mac.
+  Adresse de retour à déclarer chez Google : http://localhost:3737/api/auth/youtube/callback
+- TikTok et Instagram exigent une adresse internet sécurisée (HTTPS) :
+  utilisez pour eux la version hébergée (par exemple https://malabop.fr/posting).
+
+En cas de souci, le journal se trouve dans
+~/Library/Application Support/VideoPosting/logs/videoposting.log

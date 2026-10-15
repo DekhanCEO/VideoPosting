@@ -248,6 +248,19 @@ export interface PublicSettings {
   monthlyRevenueGoal: number;
   defaults: Settings["defaults"];
   passwordProtected: boolean;
+  /** « node » : serveur Node.js (ordinateur ou VPS) ; « php » : hébergement mutualisé. */
+  hosting: "node" | "php" | "desktop";
+  /** Version ordinateur : dossier où sont stockées les données. */
+  dataDir?: string;
+  /** URL à appeler régulièrement (service cron externe) pour publier les posts programmés — hébergement PHP. */
+  cronUrl?: string;
+}
+
+export interface SessionInfo {
+  authenticated: boolean;
+  passwordRequired: boolean;
+  /** Première visite sur l'hébergement : il faut choisir un mot de passe. */
+  setupRequired: boolean;
 }
 
 /* ------------------------------------------------------------------ */

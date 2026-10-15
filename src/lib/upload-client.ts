@@ -1,9 +1,10 @@
 "use client";
 
 import { ApiError, api } from "./api-client";
+import { apiUrl } from "./paths";
 import type { MediaAsset } from "./types";
 
-const CHUNK_SIZE = 8 * 1024 * 1024;
+const DEFAULT_CHUNK_SIZE = 8 * 1024 * 1024;
 
 export interface VideoMeta {
   duration: number;
@@ -88,7 +89,7 @@ export async function captureFilmstrip(src: string, count: number, maxWidth = 16
 function putChunk(url: string, chunk: Blob, onProgress: (loaded: number) => void, signal?: AbortSignal) {
   return new Promise<{ status: number; body: Record<string, unknown> }>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open("PUT", url);
+    xhr.open("POST", url);
     xhr.setRequestHeader("Content-Type", "application/octet-stream");
     xhr.upload.onprogress = (e) => onProgress(e.loaded);
     xhr.onload = () => {
@@ -123,21 +124,23 @@ export async function uploadFile(
   },
 ): Promise<MediaAsset> {
   const mimeType = opts.mimeType || file.type;
-  const asset = await api<MediaAsset>("/api/media", {
+  const asset = await api<MediaAsset & { chunkSize?: number }>("/api/media", {
     method: "POST",
     json: { fileName: opts.fileName, size: file.size, mimeType },
     signal: opts.signal,
   });
   opts.onCreated?.(asset);
 
+  // Le serveur indique la taille de morceau acceptée (limites PHP sur hébergement mutualisé).
+  const chunkSize = asset.chunkSize && asset.chunkSize > 0 ? asset.chunkSize : DEFAULT_CHUNK_SIZE;
   let offset = 0;
   let failures = 0;
   while (offset < file.size) {
-    const end = Math.min(offset + CHUNK_SIZE, file.size);
+    const end = Math.min(offset + chunkSize, file.size);
     const chunk = file.slice(offset, end);
     try {
       const res = await putChunk(
-        `/api/media/${asset.id}?offset=${offset}`,
+        apiUrl(`/api/media/${asset.id}/chunk?offset=${offset}`),
         chunk,
         (loaded) => opts.onProgress?.((offset + loaded) / file.size),
         opts.signal,
@@ -168,5 +171,5 @@ export const ACCEPTED_VIDEO = ["video/mp4", "video/quicktime", "video/webm", "vi
 export const ACCEPTED_IMAGE = ["image/jpeg", "image/png", "image/webp"];
 
 export function mediaUrl(id: string) {
-  return `/api/media/${id}/file`;
+  return apiUrl(`/api/media/${id}/file`);
 }

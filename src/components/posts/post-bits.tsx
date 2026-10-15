@@ -19,7 +19,7 @@ export function postTitle(post: PostWithMedia) {
 }
 
 export function postHref(post: PostWithMedia) {
-  return post.status === "draft" || post.status === "scheduled" ? `/compose?id=${post.id}` : `/posts/${post.id}`;
+  return post.status === "draft" || post.status === "scheduled" ? `/compose?id=${post.id}` : `/post?id=${post.id}`;
 }
 
 export function Thumb({ post, className }: { post: PostWithMedia; className?: string }) {
@@ -91,7 +91,7 @@ export function PostActions({ post, onChange, align = "end" }: { post: PostWithM
         </button>
       )}
       items={[
-        { label: "Voir le suivi", icon: <Eye />, onClick: () => router.push(`/posts/${post.id}`) },
+        { label: "Voir le suivi", icon: <Eye />, onClick: () => router.push(`/post?id=${post.id}`) },
         { label: "Modifier", icon: <Pencil />, onClick: () => router.push(`/compose?id=${post.id}`), disabled: !editable },
         { label: "Dupliquer", icon: <Copy />, onClick: duplicate },
         "separator",

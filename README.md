@@ -41,7 +41,52 @@ Un tableau de bord suit ensuite vos **statistiques** (abonnés, vues, engagement
 **Autres** : thème clair / sombre, interface responsive (mobile), protection par mot de passe, groupes de hashtags,
 valeurs par défaut.
 
-## Démarrage
+## Trois façons de l'utiliser
+
+| Version | Pour qui | Fichier |
+|---|---|---|
+| **Hébergement mutualisé** (OVH, o2switch, IONOS…) | Recommandée : accessible partout (`https://malabop.fr/posting`), TikTok et Instagram fonctionnent (HTTPS) | `VideoPosting-hebergement.zip` |
+| **Windows** (10/11, 64 bits) | Utilisation sur un PC, sans installation | `VideoPosting-Windows.zip` |
+| **macOS** (11+, Apple Silicon et Intel) | Utilisation sur un Mac, sans installation | `VideoPosting-macOS.zip` |
+
+Chaque archive contient un **LISEZ-MOI.txt** pas à pas. Pour les fabriquer :
+
+```bash
+npm install
+npm run package:hosting   # dist/VideoPosting-hebergement.zip (dossier « posting » + code d'installation)
+npm run package:desktop   # dist/VideoPosting-Windows.zip et dist/VideoPosting-macOS.zip
+```
+
+Elles sont aussi produites automatiquement par GitHub Actions (onglet *Actions* → « Paquets » → *Run workflow*,
+puis téléchargement dans *Artifacts*).
+
+### Hébergement mutualisé (PHP)
+Les hébergements mutualisés n'exécutent que du PHP : cette version embarque l'interface en fichiers statiques
+(servie sous `/posting`) et une **API PHP 8.1+** équivalente (`hosting/php/`), sans base de données ni réécriture
+d'URL. Il suffit de glisser le dossier `posting` dans `www` par FTP.
+
+- Première visite : saisissez le **code d'installation** (dans `LISEZ-MOI.txt`, hors du dossier publié) et choisissez
+  votre mot de passe. Mot de passe oublié : déposez un fichier vide `data/reset-password`.
+- Les envois vers les plateformes sont découpés en **étapes courtes** (morceaux de 8 Mio, suivi de statut…)
+  exécutées après chaque réponse HTTP, pour respecter les limites de durée des scripts.
+- Publications programmées : faites appeler l'**URL cron** (Paramètres → Serveur & sécurité) chaque minute par un
+  service comme cron-job.org (les tâches planifiées OVH sont limitées à une par heure), ou
+  `php posting/api/cron.php` si votre hébergeur le permet.
+- Adresse de retour OAuth unique pour les trois plateformes : `https://votre-site/posting/api/callback.php`.
+- Instagram télécharge les vidéos via une URL signée temporaire (aucun envoi direct nécessaire).
+- Autre emplacement que `/posting` : `node scripts/package-hosting.mjs --base /autre-dossier`.
+
+### Windows et macOS
+Versions « portables » : Node.js officiel embarqué (vérifié par SHA-256), aucune installation. Double-clic sur
+`VideoPosting.bat` (Windows) ou `VideoPosting.app` (macOS) : l'application s'ouvre dans le navigateur sur
+`http://localhost:3737`. Les données sont stockées dans `%APPDATA%\VideoPosting` ou
+`~/Library/Application Support/VideoPosting`. Bouton « Quitter » dans le menu.
+
+Les applications ne sont pas signées (pas de certificat Apple/Microsoft) : macOS et Windows affichent un
+avertissement au premier lancement, le LISEZ-MOI explique comment l'autoriser. TikTok et Instagram exigeant une
+adresse HTTPS publique, utilisez la version hébergée pour ces deux plateformes (YouTube fonctionne en local).
+
+## Démarrage (développement)
 
 Prérequis : **Node.js 20+** (22 recommandé). `ffmpeg`/`ffprobe` sont facultatifs mais conseillés (ils permettent
 d'analyser les vidéos que le navigateur ne sait pas lire, par exemple le HEVC des iPhone).
@@ -101,6 +146,12 @@ ne fournissent pas leurs gains : ajoutez-les (ainsi que vos partenariats, affili
 ```bash
 npm test            # règles de validation, légendes, découpage TikTok, sessions
 npm run typecheck
+npm run test:php    # API PHP (hébergement) contre un faux serveur Google/TikTok/Instagram
+BUILD_TARGET=standalone npx next build && npm run test:node   # même scénario sur le serveur Node.js
 ```
+
+Les tests d'intégration simulent les API des plateformes (`tests/php/mock-platforms.mjs`) : connexion OAuth,
+envoi par morceaux avec coupure réseau et reprise, vérification de l'intégrité des fichiers reçus (SHA-256),
+téléchargement de la vidéo par Instagram via l'URL signée, statistiques et revenus YouTube.
 
 Astuce mode démo : ajoutez `#echec` dans un texte pour simuler une erreur de publication et tester la relance.

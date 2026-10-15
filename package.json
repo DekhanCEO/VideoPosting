@@ -8,7 +8,12 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test tests/*.test.ts"
+    "test": "node --import tsx --test tests/*.test.ts",
+    "test:php": "node --test tests/php/integration.test.mjs",
+    "test:node": "node --test tests/node/integration.test.mjs",
+    "package:hosting": "node scripts/package-hosting.mjs",
+    "package:desktop": "node scripts/package-desktop.mjs",
+    "package:all": "node scripts/package-hosting.mjs && node scripts/package-desktop.mjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",

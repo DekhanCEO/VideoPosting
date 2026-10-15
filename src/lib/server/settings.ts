@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 import { z } from "zod";
 import { PLATFORM_IDS, type PublicSettings } from "../types";
 import { getCredentials, getPublicUrl, isPubliclyReachable, redirectUri } from "./config";
-import { db, getSettings } from "./store";
+import { DATA_DIR, db, getSettings } from "./store";
 
 export function toPublicSettings(req?: Request): PublicSettings {
   const s = getSettings();
@@ -33,6 +33,8 @@ export function toPublicSettings(req?: Request): PublicSettings {
     monthlyRevenueGoal: s.monthlyRevenueGoal,
     defaults: s.defaults,
     passwordProtected: !!process.env.APP_PASSWORD,
+    hosting: process.env.VP_DESKTOP === "1" ? "desktop" : "node",
+    dataDir: process.env.VP_DESKTOP === "1" ? DATA_DIR : undefined,
   };
 }
 

@@ -1,0 +1,37 @@
+VIDEOPOSTING POUR WINDOWS
+=========================
+
+INSTALLATION
+------------
+1. Faites un clic droit sur le fichier ZIP téléchargé > Propriétés > cochez
+   "Débloquer" (en bas) > OK. Cela évite les avertissements de Windows.
+2. Clic droit > "Extraire tout..." et choisissez un dossier simple, par exemple
+   C:\VideoPosting ou votre dossier Documents.
+3. Ouvrez le dossier "VideoPosting" et double-cliquez sur "VideoPosting.bat".
+   - Si Windows affiche "Windows a protégé votre ordinateur" : cliquez sur
+     "Informations complémentaires" puis "Exécuter quand même".
+   - Si le pare-feu pose une question, vous pouvez refuser : l'application
+     n'est accessible que depuis votre ordinateur.
+4. Votre navigateur s'ouvre sur http://localhost:3737 : c'est l'application.
+
+Astuce : clic droit sur VideoPosting.bat > "Envoyer vers" > "Bureau (créer un
+raccourci)" pour la lancer depuis le bureau.
+
+UTILISATION
+-----------
+- Une fenêtre noire reste ouverte : c'est le moteur de l'application.
+  Gardez-la ouverte (vous pouvez la réduire). Pour quitter : bouton
+  "Quitter" (icône marche/arrêt) en bas du menu, ou fermez cette fenêtre.
+- Les publications programmées partent tant que l'application est ouverte et
+  que l'ordinateur n'est pas en veille.
+- Vos données sont dans %APPDATA%\VideoPosting (comptes, vidéos, statistiques).
+  Elles sont conservées si vous mettez à jour ou supprimez l'application.
+
+CONNECTER VOS COMPTES
+---------------------
+- YouTube fonctionne directement depuis l'ordinateur.
+  Adresse de retour à déclarer chez Google : http://localhost:3737/api/auth/youtube/callback
+- TikTok et Instagram exigent une adresse internet sécurisée (HTTPS) :
+  utilisez pour eux la version hébergée (par exemple https://malabop.fr/posting).
+
+Rien n'est installé dans Windows : supprimer le dossier suffit à désinstaller.

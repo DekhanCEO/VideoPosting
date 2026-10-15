@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api-client";
+import { apiUrl } from "@/lib/paths";
 import { addDays, isoDay, parseDay } from "@/lib/dates";
 import { delta, formatCurrency, formatDate } from "@/lib/format";
 import { usePosts, useRevenue, useSettings } from "@/lib/hooks";
@@ -279,7 +280,7 @@ export function RevenueView() {
         description="Suivez ce que rapporte votre contenu : partenariats, publicité, programmes créateurs, affiliation…"
         actions={
           <>
-            <a href={`/api/revenue/export?from=${range.from}&to=${range.to}`} className={buttonClass("secondary", "md")}>
+            <a href={apiUrl(`/api/revenue/export?from=${range.from}&to=${range.to}`)} className={buttonClass("secondary", "md")}>
               <Download className="size-4" /> Export CSV
             </a>
             <Button variant="primary" onClick={() => setForm(emptyForm())}>

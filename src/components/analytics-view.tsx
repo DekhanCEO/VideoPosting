@@ -323,7 +323,7 @@ export function AnalyticsView() {
                           <td className="px-5 py-2.5 text-muted tabular-nums">{i + 1}</td>
                           <td className="px-3 py-2.5">
                             {real ? (
-                              <Link href={`/posts/${t.postId}`} className="hover:text-accent">
+                              <Link href={`/post?id=${t.postId}`} className="hover:text-accent">
                                 {title}
                               </Link>
                             ) : (

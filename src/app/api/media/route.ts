@@ -11,5 +11,5 @@ const schema = z.object({
 /** Ouvre un envoi : le fichier est ensuite transmis par morceaux (PUT /api/media/:id). */
 export const POST = route(async (req) => {
   const input = schema.parse(await readJson(req));
-  return json(createMedia(input), 201);
+  return json({ ...createMedia(input), chunkSize: 8 * 1024 * 1024 }, 201);
 });

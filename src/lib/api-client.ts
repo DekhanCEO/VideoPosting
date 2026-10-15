@@ -1,5 +1,7 @@
 "use client";
 
+import { API_MODE, apiUrl, pageUrl } from "./paths";
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -12,9 +14,17 @@ export class ApiError extends Error {
 
 export async function api<T>(url: string, init?: RequestInit & { json?: unknown }): Promise<T> {
   const { json, ...rest } = init ?? {};
-  const res = await fetch(url, {
+  const method = (rest.method ?? "GET").toUpperCase();
+  // Certains hébergements mutualisés filtrent PUT/DELETE : on passe par POST + en-tête de substitution.
+  const override = API_MODE === "php" && !["GET", "POST", "HEAD"].includes(method);
+  const res = await fetch(apiUrl(url), {
     ...rest,
-    headers: { ...(json !== undefined ? { "Content-Type": "application/json" } : {}), ...rest.headers },
+    method: override ? "POST" : method,
+    headers: {
+      ...(json !== undefined ? { "Content-Type": "application/json" } : {}),
+      ...(override ? { "X-HTTP-Method-Override": method } : {}),
+      ...rest.headers,
+    },
     body: json !== undefined ? JSON.stringify(json) : rest.body,
   });
   const text = await res.text();
@@ -25,7 +35,7 @@ export async function api<T>(url: string, init?: RequestInit & { json?: unknown 
     data = text;
   }
   if (res.status === 401 && typeof window !== "undefined" && !url.startsWith("/api/session")) {
-    window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}`;
+    window.location.href = pageUrl("/login", `next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
   }
   if (!res.ok) {
     const d = (data ?? {}) as Record<string, unknown>;

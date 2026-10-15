@@ -6,6 +6,7 @@ import { mutate as globalMutate } from "swr";
 import {
   BookOpen,
   Check,
+  Clock,
   Copy,
   ExternalLink,
   FlaskConical,
@@ -409,10 +410,45 @@ function General({ settings }: { settings: PublicSettings }) {
   );
 }
 
+function ChangePassword() {
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [saving, setSaving] = useState(false);
+  const save = async () => {
+    if (next.length < 8) return toast.error("Le nouveau mot de passe doit contenir au moins 8 caractères.");
+    setSaving(true);
+    try {
+      await api("/api/session", { method: "PUT", json: { current, password: next } });
+      setCurrent("");
+      setNext("");
+      toast.success("Mot de passe modifié");
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+      <Input type="password" value={current} onChange={(e) => setCurrent(e.target.value)} placeholder="Mot de passe actuel" autoComplete="current-password" />
+      <Input type="password" value={next} onChange={(e) => setNext(e.target.value)} placeholder="Nouveau mot de passe" autoComplete="new-password" />
+      <Button onClick={save} loading={saving} disabled={!current || !next}>
+        Modifier
+      </Button>
+    </div>
+  );
+}
+
 function Deployment({ settings }: { settings: PublicSettings }) {
+  const php = settings.hosting === "php";
+  const desktop = settings.hosting === "desktop";
   return (
     <Card id="deploy" className="scroll-mt-6">
-      <CardHeader icon={<ServerCog className="size-4" />} title="Serveur & sécurité" description="Paramètres définis par variables d'environnement (fichier .env)." />
+      <CardHeader
+        icon={<ServerCog className="size-4" />}
+        title="Serveur & sécurité"
+        description={php ? "Hébergement mutualisé (PHP)." : desktop ? "Version ordinateur (Windows / macOS)." : "Paramètres définis par variables d'environnement (fichier .env)."}
+      />
       <div className="divide-y divide-border">
         <div className="flex items-start gap-3 p-5">
           <Globe className="mt-0.5 size-4 shrink-0 text-muted" />
@@ -422,18 +458,53 @@ function Deployment({ settings }: { settings: PublicSettings }) {
             <p className="mt-1 text-xs text-muted">
               {settings.publicUrlIsReachable
                 ? "Accessible en HTTPS : parfait pour les redirections OAuth et Instagram."
-                : "Adresse locale : suffisante pour YouTube, mais TikTok et Instagram (connexion Instagram) exigent une URL HTTPS publique. Définissez PUBLIC_URL."}
+                : php
+                  ? "Activez le certificat SSL (HTTPS) de votre hébergement : TikTok et Instagram l'exigent."
+                  : desktop
+                    ? "Adresse locale : parfaite pour YouTube. TikTok et Instagram exigent une adresse HTTPS publique : utilisez la version hébergée (ex. malabop.fr/posting) pour ces plateformes."
+                  : "Adresse locale : suffisante pour YouTube, mais TikTok et Instagram (connexion Instagram) exigent une URL HTTPS publique. Définissez PUBLIC_URL."}
             </p>
           </div>
           <Badge tone={settings.publicUrlIsReachable ? "success" : "warning"}>{settings.publicUrlIsReachable ? "Publique" : "Locale"}</Badge>
         </div>
+        {desktop && (
+          <div className="flex items-start gap-3 p-5">
+            <Clock className="mt-0.5 size-4 shrink-0 text-muted" />
+            <div className="min-w-0 flex-1 space-y-1 text-sm">
+              <p className="font-medium">Application sur votre ordinateur</p>
+              <p className="text-xs text-muted">
+                Les publications programmées partent tant que VideoPosting est ouvert (ordinateur allumé, non en veille). Vos données sont stockées dans :
+              </p>
+              {settings.dataDir && <CopyField value={settings.dataDir} />}
+            </div>
+          </div>
+        )}
+        {php && settings.cronUrl && (
+          <div className="flex items-start gap-3 p-5">
+            <Clock className="mt-0.5 size-4 shrink-0 text-muted" />
+            <div className="min-w-0 flex-1 space-y-2 text-sm">
+              <p className="font-medium">Publications programmées (tâche planifiée)</p>
+              <p className="text-xs text-muted">
+                Un hébergement mutualisé ne fait rien tant que personne ne visite le site. Pour que les publications programmées partent à l&apos;heure
+                même quand l&apos;application est fermée, faites appeler cette adresse <strong>toutes les minutes</strong> par un service gratuit comme{" "}
+                <A href="https://cron-job.org">cron-job.org</A> (les tâches planifiées OVH sont limitées à une par heure).
+              </p>
+              <CopyField value={settings.cronUrl} />
+            </div>
+          </div>
+        )}
         <div className="flex items-start gap-3 p-5">
           <Lock className="mt-0.5 size-4 shrink-0 text-muted" />
           <div className="min-w-0 flex-1 text-sm">
             <p className="font-medium">Protection par mot de passe</p>
             <p className="mt-1 text-xs text-muted">
-              {settings.passwordProtected ? "L'accès à l'interface est protégé (APP_PASSWORD)." : "Définissez APP_PASSWORD avant d'exposer l'application sur Internet."}
+              {php
+                ? "L'accès à l'interface et à l'API est protégé par votre mot de passe."
+                : settings.passwordProtected
+                  ? "L'accès à l'interface est protégé (APP_PASSWORD)."
+                  : "Définissez APP_PASSWORD avant d'exposer l'application sur Internet."}
             </p>
+            {php && <ChangePassword />}
           </div>
           <Badge tone={settings.passwordProtected ? "success" : "warning"}>{settings.passwordProtected ? "Activée" : "Désactivée"}</Badge>
         </div>
