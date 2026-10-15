@@ -3,6 +3,7 @@
 import useSWR from "swr";
 import { fetcher } from "./api-client";
 import type {
+  AdminOverview,
   AnalyticsRange,
   AnalyticsSummary,
   DashboardData,
@@ -10,6 +11,7 @@ import type {
   PublicAccount,
   PublicSettings,
   RevenueSummary,
+  SessionInfo,
 } from "./types";
 
 const isActive = (p?: PostWithMedia | null) =>
@@ -17,6 +19,15 @@ const isActive = (p?: PostWithMedia | null) =>
 
 export function useSettings() {
   return useSWR<PublicSettings>("/api/settings", fetcher, { revalidateOnFocus: false });
+}
+
+export function useSession() {
+  return useSWR<SessionInfo>("/api/session", fetcher, { revalidateOnFocus: false });
+}
+
+/** Gestion des espaces (hébergement avec connexion Twitch, administrateurs uniquement). */
+export function useAdmin(enabled = true) {
+  return useSWR<AdminOverview>(enabled ? "/api/admin" : null, fetcher);
 }
 
 export function useAccounts() {

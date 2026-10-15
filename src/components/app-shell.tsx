@@ -14,6 +14,7 @@ import {
   Plus,
   Power,
   Settings,
+  ShieldCheck,
   Sun,
   Users,
   Wallet,
@@ -21,9 +22,9 @@ import {
   Clapperboard,
 } from "lucide-react";
 import { api } from "@/lib/api-client";
-import { useSettings } from "@/lib/hooks";
+import { useSession, useSettings } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
-import { buttonClass } from "./ui";
+import { Avatar, buttonClass } from "./ui";
 
 const NAV = [
   { href: "/", label: "Tableau de bord", icon: LayoutDashboard },
@@ -34,6 +35,7 @@ const NAV = [
   { href: "/accounts", label: "Comptes", icon: Users },
   { href: "/settings", label: "Paramètres", icon: Settings },
 ];
+const ADMIN_NAV = { href: "/admin", label: "Espaces & accès", icon: ShieldCheck };
 
 function useTheme() {
   const [dark, setDark] = useState(false);
@@ -69,9 +71,11 @@ function Logo() {
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
+  const { data: session } = useSession();
+  const items = session?.user?.role === "admin" ? [...NAV, ADMIN_NAV] : NAV;
   return (
     <nav className="space-y-0.5">
-      {NAV.map(({ href, label, icon: Icon }) => {
+      {items.map(({ href, label, icon: Icon }) => {
         const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
         return (
           <Link
@@ -94,6 +98,8 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 
 function SidebarFooter() {
   const { data: settings } = useSettings();
+  const { data: session } = useSession();
+  const user = session?.user;
   const { dark, toggle } = useTheme();
   const router = useRouter();
   const logout = async () => {
@@ -123,12 +129,24 @@ function SidebarFooter() {
           </span>
         </Link>
       )}
+      {user && (
+        <div className="flex items-center gap-2.5 rounded-xl border border-border bg-surface p-2">
+          <Avatar src={user.avatarUrl ?? undefined} name={user.displayName} size={34} />
+          <div className="min-w-0 flex-1 leading-tight">
+            <p className="truncate text-sm font-semibold">{user.displayName}</p>
+            <p className="truncate text-[11px] text-muted">{user.role === "admin" ? "Administrateur" : `@${user.login}`}</p>
+          </div>
+          <button onClick={logout} className={buttonClass("ghost", "icon-sm")} aria-label="Se déconnecter" title="Se déconnecter">
+            <LogOut className="size-4" />
+          </button>
+        </div>
+      )}
       <div className="flex items-center gap-1">
         <button onClick={toggle} className={buttonClass("ghost", "sm", "flex-1 justify-start")} aria-label="Changer de thème">
           {dark ? <Sun className="size-4" /> : <Moon className="size-4" />}
           {dark ? "Thème clair" : "Thème sombre"}
         </button>
-        {settings?.passwordProtected && (
+        {settings?.passwordProtected && !user && (
           <button onClick={logout} className={buttonClass("ghost", "icon-sm")} aria-label="Se déconnecter" title="Se déconnecter">
             <LogOut className="size-4" />
           </button>

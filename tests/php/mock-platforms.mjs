@@ -1,4 +1,4 @@
-// Faux serveur imitant les API Google/YouTube, TikTok et Instagram (tests d'intégration de la version PHP).
+// Faux serveur imitant les API Twitch, Google/YouTube, TikTok et Instagram (tests d'intégration).
 import crypto from "node:crypto";
 import http from "node:http";
 
@@ -7,6 +7,7 @@ export function startMock(port) {
     yt: { sessions: new Map(), failedOnce: false, hash: null, meta: null },
     tt: { bytes: [], init: null, statusCalls: 0, hash: null },
     ig: { container: null, downloaded: null, hash: null, published: false, statusCalls: 0 },
+    twitch: { tokenCalls: [], revoked: [] },
     log: [],
   };
   const base = `http://127.0.0.1:${port}`;
@@ -29,6 +30,30 @@ export function startMock(port) {
     const body = await readBody(req);
     state.log.push(`${req.method} ${p}`);
     const form = () => Object.fromEntries(new URLSearchParams(body.toString()));
+
+    // ---- Twitch (connexion à VideoPosting) ----
+    // Le code d'autorisation désigne l'utilisateur : « code-<login> » → jeton « tw-<login> ».
+    if (p === "/id.twitch.tv/oauth2/token") {
+      const f = form();
+      state.twitch.tokenCalls.push(f);
+      if (f.client_secret !== "tw-secret") return send(res, 403, { status: 403, message: "invalid client secret" });
+      if (f.grant_type === "client_credentials") return send(res, 200, { access_token: "tw-app", expires_in: 5000000, token_type: "bearer" });
+      if (f.grant_type === "authorization_code" && f.code?.startsWith("code-")) {
+        return send(res, 200, { access_token: `tw-${f.code.slice(5)}`, refresh_token: "r", expires_in: 14000, scope: ["user:read:email"], token_type: "bearer" });
+      }
+      return send(res, 400, { status: 400, message: "Invalid authorization code" });
+    }
+    if (p === "/id.twitch.tv/oauth2/revoke") {
+      state.twitch.revoked.push(form().token);
+      return send(res, 200);
+    }
+    if (p === "/api.twitch.tv/helix/users") {
+      const token = (req.headers.authorization ?? "").replace("Bearer ", "");
+      if (!token.startsWith("tw-") || req.headers["client-id"] !== "tw-client") return send(res, 401, { status: 401, message: "Invalid OAuth token" });
+      const login = token.slice(3);
+      const id = String(1000 + [...login].reduce((n, ch) => n + ch.charCodeAt(0), 0));
+      return send(res, 200, { data: [{ id, login, display_name: login[0].toUpperCase() + login.slice(1), profile_image_url: `https://static-cdn.jtvnw.net/${login}.png`, email: `${login}@example.com` }] });
+    }
 
     // ---- Google / YouTube ----
     if (p === "/oauth2.googleapis.com/token") return send(res, 200, { access_token: "yt-access", refresh_token: "yt-refresh", expires_in: 3600, scope: "a b" });

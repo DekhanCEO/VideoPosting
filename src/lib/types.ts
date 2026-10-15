@@ -253,14 +253,53 @@ export interface PublicSettings {
   /** Version ordinateur : dossier où sont stockées les données. */
   dataDir?: string;
   /** URL à appeler régulièrement (service cron externe) pour publier les posts programmés — hébergement PHP. */
-  cronUrl?: string;
+  cronUrl?: string | null;
+  /**
+   * Hébergement multi-espaces : seuls les administrateurs gèrent les applications développeur (communes à tous
+   * les espaces). Absent = l'utilisateur peut tout modifier.
+   */
+  canManageApps?: boolean;
+}
+
+export type UserRole = "admin" | "member";
+
+/** Utilisateur connecté avec Twitch (version hébergée : un espace par compte Twitch). */
+export interface SessionUser {
+  id: string;
+  login: string;
+  displayName: string;
+  avatarUrl: string | null;
+  role: UserRole;
 }
 
 export interface SessionInfo {
   authenticated: boolean;
   passwordRequired: boolean;
-  /** Première visite sur l'hébergement : il faut choisir un mot de passe. */
+  /** Première visite sur l'hébergement : installation à terminer (code d'installation + application Twitch). */
   setupRequired: boolean;
+  /** password : mot de passe unique (APP_PASSWORD) · twitch : connexion Twitch · none : accès libre. */
+  loginMethod?: "password" | "twitch" | "none";
+  twitchConfigured?: boolean;
+  /** Adresse de retour à déclarer dans l'application Twitch. */
+  redirectUri?: string;
+  user?: SessionUser | null;
+}
+
+export type AccessMode = "owner" | "invite" | "open";
+
+export interface AdminUser extends SessionUser {
+  createdAt: number | null;
+  lastLoginAt: number | null;
+  posts: number;
+  accounts: number;
+  /** Octets occupés par les vidéos de l'espace. */
+  storage: number;
+}
+
+export interface AdminOverview {
+  access: { mode: AccessMode; allowed: string[] };
+  users: AdminUser[];
+  twitch: { clientId: string; redirectUri: string };
 }
 
 /* ------------------------------------------------------------------ */

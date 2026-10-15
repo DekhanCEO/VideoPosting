@@ -3,39 +3,91 @@ VIDEOPOSTING - INSTALLATION SUR HEBERGEMENT MUTUALISE (OVH, o2switch, IONOS...)
 
 VOTRE CODE D'INSTALLATION :  {{SETUP_CODE}}
 
-Gardez-le pour vous : il est demandé une seule fois, à la première connexion,
-pour choisir votre mot de passe. Personne d'autre ne peut donc s'approprier l'outil.
+Gardez-le pour vous : il est demandé une seule fois, à la première connexion.
+Le premier compte Twitch connecté avec ce code devient l'administrateur : lui seul
+décide ensuite qui d'autre peut se connecter (chacun dans son propre espace).
+
+Adresse de l'application :      {{SITE}}{{BASE}}/
+Adresse de retour (Twitch,
+Google, TikTok et Meta) :       {{SITE}}{{BASE}}/api/callback.php
 
 
-1. AVANT DE COMMENCER
----------------------
+1. AVANT DE COMMENCER (OVH)
+---------------------------
 - PHP 8.1 ou plus récent.
-  OVH : Web Cloud > Hébergements > votre hébergement > onglet "Informations générales"
-  > "Version PHP globale" : choisissez 8.2 ou 8.3.
-- HTTPS activé (certificat SSL), indispensable pour TikTok et Instagram.
-  OVH : onglet "Multisite" > colonne SSL (le certificat Let's Encrypt est gratuit).
+  Espace client OVH > Web Cloud > Hébergements > votre hébergement
+  > onglet "Informations générales" > "Version PHP globale" : choisissez 8.2 ou 8.3.
+- HTTPS activé (certificat SSL), obligatoire pour Twitch, TikTok et Instagram.
+  Onglet "Multisite" > colonne "SSL" : activez-le pour votre domaine (Let's Encrypt,
+  gratuit), puis "Commander un certificat SSL" si OVH le propose. Comptez quelques
+  minutes à quelques heures avant qu'il soit actif.
+- Vos identifiants FTP : onglet "FTP - SSH".
+  Serveur (ex. ftp.cluster0XX.hosting.ovh.net), identifiant FTP, mot de passe
+  (bouton "..." > "Modifier le mot de passe" si vous ne le connaissez plus).
 
 
-2. ENVOYER LE DOSSIER SUR L'HEBERGEMENT
----------------------------------------
-- Installez FileZilla (gratuit) et connectez-vous avec vos identifiants FTP
-  (OVH : onglet "FTP - SSH" de votre hébergement).
-- Glissez le dossier "{{FOLDER}}" dans le dossier "www".
-- Vérifiez que vous obtenez bien :  www/{{FOLDER}}/index.html
-                                    www/{{FOLDER}}/api/index.php
-                                    www/{{FOLDER}}/data/
-- Le dossier doit garder le nom "{{FOLDER}}" et rester directement dans "www".
+2. ENVOYER LE DOSSIER AVEC CYBERDUCK
+------------------------------------
+- Décompressez cette archive : vous obtenez le dossier "{{FOLDER}}" et ce fichier.
+- Cyberduck > "Nouvelle connexion" :
+      Protocole :     FTP-SSL (Explicit AUTH TLS)   (ou "FTP" si la connexion échoue)
+      Serveur :       ftp.cluster0XX.hosting.ovh.net   (celui de l'onglet "FTP - SSH")
+      Port :          21
+      Utilisateur :   votre identifiant FTP
+      Mot de passe :  votre mot de passe FTP
+  puis "Connecter".
+- Ouvrez le dossier "www" (double-clic), puis glissez-y le dossier "{{FOLDER}}"
+  depuis votre ordinateur. Attendez la fin du transfert (fenêtre "Transferts").
+- Vous devez obtenir :   www/{{FOLDER}}/index.html
+                         www/{{FOLDER}}/api/index.php
+                         www/{{FOLDER}}/data/
+  Le dossier doit garder le nom "{{FOLDER}}" et rester directement dans "www".
+- Ne déposez PAS ce fichier LISEZ-MOI.txt sur l'hébergement (il contient votre code).
 
 
-3. PREMIERE CONNEXION
+3. CREER VOTRE APPLICATION TWITCH (une seule fois, 2 minutes)
+-------------------------------------------------------------
+Twitch sert uniquement à vous identifier : aucune autorisation sur votre chaîne.
+- Ouvrez https://dev.twitch.tv/console/apps et connectez-vous avec votre compte
+  Twitch (Twitch exige l'authentification à deux facteurs pour cette console).
+- "Enregistrer votre application" (Register Your Application) :
+      Nom :                       VideoPosting Malabop   (nom libre, unique sur Twitch)
+      URL de redirection OAuth :  {{SITE}}{{BASE}}/api/callback.php
+                                  (cliquez sur "Ajouter" après l'avoir collée)
+      Catégorie :                 Website Integration
+      Type de client :            Confidentiel (Confidential)
+  puis "Créer".
+- Cliquez sur "Gérer" à côté de l'application :
+      copiez l'"ID client" ;
+      cliquez sur "Nouveau secret" et copiez le "Secret client".
+
+
+4. PREMIERE CONNEXION
 ---------------------
-- Ouvrez  https://votre-domaine{{BASE}}/   (par exemple https://malabop.fr{{BASE}}/)
-- Saisissez le code d'installation ci-dessus, puis choisissez votre mot de passe.
+- Ouvrez {{SITE}}{{BASE}}/
+- Saisissez le code d'installation (en haut de ce fichier), l'ID client et le
+  secret client de votre application Twitch, puis "Continuer avec Twitch".
+- Autorisez l'application sur la page Twitch : vous arrivez dans votre espace,
+  en tant qu'administrateur.
 - Le mode démo est activé au départ : vous pouvez tout essayer sans rien configurer
   (comptes, publications, statistiques et revenus sont simulés).
+- Les fois suivantes : bouton "Se connecter avec Twitch", c'est tout.
 
 
-4. PUBLICATIONS PROGRAMMEES (fortement recommandé)
+5. DONNER ACCES A D'AUTRES CREATEURS (facultatif)
+-------------------------------------------------
+Menu "Espaces & accès" (visible uniquement par les administrateurs) :
+- "Administrateurs uniquement" (par défaut) : personne d'autre n'entre.
+- "Sur invitation" : ajoutez les pseudos Twitch autorisés. Chacun se connecte avec
+  Twitch sur {{SITE}}{{BASE}}/ et obtient son propre espace, vierge et séparé du
+  vôtre (vidéos, comptes connectés, statistiques, revenus).
+- "Tout compte Twitch" : n'importe qui peut créer un espace (déconseillé).
+- Vous pouvez supprimer un espace, ou nommer un autre administrateur.
+Les applications développeur Google, TikTok et Meta (étape 7) sont communes :
+seuls les administrateurs les configurent, chaque créateur y connecte ses comptes.
+
+
+6. PUBLICATIONS PROGRAMMEES (fortement recommandé)
 --------------------------------------------------
 Un hébergement mutualisé ne travaille que lorsque quelqu'un visite le site. Pour que
 les publications programmées partent à l'heure, même application fermée :
@@ -43,26 +95,35 @@ les publications programmées partent à l'heure, même application fermée :
 - Créez un compte gratuit sur https://cron-job.org puis "Create cronjob" :
   collez l'URL, choisissez "Every minute", enregistrez.
 (Les tâches planifiées intégrées à OVH sont limitées à une exécution par heure.)
+Une seule URL suffit pour tous les espaces.
 
 
-5. CONNECTER VOS VRAIS COMPTES
-------------------------------
+7. CONNECTER VOS VRAIS COMPTES TIKTOK, YOUTUBE ET INSTAGRAM
+-----------------------------------------------------------
 - Paramètres : désactivez le mode démo et renseignez les identifiants de vos
   applications développeur Google (YouTube), TikTok et Meta (Instagram).
   Chaque carte contient un guide pas à pas.
 - Adresse de retour (redirect URI) à déclarer chez Google, TikTok et Meta :
-      https://votre-domaine{{BASE}}/api/callback.php
+      {{SITE}}{{BASE}}/api/callback.php
 - Puis, dans "Comptes", cliquez sur "Connecter".
 
 
-6. BON A SAVOIR
+8. BON A SAVOIR
 ---------------
-- Vos données (comptes connectés, vidéos, statistiques, revenus) sont dans
-  {{FOLDER}}/data. Sauvegardez ce dossier de temps en temps.
-- Mise à jour : remplacez le dossier {{FOLDER}} SAUF son sous-dossier "data".
+- Vos données (espaces, comptes connectés, vidéos, statistiques, revenus) sont dans
+  {{FOLDER}}/data. Sauvegardez ce dossier de temps en temps (glissez-le depuis
+  Cyberduck vers votre ordinateur).
+- Mise à jour : glissez le nouveau dossier "{{FOLDER}}" au même endroit et choisissez
+  "Écraser" : vos données sont conservées (le dossier "data" de l'archive ne contient
+  que ses fichiers de protection).
 - Les vidéos sont stockées sur l'hébergement : supprimez les anciennes publications
   pour libérer de l'espace disque.
-- Mot de passe oublié : créez par FTP un fichier vide nommé "reset-password" dans
-  {{FOLDER}}/data, puis ouvrez l'application : elle vous redemandera le code
-  d'installation et un nouveau mot de passe (vos données sont conservées).
+- Accès perdu (compte Twitch changé, application Twitch supprimée...) : créez avec
+  Cyberduck un fichier vide nommé "reset-setup" dans {{FOLDER}}/data (clic droit >
+  "Nouveau fichier"), puis ouvrez l'application : elle redemande le code
+  d'installation, et le compte Twitch qui se connecte redevient administrateur.
+  Aucune donnée n'est perdue.
+- Erreur "redirect_mismatch" chez Twitch : l'URL de redirection déclarée dans la
+  console Twitch doit être exactement {{SITE}}{{BASE}}/api/callback.php
+  (https, sans espace ni "/" final), et vous devez ouvrir l'application en https.
 - Le dossier "data" est protégé : son contenu n'est pas accessible depuis le web.

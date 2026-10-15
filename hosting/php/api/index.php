@@ -35,32 +35,54 @@ try {
     if ($route === '/session') {
         $kick = false;
         if ($isGet) json_out(session_info());
-        elseif ($method === 'POST') json_out(session_login(request_json()));
-        elseif ($method === 'PUT') json_out(session_change_password(request_json()));
         elseif ($method === 'DELETE') { clear_session_cookie(); json_out(['ok' => true]); }
         else throw new HttpError('Méthode non autorisée', 405);
+    } elseif ($route === '/session/setup' && $method === 'POST') {
+        $kick = false;
+        json_out(session_setup(request_json()));
+    } elseif ($route === '/auth/twitch/login' && $isGet) {
+        $kick = false;
+        $app = app_read();
+        redirect_to(twitch_configured($app) ? twitch_login_url() : public_url() . '/login/');
     } elseif (route_match('/media/{id}/public', $route, $p) && $isGet) {
         $kick = false;
-        if (!verify_media_signature($p['id'], $_GET['exp'] ?? null, $_GET['sig'] ?? null)) throw new HttpError('Lien expiré ou invalide', 403);
+        $space = (string) ($_GET['u'] ?? '');
+        if (!preg_match('/^[A-Za-z0-9_-]{1,64}$/', $space) || !verify_media_signature($space, $p['id'], $_GET['exp'] ?? null, $_GET['sig'] ?? null)) throw new HttpError('Lien expiré ou invalide', 403);
+        use_space($space);
         $m = get_media($p['id']);
         if (!$m || $m['status'] !== 'ready') throw new HttpError('Introuvable', 404);
         stream_media($m);
     } elseif ($route === '/cron') {
         $secret = (string) ($_GET['secret'] ?? '');
-        if ($secret === '' || !hash_equals((string) db_read()['cronSecret'], $secret)) throw new HttpError('Non autorisé', 401);
-        json_out(['ok' => true, 'pending' => has_pending_work()]);
+        if ($secret === '' || !hash_equals((string) app_read()['cronSecret'], $secret)) throw new HttpError('Non autorisé', 401);
+        $spaces = spaces_with_work();
+        json_out(['ok' => true, 'pending' => count($spaces)]);
         finish_request();
-        worker_run(50);
-        periodic_jobs();
+        worker_run(50, $spaces);
+        run_periodic_jobs_all();
         exit;
     } else {
-        // Routes protégées par mot de passe -------------------------------------
-        require_auth();
+        // Routes réservées aux utilisateurs connectés (chacun dans son espace) ---
+        $user = require_auth();
         remember_public_url();
 
         if ($route === '/settings') {
-            if ($isGet) json_out(public_settings());
-            elseif ($method === 'PUT') { apply_settings_patch(request_json()); json_out(public_settings()); }
+            if ($isGet) json_out(public_settings($user));
+            elseif ($method === 'PUT') { apply_settings_patch(request_json(), $user); json_out(public_settings($user)); }
+            else throw new HttpError('Méthode non autorisée', 405);
+        } elseif ($route === '/admin' && $isGet) {
+            require_admin();
+            json_out(admin_overview());
+        } elseif ($route === '/admin/access' && $method === 'PUT') {
+            require_admin();
+            json_out(admin_set_access(request_json()));
+        } elseif ($route === '/admin/twitch' && $method === 'PUT') {
+            require_admin();
+            json_out(admin_set_twitch(request_json()));
+        } elseif (route_match('/admin/users/{id}', $route, $p)) {
+            $me = require_admin();
+            if ($method === 'DELETE') json_out(admin_remove_user($p['id'], $me));
+            elseif ($method === 'PUT') json_out(admin_set_role($p['id'], (string) (request_json()['role'] ?? ''), $me));
             else throw new HttpError('Méthode non autorisée', 405);
         } elseif ($route === '/accounts' && $isGet) {
             json_out(array_map('public_account', list_accounts()));
@@ -203,7 +225,7 @@ try {
 }
 
 // Après la réponse : on fait avancer les publications en cours (sans faire attendre le navigateur).
-if ($kick && (!empty($GLOBALS['VP_KICK']) || has_pending_work())) {
+if ($kick && !empty($GLOBALS['VP_SPACE']) && (!empty($GLOBALS['VP_KICK']) || has_pending_work())) {
     finish_request();
-    worker_run(25);
+    worker_run(25, [$GLOBALS['VP_SPACE']]);
 }

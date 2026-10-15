@@ -9,6 +9,6 @@ if (PHP_SAPI !== 'cli') {
     exit('Utilisez l\'URL cron affichée dans les paramètres.');
 }
 require __DIR__ . '/lib/bootstrap.php';
-worker_run(50);
-periodic_jobs();
+worker_run(50, spaces_with_work());
+run_periodic_jobs_all();
 echo "ok\n";

@@ -12,6 +12,7 @@ export async function GET(req: Request) {
   const info: SessionInfo = {
     passwordRequired: !!password,
     setupRequired: false,
+    loginMethod: password ? "password" : "none",
     authenticated: !password || (await verifySessionToken(password, token)),
   };
   return NextResponse.json(info, { headers: { "Cache-Control": "no-store" } });

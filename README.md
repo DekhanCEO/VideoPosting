@@ -38,8 +38,12 @@ Un tableau de bord suit ensuite vos **statistiques** (abonnés, vues, engagement
 - **Revenus publicitaires YouTube importés automatiquement** (YouTube Analytics, chaînes monétisées).
 - Objectif mensuel, bénéfice net, paiements en attente, répartition par source et par plateforme, export CSV (Excel).
 
-**Autres** : thème clair / sombre, interface responsive (mobile), protection par mot de passe, groupes de hashtags,
-valeurs par défaut.
+**Accès** (version hébergée) : **connexion avec Twitch**, un espace séparé par compte Twitch (vidéos, comptes connectés,
+statistiques, revenus). L'administrateur choisit qui peut entrer (lui seul, sur invitation ou tout compte Twitch),
+gère les espaces et configure une seule fois les applications développeur, communes à tous.
+
+**Autres** : thème clair / sombre, interface responsive (mobile), groupes de hashtags, valeurs par défaut,
+mot de passe facultatif pour la version serveur Node.js (`APP_PASSWORD`).
 
 ## Trois façons de l'utiliser
 
@@ -53,7 +57,7 @@ Chaque archive contient un **LISEZ-MOI.txt** pas à pas. Pour les fabriquer :
 
 ```bash
 npm install
-npm run package:hosting   # dist/VideoPosting-hebergement.zip (dossier « posting » + code d'installation)
+npm run package:hosting -- --site https://malabop.fr   # dist/VideoPosting-hebergement.zip (dossier « posting » + code d'installation)
 npm run package:desktop   # dist/VideoPosting-Windows.zip et dist/VideoPosting-macOS.zip
 ```
 
@@ -64,16 +68,24 @@ personnel : fabriquez-le en local pour qu'il ne soit pas public.
 ### Hébergement mutualisé (PHP)
 Les hébergements mutualisés n'exécutent que du PHP : cette version embarque l'interface en fichiers statiques
 (servie sous `/posting`) et une **API PHP 8.1+** équivalente (`hosting/php/`), sans base de données ni réécriture
-d'URL. Il suffit de glisser le dossier `posting` dans `www` par FTP.
+d'URL. Il suffit de glisser le dossier `posting` dans `www` par FTP (Cyberduck, FileZilla…).
 
-- Première visite : saisissez le **code d'installation** (dans `LISEZ-MOI.txt`, hors du dossier publié) et choisissez
-  votre mot de passe. Mot de passe oublié : déposez un fichier vide `data/reset-password`.
+- **Connexion avec Twitch** : créez une application sur [dev.twitch.tv/console/apps](https://dev.twitch.tv/console/apps)
+  (URL de redirection `https://votre-site/posting/api/callback.php`, type « Confidentiel »).
+- Première visite : saisissez le **code d'installation** (dans `LISEZ-MOI.txt`, hors du dossier publié), l'ID client et
+  le secret de l'application Twitch, puis connectez-vous : ce compte Twitch devient **administrateur**.
+- Page **Espaces & accès** : mode d'accès (administrateurs uniquement, sur invitation par pseudo Twitch, ouvert),
+  liste des espaces (publications, comptes, stockage), suppression d'un espace, nomination d'autres administrateurs.
+  Le jeton Twitch ne sert qu'à identifier la personne : il est révoqué immédiatement.
+- Données : `data/app.php` (sécurité, application Twitch, applications développeur, utilisateurs) et
+  `data/spaces/<id Twitch>/` (base et vidéos de chaque espace). Une installation précédente (mot de passe) est reprise
+  automatiquement dans l'espace du premier administrateur. Accès perdu : déposez un fichier vide `data/reset-setup`.
 - Les envois vers les plateformes sont découpés en **étapes courtes** (morceaux de 8 Mio, suivi de statut…)
   exécutées après chaque réponse HTTP, pour respecter les limites de durée des scripts.
-- Publications programmées : faites appeler l'**URL cron** (Paramètres → Serveur & sécurité) chaque minute par un
-  service comme cron-job.org (les tâches planifiées OVH sont limitées à une par heure), ou
-  `php posting/api/cron.php` si votre hébergeur le permet.
-- Adresse de retour OAuth unique pour les trois plateformes : `https://votre-site/posting/api/callback.php`.
+- Publications programmées : faites appeler l'**URL cron** (Paramètres → Serveur & sécurité, visible par les
+  administrateurs) chaque minute par un service comme cron-job.org (les tâches planifiées OVH sont limitées à une par
+  heure), ou `php posting/api/cron.php` si votre hébergeur le permet. Elle traite tous les espaces.
+- Adresse de retour OAuth unique pour Twitch et les trois plateformes : `https://votre-site/posting/api/callback.php`.
 - Instagram télécharge les vidéos via une URL signée temporaire (aucun envoi direct nécessaire).
 - Autre emplacement que `/posting` : `node scripts/package-hosting.mjs --base /autre-dossier`.
 
@@ -147,11 +159,12 @@ ne fournissent pas leurs gains : ajoutez-les (ainsi que vos partenariats, affili
 ```bash
 npm test            # règles de validation, légendes, découpage TikTok, sessions
 npm run typecheck
-npm run test:php    # API PHP (hébergement) contre un faux serveur Google/TikTok/Instagram
+npm run test:php    # API PHP (hébergement) contre un faux serveur Twitch/Google/TikTok/Instagram
 BUILD_TARGET=standalone npx next build && npm run test:node   # même scénario sur le serveur Node.js
 ```
 
-Les tests d'intégration simulent les API des plateformes (`tests/php/mock-platforms.mjs`) : connexion OAuth,
+Les tests d'intégration simulent les API des plateformes (`tests/php/mock-platforms.mjs`) : installation et connexion
+Twitch, espaces isolés et règles d'accès, reprise d'une ancienne installation, connexion OAuth,
 envoi par morceaux avec coupure réseau et reprise, vérification de l'intégrité des fichiers reçus (SHA-256),
 téléchargement de la vidéo par Instagram via l'URL signée, statistiques et revenus YouTube.
 

@@ -16,7 +16,7 @@ function redirect_uri(): string
 
 function credentials(string $platform): array
 {
-    $c = db_read()['settings']['credentials'];
+    $c = app_read()['credentials'];
     $ig = $c['instagram'];
     $id = $platform === 'youtube' ? $c['youtube']['clientId'] : ($platform === 'tiktok' ? $c['tiktok']['clientKey'] : $ig['appId']);
     $secret = $platform === 'youtube' ? $c['youtube']['clientSecret'] : ($platform === 'tiktok' ? $c['tiktok']['clientSecret'] : $ig['appSecret']);
@@ -29,24 +29,26 @@ function credentials(string $platform): array
     ];
 }
 
-function public_settings(): array
+function public_settings(?array $user = null): array
 {
     $d = db_read();
+    $app = app_read();
     $s = $d['settings'];
     $url = public_url();
     $yt = credentials('youtube');
     $tt = credentials('tiktok');
     $ig = credentials('instagram');
     $redirect = redirect_uri();
+    $admin = ($user['role'] ?? '') === 'admin';
     return [
         'demoMode' => $s['demoMode'],
         'publicUrl' => $url,
         'publicUrlIsReachable' => str_starts_with($url, 'https://') && !preg_match('#^https://(localhost|127\.|10\.|192\.168\.)#', $url),
         'credentials' => [
-            'youtube' => ['clientId' => $yt['clientId'], 'hasSecret' => $yt['clientSecret'] !== '', 'fromEnv' => false, 'configured' => $yt['configured']],
-            'tiktok' => ['clientKey' => $tt['clientId'], 'hasSecret' => $tt['clientSecret'] !== '', 'fromEnv' => false, 'configured' => $tt['configured']],
+            'youtube' => ['clientId' => $admin ? $yt['clientId'] : '', 'hasSecret' => $yt['clientSecret'] !== '', 'fromEnv' => false, 'configured' => $yt['configured']],
+            'tiktok' => ['clientKey' => $admin ? $tt['clientId'] : '', 'hasSecret' => $tt['clientSecret'] !== '', 'fromEnv' => false, 'configured' => $tt['configured']],
             'instagram' => [
-                'appId' => $ig['clientId'], 'hasSecret' => $ig['clientSecret'] !== '', 'fromEnv' => false, 'configured' => $ig['configured'],
+                'appId' => $admin ? $ig['clientId'] : '', 'hasSecret' => $ig['clientSecret'] !== '', 'fromEnv' => false, 'configured' => $ig['configured'],
                 'loginType' => $ig['loginType'], 'graphVersion' => $ig['graphVersion'],
             ],
         ],
@@ -57,37 +59,30 @@ function public_settings(): array
         'defaults' => $s['defaults'],
         'passwordProtected' => true,
         'hosting' => 'php',
-        'cronUrl' => $url . '/api/index.php?r=' . rawurlencode('/cron') . '&secret=' . $d['cronSecret'],
+        'canManageApps' => $admin,
+        'cronUrl' => $admin ? $url . '/api/index.php?r=' . rawurlencode('/cron') . '&secret=' . $app['cronSecret'] : null,
     ];
 }
 
-function apply_settings_patch(array $p): void
+function apply_settings_patch(array $p, array $user): void
 {
+    // Applications développeur (YouTube, TikTok, Meta) : communes à tous les espaces, réservées à l'administrateur.
+    if (isset($p['credentials']) || isset($p['clearCredentials'])) {
+        if ($user['role'] !== 'admin') throw new HttpError('Seul l\'administrateur peut modifier les applications développeur.', 403);
+        app_update(function (array &$a) use ($p) {
+            $s = &$a;
+            if (isset($p['clearCredentials']) && is_platform($p['clearCredentials'])) {
+                $c = $p['clearCredentials'];
+                if ($c === 'youtube') $s['credentials']['youtube'] = ['clientId' => '', 'clientSecret' => ''];
+                if ($c === 'tiktok') $s['credentials']['tiktok'] = ['clientKey' => '', 'clientSecret' => ''];
+                if ($c === 'instagram') { $s['credentials']['instagram']['appId'] = ''; $s['credentials']['instagram']['appSecret'] = ''; }
+            }
+            apply_credentials_patch($s, $p['credentials'] ?? []);
+        });
+    }
     db_update(function (array &$d) use ($p) {
         $s = &$d['settings'];
-        if (isset($p['clearCredentials']) && is_platform($p['clearCredentials'])) {
-            $c = $p['clearCredentials'];
-            if ($c === 'youtube') $s['credentials']['youtube'] = ['clientId' => '', 'clientSecret' => ''];
-            if ($c === 'tiktok') $s['credentials']['tiktok'] = ['clientKey' => '', 'clientSecret' => ''];
-            if ($c === 'instagram') { $s['credentials']['instagram']['appId'] = ''; $s['credentials']['instagram']['appSecret'] = ''; }
-        }
         if (isset($p['demoMode']) && is_bool($p['demoMode'])) $s['demoMode'] = $p['demoMode'];
-        $c = $p['credentials'] ?? [];
-        if (isset($c['youtube'])) {
-            if (isset($c['youtube']['clientId'])) $s['credentials']['youtube']['clientId'] = str_limit(trim($c['youtube']['clientId']), 300);
-            if (!empty($c['youtube']['clientSecret'])) $s['credentials']['youtube']['clientSecret'] = str_limit(trim($c['youtube']['clientSecret']), 500);
-        }
-        if (isset($c['tiktok'])) {
-            if (isset($c['tiktok']['clientKey'])) $s['credentials']['tiktok']['clientKey'] = str_limit(trim($c['tiktok']['clientKey']), 300);
-            if (!empty($c['tiktok']['clientSecret'])) $s['credentials']['tiktok']['clientSecret'] = str_limit(trim($c['tiktok']['clientSecret']), 500);
-        }
-        if (isset($c['instagram'])) {
-            $i = $c['instagram'];
-            if (isset($i['appId'])) $s['credentials']['instagram']['appId'] = str_limit(trim($i['appId']), 300);
-            if (!empty($i['appSecret'])) $s['credentials']['instagram']['appSecret'] = str_limit(trim($i['appSecret']), 500);
-            if (in_array($i['loginType'] ?? '', ['instagram', 'facebook'], true)) $s['credentials']['instagram']['loginType'] = $i['loginType'];
-            if (isset($i['graphVersion']) && preg_match('/^v\d+\.\d+$/', $i['graphVersion'])) $s['credentials']['instagram']['graphVersion'] = $i['graphVersion'];
-        }
         if (isset($p['hashtagGroups']) && is_array($p['hashtagGroups'])) {
             $groups = [];
             foreach (array_slice($p['hashtagGroups'], 0, 50) as $g) {
@@ -106,4 +101,23 @@ function apply_settings_patch(array $p): void
             foreach (['tiktokAllowComments', 'tiktokAllowDuet', 'tiktokAllowStitch', 'instagramShareToFeed'] as $k) if (isset($df[$k]) && is_bool($df[$k])) $s['defaults'][$k] = $df[$k];
         }
     });
+}
+
+function apply_credentials_patch(array &$s, array $c): void
+{
+    if (isset($c['youtube'])) {
+        if (isset($c['youtube']['clientId'])) $s['credentials']['youtube']['clientId'] = str_limit(trim($c['youtube']['clientId']), 300);
+        if (!empty($c['youtube']['clientSecret'])) $s['credentials']['youtube']['clientSecret'] = str_limit(trim($c['youtube']['clientSecret']), 500);
+    }
+    if (isset($c['tiktok'])) {
+        if (isset($c['tiktok']['clientKey'])) $s['credentials']['tiktok']['clientKey'] = str_limit(trim($c['tiktok']['clientKey']), 300);
+        if (!empty($c['tiktok']['clientSecret'])) $s['credentials']['tiktok']['clientSecret'] = str_limit(trim($c['tiktok']['clientSecret']), 500);
+    }
+    if (isset($c['instagram'])) {
+        $i = $c['instagram'];
+        if (isset($i['appId'])) $s['credentials']['instagram']['appId'] = str_limit(trim($i['appId']), 300);
+        if (!empty($i['appSecret'])) $s['credentials']['instagram']['appSecret'] = str_limit(trim($i['appSecret']), 500);
+        if (in_array($i['loginType'] ?? '', ['instagram', 'facebook'], true)) $s['credentials']['instagram']['loginType'] = $i['loginType'];
+        if (isset($i['graphVersion']) && preg_match('/^v\d+\.\d+$/', $i['graphVersion'])) $s['credentials']['instagram']['graphVersion'] = $i['graphVersion'];
+    }
 }

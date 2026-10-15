@@ -1,8 +1,13 @@
 <?php
-/** Mot de passe (choisi à la première visite avec le code d'installation) et cookie de session signé. */
+/**
+ * Connexion avec Twitch : chaque compte Twitch autorisé dispose de son propre espace.
+ * Le premier compte connecté (avec le code d'installation) devient administrateur et choisit qui peut entrer.
+ */
 
 const SESSION_COOKIE = 'vp_session';
 const SESSION_TTL = 30 * 24 * 3600;
+const TWITCH_AUTH = 'https://id.twitch.tv/oauth2';
+const TWITCH_API = 'https://api.twitch.tv/helix';
 
 function base_path(): string
 {
@@ -24,7 +29,7 @@ function is_https(): bool
 function public_url(): string
 {
     if (PHP_SAPI === 'cli' || empty($_SERVER['HTTP_HOST'])) {
-        return rtrim((string) (db_read()['publicUrl'] ?? ''), '/');
+        return rtrim((string) (app_read()['publicUrl'] ?? ''), '/');
     }
     return (is_https() ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] . base_path();
 }
@@ -33,108 +38,321 @@ function remember_public_url(): void
 {
     if (PHP_SAPI === 'cli' || empty($_SERVER['HTTP_HOST'])) return;
     $url = public_url();
-    $d = db_read();
-    if (($d['publicUrl'] ?? null) !== $url) {
-        db_update(function (array &$d) use ($url) {
-            $d['publicUrl'] = $url;
+    if ((app_read()['publicUrl'] ?? null) !== $url) {
+        app_update(function (array &$a) use ($url) {
+            $a['publicUrl'] = $url;
         });
     }
 }
 
-/** Première connexion, ou réinitialisation demandée via le fichier data/reset-password. */
-function setup_required(array $d): bool
+function cookie_options(int $expires): array
 {
-    return empty($d['auth']['passwordHash']) || is_file(VP_DATA_DIR . '/reset-password');
+    return ['expires' => $expires, 'path' => base_path() ?: '/', 'secure' => is_https(), 'httponly' => true, 'samesite' => 'Lax'];
 }
 
-function session_key(array $d): string
+function sign_value(string $value): string
 {
-    return hash('sha256', $d['secret'] . '|' . ($d['auth']['passwordHash'] ?? ''), true);
+    return rtrim(strtr(base64_encode(hash_hmac('sha256', $value, app_read()['secret'], true)), '+/', '-_'), '=');
 }
 
-function create_session_cookie(array $d): void
+/* ------------------------------------------------------------------ */
+/* Utilisateurs et règles d'accès                                      */
+/* ------------------------------------------------------------------ */
+
+function twitch_configured(array $app): bool
+{
+    return $app['twitch']['clientId'] !== '' && $app['twitch']['clientSecret'] !== '';
+}
+
+function has_admin(array $app): bool
+{
+    foreach ($app['users'] as $u) if ($u['role'] === 'admin') return true;
+    return false;
+}
+
+/** Première installation, ou réinitialisation demandée via le fichier data/reset-setup. */
+function setup_required(?array $app = null): bool
+{
+    $app ??= app_read();
+    return !twitch_configured($app) || !has_admin($app) || is_file(VP_DATA_DIR . '/reset-setup');
+}
+
+function find_user(array $app, string $id): ?array
+{
+    foreach ($app['users'] as $u) if ((string) $u['id'] === $id) return $u;
+    return null;
+}
+
+function access_allowed(array $app, array $user): bool
+{
+    if ($user['role'] === 'admin') return true;
+    $mode = $app['access']['mode'];
+    if ($mode === 'open') return true;
+    if ($mode === 'invite') {
+        $allowed = array_map('strtolower', $app['access']['allowed']);
+        return in_array(strtolower($user['login']), $allowed, true);
+    }
+    return false;
+}
+
+function public_user(array $u): array
+{
+    return [
+        'id' => (string) $u['id'],
+        'login' => $u['login'],
+        'displayName' => $u['displayName'],
+        'avatarUrl' => $u['avatarUrl'] ?? null,
+        'role' => $u['role'],
+    ];
+}
+
+/* ------------------------------------------------------------------ */
+/* Session                                                             */
+/* ------------------------------------------------------------------ */
+
+function create_session_cookie(string $uid): void
 {
     $exp = time() + SESSION_TTL;
-    $sig = rtrim(strtr(base64_encode(hash_hmac('sha256', (string) $exp, session_key($d), true)), '+/', '-_'), '=');
-    setcookie(SESSION_COOKIE, $exp . '.' . $sig, [
-        'expires' => $exp,
-        'path' => base_path() ?: '/',
-        'secure' => is_https(),
-        'httponly' => true,
-        'samesite' => 'Lax',
-    ]);
+    $payload = $uid . '.' . $exp;
+    setcookie(SESSION_COOKIE, $payload . '.' . sign_value('session|' . $payload), cookie_options($exp));
 }
 
 function clear_session_cookie(): void
 {
-    setcookie(SESSION_COOKIE, '', ['expires' => time() - 3600, 'path' => base_path() ?: '/', 'secure' => is_https(), 'httponly' => true, 'samesite' => 'Lax']);
+    setcookie(SESSION_COOKIE, '', cookie_options(time() - 3600));
 }
 
-function is_authenticated(?array $d = null): bool
+/** Utilisateur connecté (cookie valide, compte toujours présent et autorisé), sinon null. */
+function session_user(?array $app = null): ?array
 {
-    $d ??= db_read();
-    if (setup_required($d)) return false;
-    $token = $_COOKIE[SESSION_COOKIE] ?? '';
-    $parts = explode('.', $token);
-    if (count($parts) !== 2 || !ctype_digit($parts[0]) || (int) $parts[0] < time()) return false;
-    $expected = rtrim(strtr(base64_encode(hash_hmac('sha256', $parts[0], session_key($d), true)), '+/', '-_'), '=');
-    return hash_equals($expected, $parts[1]);
+    $parts = explode('.', (string) ($_COOKIE[SESSION_COOKIE] ?? ''));
+    if (count($parts) !== 3 || !ctype_digit($parts[1]) || (int) $parts[1] < time()) return null;
+    if (!hash_equals(sign_value('session|' . $parts[0] . '.' . $parts[1]), $parts[2])) return null;
+    $app ??= app_read();
+    $user = find_user($app, $parts[0]);
+    if (!$user || !access_allowed($app, $user)) return null;
+    return $user;
 }
 
-function require_auth(): void
+function require_auth(): array
 {
-    if (!is_authenticated()) throw new HttpError('Non authentifié', 401);
+    $app = app_read();
+    if (setup_required($app)) throw new HttpError('Non authentifié', 401);
+    $user = session_user($app);
+    if (!$user) throw new HttpError('Non authentifié', 401);
+    use_space((string) $user['id']);
+    return $user;
+}
+
+function require_admin(): array
+{
+    $user = require_auth();
+    if ($user['role'] !== 'admin') throw new HttpError('Réservé à l\'administrateur.', 403);
+    return $user;
 }
 
 function session_info(): array
 {
-    $d = db_read();
-    $setup = setup_required($d);
-    return ['authenticated' => !$setup && is_authenticated($d), 'passwordRequired' => true, 'setupRequired' => $setup];
+    $app = app_read();
+    $setup = setup_required($app);
+    $user = $setup ? null : session_user($app);
+    return [
+        'authenticated' => $user !== null,
+        'passwordRequired' => true,
+        'setupRequired' => $setup,
+        'loginMethod' => 'twitch',
+        'twitchConfigured' => twitch_configured($app),
+        'redirectUri' => redirect_uri(),
+        'user' => $user ? public_user($user) : null,
+    ];
 }
 
-function session_login(array $body): array
+/* ------------------------------------------------------------------ */
+/* Twitch                                                              */
+/* ------------------------------------------------------------------ */
+
+function twitch_validate_app(string $clientId, string $clientSecret): void
 {
-    $d = db_read();
-    $password = (string) ($body['password'] ?? '');
-    if (setup_required($d)) {
-        $code = (string) vp_config('setup_code', '');
-        $given = strtoupper(trim((string) ($body['setupCode'] ?? '')));
-        if ($code === '' || !hash_equals(strtoupper($code), $given)) {
-            sleep(1);
-            throw new HttpError('Code d\'installation incorrect (voir LISEZ-MOI.txt).', 401);
-        }
-        if (mb_strlen($password) < 8) throw new HttpError('Choisissez un mot de passe d\'au moins 8 caractères.', 422);
-        $d = db_update(function (array &$d) use ($password) {
-            $d['auth']['passwordHash'] = password_hash($password, PASSWORD_DEFAULT);
-            return $d;
-        });
-        @unlink(VP_DATA_DIR . '/reset-password');
-        create_session_cookie($d);
-        return ['ok' => true];
+    [$status, , $body] = http_request('POST', TWITCH_AUTH . '/token', [], ['client_id' => $clientId, 'client_secret' => $clientSecret, 'grant_type' => 'client_credentials']);
+    if ($status !== 200 || empty($body['access_token'])) {
+        throw new HttpError('Twitch refuse ces identifiants : vérifiez l\'ID client et le secret de votre application Twitch.', 422);
     }
-    if (!password_verify($password, $d['auth']['passwordHash'])) {
-        sleep(1);
-        throw new HttpError('Mot de passe incorrect.', 401);
-    }
-    create_session_cookie($d);
-    return ['ok' => true];
 }
 
-function session_change_password(array $body): array
+function twitch_login_url(): string
 {
-    require_auth();
-    $d = db_read();
-    if (!password_verify((string) ($body['current'] ?? ''), $d['auth']['passwordHash'])) {
+    $app = app_read();
+    $state = 'login.' . bin2hex(random_bytes(16));
+    setcookie('vp_oauth', $state, cookie_options(time() + 600));
+    return TWITCH_AUTH . '/authorize?' . http_build_query([
+        'response_type' => 'code',
+        'client_id' => $app['twitch']['clientId'],
+        'redirect_uri' => redirect_uri(),
+        'scope' => 'user:read:email',
+        'state' => $state,
+    ]);
+}
+
+/** Étape 1 de l'installation : code d'installation + application Twitch. Renvoie l'adresse de connexion Twitch. */
+function session_setup(array $body): array
+{
+    if (!setup_required()) throw new HttpError('L\'installation est déjà terminée.', 409);
+    $code = (string) vp_config('setup_code', '');
+    $given = strtoupper(trim((string) ($body['setupCode'] ?? '')));
+    if ($code === '' || !hash_equals(strtoupper($code), $given)) {
         sleep(1);
-        throw new HttpError('Mot de passe actuel incorrect.', 401);
+        throw new HttpError('Code d\'installation incorrect (voir LISEZ-MOI.txt).', 401);
     }
-    $password = (string) ($body['password'] ?? '');
-    if (mb_strlen($password) < 8) throw new HttpError('Le nouveau mot de passe doit contenir au moins 8 caractères.', 422);
-    $d = db_update(function (array &$d) use ($password) {
-        $d['auth']['passwordHash'] = password_hash($password, PASSWORD_DEFAULT);
-        return $d;
+    // Application Twitch déjà enregistrée (réinitialisation, connexion annulée…) : champs facultatifs.
+    $saved = app_read()['twitch'];
+    $clientId = trim((string) ($body['clientId'] ?? '')) ?: $saved['clientId'];
+    $clientSecret = trim((string) ($body['clientSecret'] ?? '')) ?: $saved['clientSecret'];
+    if ($clientId === '' || $clientSecret === '') throw new HttpError('Renseignez l\'ID client et le secret de votre application Twitch.', 422);
+    twitch_validate_app($clientId, $clientSecret);
+    app_update(function (array &$a) use ($clientId, $clientSecret) {
+        $a['twitch'] = ['clientId' => $clientId, 'clientSecret' => $clientSecret];
     });
-    create_session_cookie($d);
-    return ['ok' => true];
+    $exp = time() + 900;
+    setcookie('vp_setup', $exp . '.' . sign_value('setup|' . $exp), cookie_options($exp));
+    return ['redirect' => twitch_login_url()];
+}
+
+function setup_cookie_valid(): bool
+{
+    $parts = explode('.', (string) ($_COOKIE['vp_setup'] ?? ''));
+    return count($parts) === 2 && ctype_digit($parts[0]) && (int) $parts[0] >= time() && hash_equals(sign_value('setup|' . $parts[0]), $parts[1]);
+}
+
+/**
+ * Retour de Twitch : identifie le compte, crée l'espace si nécessaire, ouvre la session.
+ * Renvoie le chemin vers lequel rediriger.
+ */
+function twitch_callback(string $code): string
+{
+    $app = app_read();
+    $t = $app['twitch'];
+    [$status, , $token] = http_request('POST', TWITCH_AUTH . '/token', [], [
+        'client_id' => $t['clientId'], 'client_secret' => $t['clientSecret'], 'code' => $code,
+        'grant_type' => 'authorization_code', 'redirect_uri' => redirect_uri(),
+    ]);
+    if ($status !== 200 || empty($token['access_token'])) throw new HttpError('Connexion Twitch impossible : ' . ($token['message'] ?? 'code refusé') . '.', 400);
+    [$status, , $me] = http_request('GET', TWITCH_API . '/users', ['Authorization' => 'Bearer ' . $token['access_token'], 'Client-Id' => $t['clientId']]);
+    $tw = $me['data'][0] ?? null;
+    if ($status !== 200 || !$tw) throw new HttpError('Impossible de lire votre profil Twitch.', 400);
+    // Le jeton Twitch ne sert qu'à vous identifier : on le révoque aussitôt.
+    http_request('POST', TWITCH_AUTH . '/revoke', [], ['client_id' => $t['clientId'], 'token' => $token['access_token']], ['timeout' => 10]);
+
+    $setup = setup_required($app);
+    $setupOk = $setup && setup_cookie_valid();
+    $profile = [
+        'id' => (string) $tw['id'],
+        'login' => (string) $tw['login'],
+        'displayName' => (string) ($tw['display_name'] ?: $tw['login']),
+        'avatarUrl' => $tw['profile_image_url'] ?? null,
+        'email' => $tw['email'] ?? null,
+    ];
+
+    $result = app_update(function (array &$a) use ($profile, $setupOk) {
+        $now = now_ms();
+        $firstAdmin = !has_admin($a);
+        $i = find_index($a['users'], fn($u) => (string) $u['id'] === $profile['id']);
+        if ($i >= 0) {
+            $a['users'][$i] = array_replace($a['users'][$i], $profile, ['lastLoginAt' => $now]);
+            if ($setupOk) $a['users'][$i]['role'] = 'admin';
+            $user = $a['users'][$i];
+            return ['user' => $user, 'allowed' => access_allowed($a, $user), 'created' => false, 'firstAdmin' => false];
+        }
+        if ($firstAdmin && !$setupOk) return ['allowed' => false, 'reason' => 'setup'];
+        $user = $profile + ['role' => $setupOk ? 'admin' : 'member', 'createdAt' => $now, 'lastLoginAt' => $now];
+        if (!access_allowed($a, $user)) return ['allowed' => false, 'reason' => 'access'];
+        $a['users'][] = $user;
+        return ['user' => $user, 'allowed' => true, 'created' => true, 'firstAdmin' => $firstAdmin];
+    });
+
+    if (empty($result['allowed'])) {
+        $msg = ($result['reason'] ?? '') === 'setup'
+            ? 'Terminez d\'abord l\'installation avec le code d\'installation.'
+            : 'Votre compte Twitch n\'a pas accès à cet espace. Demandez une invitation à l\'administrateur.';
+        return '/login/?error=' . rawurlencode($msg);
+    }
+    $user = $result['user'];
+    ensure_space_dir($user['id']);
+    if (!empty($result['firstAdmin'])) migrate_legacy_into_space($user['id']);
+    if ($setupOk) {
+        @unlink(VP_DATA_DIR . '/reset-setup');
+        setcookie('vp_setup', '', cookie_options(time() - 3600));
+    }
+    create_session_cookie($user['id']);
+    return '/';
+}
+
+/* ------------------------------------------------------------------ */
+/* Administration                                                      */
+/* ------------------------------------------------------------------ */
+
+function admin_overview(): array
+{
+    $app = app_read();
+    $previous = $GLOBALS['VP_SPACE'];
+    $users = [];
+    foreach ($app['users'] as $u) {
+        use_space((string) $u['id']);
+        $d = is_file(db_file()) ? db_read() : empty_db();
+        $users[] = public_user($u) + [
+            'createdAt' => $u['createdAt'] ?? null,
+            'lastLoginAt' => $u['lastLoginAt'] ?? null,
+            'posts' => count($d['posts']),
+            'accounts' => count(array_filter($d['accounts'], fn($a) => empty($a['demo']))),
+            'storage' => array_sum(array_map(fn($m) => (int) $m['size'], $d['media'])),
+        ];
+    }
+    use_space($previous);
+    return [
+        'access' => $app['access'],
+        'users' => $users,
+        'twitch' => ['clientId' => $app['twitch']['clientId'], 'redirectUri' => redirect_uri()],
+    ];
+}
+
+function admin_set_access(array $body): array
+{
+    $mode = in_array($body['mode'] ?? '', ['owner', 'invite', 'open'], true) ? $body['mode'] : 'owner';
+    $allowed = array_values(array_unique(array_map(fn($l) => strtolower(preg_replace('/[^A-Za-z0-9_]/', '', ltrim($l, '@'))), string_list($body['allowed'] ?? [], 500, 40))));
+    app_update(function (array &$a) use ($mode, $allowed) {
+        $a['access'] = ['mode' => $mode, 'allowed' => array_values(array_filter($allowed))];
+    });
+    return admin_overview();
+}
+
+function admin_remove_user(string $id, array $me): array
+{
+    if ($id === (string) $me['id']) throw new HttpError('Vous ne pouvez pas supprimer votre propre espace.', 409);
+    if (!preg_match('/^[A-Za-z0-9_-]{1,64}$/', $id)) throw new HttpError('Utilisateur inconnu.', 404);
+    app_update(function (array &$a) use ($id) {
+        $a['users'] = array_values(array_filter($a['users'], fn($u) => (string) $u['id'] !== $id));
+    });
+    remove_dir(space_dir($id));
+    return admin_overview();
+}
+
+function admin_set_role(string $id, string $role, array $me): array
+{
+    if (!in_array($role, ['admin', 'member'], true)) throw new HttpError('Rôle invalide.', 422);
+    if ($id === (string) $me['id'] && $role !== 'admin') throw new HttpError('Vous ne pouvez pas retirer vos propres droits d\'administrateur.', 409);
+    app_update(function (array &$a) use ($id, $role) {
+        foreach ($a['users'] as &$u) if ((string) $u['id'] === $id) $u['role'] = $role;
+    });
+    return admin_overview();
+}
+
+function admin_set_twitch(array $body): array
+{
+    $app = app_read();
+    $clientId = trim((string) ($body['clientId'] ?? $app['twitch']['clientId']));
+    $clientSecret = trim((string) ($body['clientSecret'] ?? '')) ?: $app['twitch']['clientSecret'];
+    twitch_validate_app($clientId, $clientSecret);
+    app_update(function (array &$a) use ($clientId, $clientSecret) {
+        $a['twitch'] = ['clientId' => $clientId, 'clientSecret' => $clientSecret];
+    });
+    return admin_overview();
 }

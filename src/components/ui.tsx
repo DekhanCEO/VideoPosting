@@ -14,14 +14,14 @@ import {
   type TextareaHTMLAttributes,
 } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, Loader2, X } from "lucide-react";
+import { Check, ChevronDown, Copy, ExternalLink, Loader2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /* ------------------------------------------------------------------ */
 /* Boutons                                                             */
 /* ------------------------------------------------------------------ */
 
-type Variant = "primary" | "secondary" | "ghost" | "danger" | "outline" | "soft";
+type Variant = "primary" | "secondary" | "ghost" | "danger" | "outline" | "soft" | "twitch";
 type Size = "xs" | "sm" | "md" | "lg" | "icon" | "icon-sm";
 
 export function buttonClass(variant: Variant = "secondary", size: Size = "md", className?: string) {
@@ -35,6 +35,7 @@ export function buttonClass(variant: Variant = "secondary", size: Size = "md", c
       ghost: "text-muted hover:bg-surface-2 hover:text-fg",
       soft: "bg-accent-soft text-accent hover:brightness-95 dark:hover:brightness-125",
       danger: "bg-danger text-white hover:brightness-110",
+      twitch: "bg-[#9146FF] text-white shadow-[0_8px_24px_-10px_#9146FF] hover:bg-[#772CE8]",
     }[variant],
     {
       xs: "h-7 px-2.5 text-xs rounded-lg",
@@ -560,5 +561,57 @@ export function Tooltip({ content, children, className }: { content: ReactNode; 
         {content}
       </span>
     </span>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Aides : copie, étapes, liens externes                               */
+/* ------------------------------------------------------------------ */
+
+/** Valeur à copier. wrap : affichage sur plusieurs lignes (adresse longue à recopier exactement). */
+export function CopyField({ value, wrap }: { value: string; wrap?: boolean }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="flex gap-2">
+      {wrap ? (
+        <code className="min-w-0 flex-1 rounded-xl border border-border bg-surface-2 px-3 py-2.5 font-mono text-xs break-all text-fg select-all">{value}</code>
+      ) : (
+        <Input readOnly value={value} className="font-mono text-xs" onFocus={(e) => e.target.select()} />
+      )}
+      <Button
+        type="button"
+        size="icon"
+        onClick={async () => {
+          await navigator.clipboard.writeText(value);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        }}
+        aria-label="Copier"
+      >
+        {copied ? <Check className="size-4 text-success" /> : <Copy className="size-4" />}
+      </Button>
+    </div>
+  );
+}
+
+export function Steps({ steps }: { steps: ReactNode[] }) {
+  return (
+    <ol className="space-y-2.5">
+      {steps.map((s, i) => (
+        <li key={i} className="flex gap-3 text-sm">
+          <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-accent-soft text-[11px] font-semibold text-accent">{i + 1}</span>
+          <span className="min-w-0 text-muted">{s}</span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+export function ExternalA({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <a href={href} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 font-medium text-accent hover:underline">
+      {children}
+      <ExternalLink className="size-3" />
+    </a>
   );
 }

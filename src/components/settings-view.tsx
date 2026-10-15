@@ -1,14 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { mutate as globalMutate } from "swr";
 import {
   BookOpen,
-  Check,
   Clock,
-  Copy,
-  ExternalLink,
   FlaskConical,
   Globe,
   Hash,
@@ -16,6 +14,7 @@ import {
   Plus,
   Save,
   ServerCog,
+  ShieldCheck,
   SlidersHorizontal,
   Trash2,
   Wallet,
@@ -29,7 +28,7 @@ import { cn } from "@/lib/utils";
 import { PageContainer, PageHeader } from "./app-shell";
 import { ChipsInput } from "./composer/fields";
 import { PlatformBadge } from "./icons";
-import { Badge, Button, Card, CardHeader, Field, Input, Segmented, Select, Skeleton, Switch } from "./ui";
+import { Badge, Button, Card, CardHeader, CopyField, ExternalA, Field, Input, Segmented, Select, Skeleton, Steps, Switch, buttonClass } from "./ui";
 
 async function savePatch(patch: Record<string, unknown>) {
   const next = await api<PublicSettings>("/api/settings", { method: "PUT", json: patch });
@@ -37,47 +36,7 @@ async function savePatch(patch: Record<string, unknown>) {
   return next;
 }
 
-function CopyField({ value }: { value: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <div className="flex gap-2">
-      <Input readOnly value={value} className="font-mono text-xs" onFocus={(e) => e.target.select()} />
-      <Button
-        size="icon"
-        onClick={async () => {
-          await navigator.clipboard.writeText(value);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1500);
-        }}
-        aria-label="Copier"
-      >
-        {copied ? <Check className="size-4 text-success" /> : <Copy className="size-4" />}
-      </Button>
-    </div>
-  );
-}
-
-function Steps({ steps }: { steps: ReactNode[] }) {
-  return (
-    <ol className="space-y-2.5">
-      {steps.map((s, i) => (
-        <li key={i} className="flex gap-3 text-sm">
-          <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-accent-soft text-[11px] font-semibold text-accent">{i + 1}</span>
-          <span className="text-muted">{s}</span>
-        </li>
-      ))}
-    </ol>
-  );
-}
-
-function A({ href, children }: { href: string; children: ReactNode }) {
-  return (
-    <a href={href} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 font-medium text-accent hover:underline">
-      {children}
-      <ExternalLink className="size-3" />
-    </a>
-  );
-}
+const A = ExternalA;
 
 function StatusBadge({ configured, fromEnv }: { configured: boolean; fromEnv: boolean }) {
   if (fromEnv) return <Badge tone="info">Variables d&apos;environnement</Badge>;
@@ -410,35 +369,6 @@ function General({ settings }: { settings: PublicSettings }) {
   );
 }
 
-function ChangePassword() {
-  const [current, setCurrent] = useState("");
-  const [next, setNext] = useState("");
-  const [saving, setSaving] = useState(false);
-  const save = async () => {
-    if (next.length < 8) return toast.error("Le nouveau mot de passe doit contenir au moins 8 caractères.");
-    setSaving(true);
-    try {
-      await api("/api/session", { method: "PUT", json: { current, password: next } });
-      setCurrent("");
-      setNext("");
-      toast.success("Mot de passe modifié");
-    } catch (err) {
-      toast.error((err as Error).message);
-    } finally {
-      setSaving(false);
-    }
-  };
-  return (
-    <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
-      <Input type="password" value={current} onChange={(e) => setCurrent(e.target.value)} placeholder="Mot de passe actuel" autoComplete="current-password" />
-      <Input type="password" value={next} onChange={(e) => setNext(e.target.value)} placeholder="Nouveau mot de passe" autoComplete="new-password" />
-      <Button onClick={save} loading={saving} disabled={!current || !next}>
-        Modifier
-      </Button>
-    </div>
-  );
-}
-
 function Deployment({ settings }: { settings: PublicSettings }) {
   const php = settings.hosting === "php";
   const desktop = settings.hosting === "desktop";
@@ -496,15 +426,19 @@ function Deployment({ settings }: { settings: PublicSettings }) {
         <div className="flex items-start gap-3 p-5">
           <Lock className="mt-0.5 size-4 shrink-0 text-muted" />
           <div className="min-w-0 flex-1 text-sm">
-            <p className="font-medium">Protection par mot de passe</p>
+            <p className="font-medium">{php ? "Connexion avec Twitch" : "Protection par mot de passe"}</p>
             <p className="mt-1 text-xs text-muted">
               {php
-                ? "L'accès à l'interface et à l'API est protégé par votre mot de passe."
+                ? "Chaque compte Twitch autorisé dispose de son propre espace (publications, comptes connectés, statistiques)."
                 : settings.passwordProtected
                   ? "L'accès à l'interface est protégé (APP_PASSWORD)."
                   : "Définissez APP_PASSWORD avant d'exposer l'application sur Internet."}
             </p>
-            {php && <ChangePassword />}
+            {php && settings.canManageApps && (
+              <Link href="/admin" className={buttonClass("secondary", "sm", "mt-3")}>
+                <ShieldCheck className="size-4" /> Gérer les espaces et les accès
+              </Link>
+            )}
           </div>
           <Badge tone={settings.passwordProtected ? "success" : "warning"}>{settings.passwordProtected ? "Activée" : "Désactivée"}</Badge>
         </div>
@@ -523,19 +457,44 @@ const NAV = [
   { id: "deploy", label: "Serveur & sécurité" },
 ];
 
+/** Espace d'un membre (hébergement multi-espaces) : les applications sont gérées par l'administrateur. */
+function ManagedApiCard({ platform, settings, highlight }: { platform: PlatformId; settings: PublicSettings; highlight: boolean }) {
+  const cred = settings.credentials[platform];
+  return (
+    <Card id={platform} className={cn("scroll-mt-6 transition-shadow", highlight && "ring-2 ring-accent")}>
+      <CardHeader
+        icon={<PlatformBadge platform={platform} size={36} />}
+        title={`API ${PLATFORMS[platform].name}`}
+        description={
+          cred.configured
+            ? `Application configurée par l'administrateur : connectez votre compte ${PLATFORMS[platform].name} dans « Comptes ».`
+            : `L'administrateur n'a pas encore configuré l'application ${PLATFORMS[platform].name}. Utilisez le mode démo en attendant.`
+        }
+        actions={<StatusBadge configured={cred.configured} fromEnv={false} />}
+        className="pb-5"
+      />
+    </Card>
+  );
+}
+
 export function SettingsView() {
   const { data: settings } = useSettings();
   const params = useSearchParams();
   const missing = params.get("missing");
 
+  const member = settings?.canManageApps === false;
   useEffect(() => {
-    if (missing && missing in PLATFORMS) {
-      toast.info(`Configurez d'abord l'API ${PLATFORMS[missing as PlatformId].name}`, {
-        description: "Renseignez les identifiants de votre application développeur.",
+    if (missing && missing in PLATFORMS && settings) {
+      toast.info(member ? `API ${PLATFORMS[missing as PlatformId].name} non configurée` : `Configurez d'abord l'API ${PLATFORMS[missing as PlatformId].name}`, {
+        description: member
+          ? "Demandez à l'administrateur de configurer l'application, ou réactivez le mode démo."
+          : "Renseignez les identifiants de votre application développeur.",
       });
       setTimeout(() => document.getElementById(missing)?.scrollIntoView({ behavior: "smooth" }), 300);
     }
-  }, [missing]);
+    // Une seule notification, une fois les paramètres chargés.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [missing, !!settings]);
 
   return (
     <PageContainer>
@@ -557,9 +516,13 @@ export function SettingsView() {
         ) : (
           <div className="min-w-0 space-y-6">
             <General settings={settings} />
-            {(["tiktok", "youtube", "instagram"] as PlatformId[]).map((p) => (
-              <ApiCard key={p} platform={p} settings={settings} highlight={missing === p} />
-            ))}
+            {(["tiktok", "youtube", "instagram"] as PlatformId[]).map((p) =>
+              settings.canManageApps === false ? (
+                <ManagedApiCard key={p} platform={p} settings={settings} highlight={missing === p} />
+              ) : (
+                <ApiCard key={p} platform={p} settings={settings} highlight={missing === p} />
+              ),
+            )}
             <HashtagGroups settings={settings} />
             <Defaults settings={settings} />
             <Deployment settings={settings} />

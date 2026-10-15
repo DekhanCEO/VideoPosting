@@ -1,6 +1,6 @@
 // Fabrique le paquet pour hébergement mutualisé (OVH…) : dist/VideoPosting-hebergement.zip
 // Contenu : un dossier « posting » à déposer à la racine du site (www) + LISEZ-MOI.txt.
-// Usage : node scripts/package-hosting.mjs [--base /posting] [--skip-build]
+// Usage : node scripts/package-hosting.mjs [--base /posting] [--site https://votre-domaine.fr] [--skip-build]
 import { execSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -10,6 +10,8 @@ const root = path.resolve(import.meta.dirname, "..");
 const args = process.argv.slice(2);
 const base = args.includes("--base") ? args[args.indexOf("--base") + 1] : "/posting";
 const folder = base.split("/").filter(Boolean).pop();
+// Adresse du site, utilisée uniquement dans le mode d'emploi (adresses à copier).
+const site = (args.includes("--site") ? args[args.indexOf("--site") + 1] : "https://votre-domaine.fr").replace(/\/+$/, "");
 
 if (!args.includes("--skip-build")) {
   execSync(`node scripts/build-static.mjs --base ${base}`, { cwd: root, stdio: "inherit" });
@@ -34,7 +36,7 @@ const setupCode = Array.from({ length: 3 }, () =>
 ).join("-");
 fs.writeFileSync(
   path.join(app, "api", "config.php"),
-  `<?php\n// Configuration générée automatiquement — ne pas partager.\nreturn [\n    // Code demandé à la première connexion pour choisir votre mot de passe.\n    'setup_code' => '${setupCode}',\n];\n`,
+  `<?php\n// Configuration générée automatiquement — ne pas partager.\nreturn [\n    // Code demandé à la première connexion (installation et désignation de l'administrateur).\n    'setup_code' => '${setupCode}',\n];\n`,
 );
 
 // 4. Règles Apache
@@ -52,7 +54,8 @@ const readme = fs
   .readFileSync(path.join(root, "hosting", "LISEZ-MOI.txt"), "utf8")
   .replaceAll("{{SETUP_CODE}}", setupCode)
   .replaceAll("{{FOLDER}}", folder)
-  .replaceAll("{{BASE}}", base);
+  .replaceAll("{{BASE}}", base)
+  .replaceAll("{{SITE}}", site);
 fs.writeFileSync(path.join(outRoot, "LISEZ-MOI.txt"), readme.replace(/\n/g, "\r\n"));
 
 // 6. Archive

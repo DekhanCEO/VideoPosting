@@ -12,6 +12,8 @@ export class ApiError extends Error {
   }
 }
 
+let redirecting = false;
+
 export async function api<T>(url: string, init?: RequestInit & { json?: unknown }): Promise<T> {
   const { json, ...rest } = init ?? {};
   const method = (rest.method ?? "GET").toUpperCase();
@@ -34,7 +36,9 @@ export async function api<T>(url: string, init?: RequestInit & { json?: unknown 
   } catch {
     data = text;
   }
-  if (res.status === 401 && typeof window !== "undefined" && !url.startsWith("/api/session")) {
+  if (res.status === 401 && typeof window !== "undefined" && !url.startsWith("/api/session") && !redirecting) {
+    // Plusieurs requêtes peuvent échouer en même temps : une seule redirection.
+    redirecting = true;
     window.location.href = pageUrl("/login", `next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
   }
   if (!res.ok) {

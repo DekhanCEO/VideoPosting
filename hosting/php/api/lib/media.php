@@ -12,7 +12,7 @@ const ACCEPTED_TYPES = [
 
 function media_path(array $asset): string
 {
-    return VP_MEDIA_DIR . '/' . $asset['id'] . (ACCEPTED_TYPES[$asset['mimeType']][1] ?? '');
+    return media_dir() . '/' . $asset['id'] . (ACCEPTED_TYPES[$asset['mimeType']][1] ?? '');
 }
 
 /** Taille de morceau acceptée par ce serveur (post_max_size est souvent limité sur les mutualisés). */
@@ -45,7 +45,7 @@ function create_media(array $in): array
         'status' => 'uploading',
         'createdAt' => now_ms(),
     ];
-    ensure_data_dir();
+    ensure_space_dir();
     file_put_contents(media_path($asset), '');
     db_update(function (array &$d) use ($asset) {
         $d['media'][] = $asset;
@@ -119,22 +119,23 @@ function delete_media_if_unused(?string $id): void
     if (!empty($asset['posterId'])) delete_media_if_unused($asset['posterId']);
 }
 
-function media_signature(string $id, int $exp): string
+function media_signature(string $space, string $id, int $exp): string
 {
-    return rtrim(strtr(base64_encode(hash_hmac('sha256', $id . '.' . $exp, db_read()['secret'], true)), '+/', '-_'), '=');
+    return sign_value("media|$space|$id|$exp");
 }
 
 /** URL temporaire et signée : Instagram télécharge la vidéo depuis l'hébergement. */
 function signed_media_url(string $id, int $ttl = 21600): string
 {
     $exp = time() + $ttl;
-    return public_url() . '/api/index.php?r=' . rawurlencode('/media/' . $id . '/public') . '&exp=' . $exp . '&sig=' . media_signature($id, $exp);
+    $space = current_space();
+    return public_url() . '/api/index.php?r=' . rawurlencode('/media/' . $id . '/public') . '&u=' . $space . '&exp=' . $exp . '&sig=' . media_signature($space, $id, $exp);
 }
 
-function verify_media_signature(string $id, $exp, $sig): bool
+function verify_media_signature(string $space, string $id, $exp, $sig): bool
 {
     if (!is_string($exp) || !ctype_digit($exp) || (int) $exp < time() || !is_string($sig)) return false;
-    return hash_equals(media_signature($id, (int) $exp), $sig);
+    return hash_equals(media_signature($space, $id, (int) $exp), $sig);
 }
 
 /** Diffuse le fichier avec prise en charge des requêtes Range (lecture vidéo, téléchargement par Instagram). */

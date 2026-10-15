@@ -225,9 +225,26 @@ function run_step(string $postId, string $platform): void
     }
 }
 
-/** Exécute les étapes en attente pendant $budget secondes au maximum (un seul worker à la fois). */
-function worker_run(float $budget): void
+/** Espaces ayant des publications à faire avancer (pour le cron). */
+function spaces_with_work(): array
 {
+    $previous = $GLOBALS['VP_SPACE'];
+    $out = [];
+    foreach (all_space_ids() as $id) {
+        use_space($id);
+        if (is_file(db_file()) && has_pending_work()) $out[] = $id;
+    }
+    use_space($previous);
+    return $out;
+}
+
+/**
+ * Exécute les étapes en attente pendant $budget secondes au maximum (un seul worker à la fois),
+ * en alternant entre les espaces indiqués.
+ */
+function worker_run(float $budget, array $spaces): void
+{
+    if (!$spaces) return;
     ensure_data_dir();
     $lock = fopen(VP_DATA_DIR . '/worker.lock', 'c');
     if (!flock($lock, LOCK_EX | LOCK_NB)) {
@@ -236,26 +253,54 @@ function worker_run(float $budget): void
     }
     safe_call('set_time_limit', (int) $budget + 120);
     $deadline = microtime(true) + $budget;
+    $previous = $GLOBALS['VP_SPACE'];
     try {
-        run_due_posts();
+        foreach ($spaces as $space) {
+            use_space($space);
+            run_due_posts();
+        }
         while (microtime(true) < $deadline) {
-            [$task, $soonest] = next_task();
-            if ($task) {
-                run_step($task[0], $task[1]);
-                continue;
+            $ran = false;
+            $soonest = null;
+            foreach ($spaces as $space) {
+                use_space($space);
+                [$task, $soon] = next_task();
+                if ($task) {
+                    run_step($task[0], $task[1]);
+                    $ran = true;
+                }
+                if ($soon !== null) $soonest = $soonest === null ? $soon : min($soonest, $soon);
+                if (microtime(true) >= $deadline) break;
             }
+            if ($ran) continue;
             if ($soonest === null) break;
             $waitMs = $soonest - now_ms();
             if (microtime(true) + $waitMs / 1000 > $deadline) break;
             usleep(max(50, min($waitMs, 1000)) * 1000);
         }
     } finally {
+        use_space($previous);
         flock($lock, LOCK_UN);
         fclose($lock);
     }
 }
 
-/** Tâches de fond périodiques (cron) : renouvellement des jetons et synchronisation des statistiques. */
+/** Tâches périodiques de tous les espaces (appelées par le cron). */
+function run_periodic_jobs_all(): void
+{
+    $previous = $GLOBALS['VP_SPACE'];
+    foreach (all_space_ids() as $id) {
+        use_space($id);
+        try {
+            if (is_file(db_file())) periodic_jobs();
+        } catch (Throwable $e) {
+            error_log('[VideoPosting] espace ' . $id . ' : ' . $e->getMessage());
+        }
+    }
+    use_space($previous);
+}
+
+/** Tâches de fond périodiques d'un espace : renouvellement des jetons et synchronisation des statistiques. */
 function periodic_jobs(): void
 {
     $d = db_read();
