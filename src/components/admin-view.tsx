@@ -6,8 +6,8 @@ import { Crown, Globe, Lock, MailPlus, MoreHorizontal, Save, ShieldCheck, Shield
 import { toast } from "sonner";
 import { api } from "@/lib/api-client";
 import { formatBytes, formatNumber, formatRelative } from "@/lib/format";
-import { useAdmin, useSession } from "@/lib/hooks";
-import { pageUrl } from "@/lib/paths";
+import { useAdmin, useSession, useSettings } from "@/lib/hooks";
+import { BASE_PATH, pageUrl } from "@/lib/paths";
 import type { AccessMode, AdminOverview, AdminUser } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { PageContainer, PageHeader } from "./app-shell";
@@ -39,8 +39,11 @@ function AccessCard({ overview }: { overview: AdminOverview }) {
   const [mode, setMode] = useState(overview.access.mode);
   const [allowed, setAllowed] = useState(overview.access.allowed);
   const [saving, setSaving] = useState(false);
-  const [loginUrl, setLoginUrl] = useState("");
-  useEffect(() => setLoginUrl(window.location.origin + pageUrl("/login")), []);
+  const { data: settings } = useSettings();
+  const [origin, setOrigin] = useState("");
+  useEffect(() => setOrigin(window.location.origin), []);
+  // Adresse officielle du site (celle déclarée chez Twitch), à défaut celle du navigateur.
+  const loginUrl = settings?.publicUrl ? `${settings.publicUrl.replace(/\/+$/, "")}${pageUrl("/login").slice(BASE_PATH.length)}` : origin && origin + pageUrl("/login");
   const dirty = mode !== overview.access.mode || allowed.join(",") !== overview.access.allowed.join(",");
 
   const submit = async () => {

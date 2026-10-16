@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AlertCircle, BookOpen, KeyRound, Lock, ShieldCheck } from "lucide-react";
 import { api } from "@/lib/api-client";
-import { apiUrl } from "@/lib/paths";
+import { BASE_PATH, apiUrl } from "@/lib/paths";
 import type { SessionInfo } from "@/lib/types";
 import { TwitchLogo } from "@/components/icons";
 import { Button, Card, CopyField, ExternalA, Field, Input, Skeleton, Steps, buttonClass } from "@/components/ui";
@@ -67,7 +67,7 @@ function TwitchSetup({ info, initialError }: { info: SessionInfo; initialError: 
       </p>
 
       <form onSubmit={submit} className="mt-6 space-y-5">
-        <Field htmlFor="setup-code" label="1. Code d'installation" hint="Il figure dans le fichier LISEZ-MOI.txt livré avec le dossier posting.">
+        <Field htmlFor="setup-code" label="1. Code d'installation" hint={`Il figure dans le fichier LISEZ-MOI.txt livré avec le dossier « ${BASE_PATH.split("/").pop() || APP_NAME.toLowerCase()} ».`}>
           <Input id="setup-code" autoFocus value={setupCode} onChange={(e) => setSetupCode(e.target.value)} placeholder="XXXX-XXXX-XXXX" autoComplete="off" spellCheck={false} />
         </Field>
 

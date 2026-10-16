@@ -60,10 +60,11 @@ function tiktok_creator_info(array $account): array
     ];
 }
 
-function demo_creator_info(): array
+function demo_creator_info(?array $account = null): array
 {
     return [
-        'creatorNickname' => 'Léa Créations', 'creatorUsername' => 'lea.creations',
+        'creatorNickname' => $account['name'] ?? 'Léa Créations', 'creatorUsername' => ltrim($account['username'] ?? 'lea.creations', '@'),
+        'creatorAvatarUrl' => $account['avatarUrl'] ?? null,
         'privacyLevelOptions' => ['PUBLIC_TO_EVERYONE', 'MUTUAL_FOLLOW_FRIENDS', 'FOLLOWER_OF_CREATOR', 'SELF_ONLY'],
         'commentDisabled' => false, 'duetDisabled' => false, 'stitchDisabled' => false, 'maxVideoPostDurationSec' => 600,
     ];

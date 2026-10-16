@@ -136,7 +136,7 @@ try {
         } elseif ($route === '/platforms/tiktok/creator-info' && $isGet) {
             $a = get_account('tiktok');
             if (!$a) throw new HttpError('Aucun compte TikTok connecté.', 404);
-            if (!empty($a['demo'])) json_out(demo_creator_info());
+            if (!empty($a['demo'])) json_out(demo_creator_info($a));
             else {
                 try {
                     json_out(tiktok_creator_info(usable_account('tiktok')));
