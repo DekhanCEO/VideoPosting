@@ -1,4 +1,4 @@
-/** Accroche TikTok (0–2,6 s) : « Arrête de publier 3 fois la même vidéo. » → « Publie-la 1 fois partout. » */
+/** Accroche TikTok (0–2,8 s) : « Arrête de publier 3 fois la même vidéo. » → « Publie-la 1 fois partout. » */
 import React from "react";
 import { AbsoluteFill, Easing, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { BrandLogo, type Brand } from "../brands";
@@ -7,14 +7,14 @@ import { LogoMark } from "../tour/Caption";
 import { FONT } from "../tour/kit";
 import { ease, Word } from "./parts";
 
-export const HOOK_END = 78;
+export const HOOK_END = 84;
 /** Point de fusion des logos, centre du volet qui ouvre la suite. */
 export const MERGE = { x: 540, y: 1216 };
-export const PORTAL_START = 64;
+export const PORTAL_START = 70;
 
 const ACCENT_ON_DARK = "#A78BFA";
 const STRIKE = "#FF3B5C";
-const SLAMS = [-3, 10, 14, 18, 54];
+const SLAMS = [-3, 10, 14, 18, 58];
 
 function shake(frame: number) {
   let x = 0;
@@ -55,10 +55,10 @@ export const Hook: React.FC = () => {
   const sh = shake(frame);
   // « 3 fois » claque dès la première image (déjà en mouvement à l'image 0).
   const slam = spring({ frame: frame + 3, fps, config: { damping: 15, stiffness: 240, mass: 0.7 } });
-  const strike = ease(frame, 27, 33, Easing.out(Easing.cubic)) * (1 - ease(frame, 36, 41, Easing.in(Easing.cubic)));
-  const roll = spring({ frame: frame - 38, fps, config: { damping: 14, stiffness: 260, mass: 0.6 } });
-  const merge = ease(frame, 44, 56, Easing.in(Easing.cubic));
-  const glow = 0.28 + (frame >= 54 ? 0.22 * Math.exp(-(frame - 54) / 8) : 0);
+  const strike = ease(frame, 30, 36, Easing.out(Easing.cubic)) * (1 - ease(frame, 40, 45, Easing.in(Easing.cubic)));
+  const roll = spring({ frame: frame - 42, fps, config: { damping: 14, stiffness: 260, mass: 0.6 } });
+  const merge = ease(frame, 50, 62, Easing.in(Easing.cubic));
+  const glow = 0.28 + (frame >= 58 ? 0.22 * Math.exp(-(frame - 58) / 8) : 0);
   const big: React.CSSProperties = { fontSize: 88, fontWeight: 800, letterSpacing: -3, lineHeight: 1.05, color: "#fff" };
 
   return (
@@ -67,7 +67,7 @@ export const Hook: React.FC = () => {
       <AbsoluteFill style={{ transform: `translate(${sh.x}px, ${sh.y}px)`, fontFamily: FONT }}>
         <div style={{ position: "absolute", top: 470, left: 40, right: 40, textAlign: "center" }}>
           <div style={big}>
-            <Swap a="Arrête de publier" b="Publie-la" at={36} />
+            <Swap a="Arrête de publier" b="Publie-la" at={40} />
           </div>
           <div style={{ position: "relative", display: "inline-block", marginTop: 6, transform: `scale(${mix(2.1, 1, slam)})` }}>
             <span style={{ display: "inline-flex", alignItems: "baseline", fontSize: 250, fontWeight: 800, letterSpacing: -10, lineHeight: 1.2, color: ACCENT_ON_DARK }}>
@@ -79,15 +79,15 @@ export const Hook: React.FC = () => {
               </span>
               <span>&nbsp;fois</span>
             </span>
-            <div style={{ position: "absolute", left: -18, right: -18, top: "52%", height: 20, marginTop: -10, borderRadius: 10, background: STRIKE, transform: `rotate(-5deg) scaleX(${strike})`, transformOrigin: frame < 36 ? "0 50%" : "100% 50%" }} />
+            <div style={{ position: "absolute", left: -18, right: -18, top: "52%", height: 20, marginTop: -10, borderRadius: 10, background: STRIKE, transform: `rotate(-5deg) scaleX(${strike})`, transformOrigin: frame < 40 ? "0 50%" : "100% 50%" }} />
           </div>
           <div style={{ ...big, marginTop: 4 }}>
-            <Swap a={<Word enter={6}>la même vidéo.</Word>} b="partout." at={40} />
+            <Swap a={<Word enter={6}>la même vidéo.</Word>} b="partout." at={44} />
           </div>
         </div>
 
         {/* Les trois plateformes claquent, puis fusionnent en une seule application. */}
-        {frame < 58 &&
+        {frame < 64 &&
           BRAND_TILES.map((b, i) => {
             const s = spring({ frame: frame - (10 + i * 4), fps, config: { damping: 10, stiffness: 230, mass: 0.6 } });
             const x = mix(MERGE.x + (i - 1) * 180, MERGE.x, merge);
@@ -122,13 +122,13 @@ export const Hook: React.FC = () => {
 export const MergeLogo: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  if (frame < 50 || frame >= HOOK_END) return null;
-  const pop = spring({ frame: frame - 52, fps, config: { damping: 9, stiffness: 220, mass: 0.6 } });
-  const close = ease(frame, 66, 76, Easing.in(Easing.back(1.7)));
-  const wave = ease(frame, 54, 72, Easing.out(Easing.cubic));
+  if (frame < 54 || frame >= HOOK_END) return null;
+  const pop = spring({ frame: frame - 56, fps, config: { damping: 9, stiffness: 220, mass: 0.6 } });
+  const close = ease(frame, 72, 82, Easing.in(Easing.back(1.7)));
+  const wave = ease(frame, 58, 76, Easing.out(Easing.cubic));
   return (
     <>
-      <div style={{ position: "absolute", left: MERGE.x - 90 - wave * 330, top: MERGE.y - 90 - wave * 330, width: 180 + wave * 660, height: 180 + wave * 660, borderRadius: "50%", border: `6px solid ${ACCENT_ON_DARK}`, opacity: (1 - wave) * (frame >= 54 ? 0.9 : 0) }} />
+      <div style={{ position: "absolute", left: MERGE.x - 90 - wave * 330, top: MERGE.y - 90 - wave * 330, width: 180 + wave * 660, height: 180 + wave * 660, borderRadius: "50%", border: `6px solid ${ACCENT_ON_DARK}`, opacity: (1 - wave) * (frame >= 58 ? 0.9 : 0) }} />
       <div style={{ position: "absolute", left: MERGE.x - 88, top: MERGE.y - 88, transform: `scale(${pop * (1 - close)}) rotate(${(1 - pop) * -20}deg)` }}>
         <LogoMark size={176} />
       </div>
