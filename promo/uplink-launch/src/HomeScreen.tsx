@@ -47,7 +47,7 @@ export const HomeScreen: React.FC = () => {
   const dot = spring({ frame: frame - T.chartEnd + 4, fps, config: { damping: 9, stiffness: 240, mass: 0.5 } });
 
   return (
-    <div style={{ position: "absolute", inset: 0, width: SCREEN_W, height: SCREEN_H, background: t.bg, color: t.ink, fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
+    <div style={{ position: "absolute", inset: 0, width: SCREEN_W, height: SCREEN_H, background: t.bg, color: t.ink, fontFamily: t.font ?? '"Plus Jakarta Sans", sans-serif' }}>
       {/* Barre d'état */}
       <div style={{ position: "absolute", top: 26, left: 40, right: 34, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: -0.2 }}>9:41</span>

@@ -26,7 +26,7 @@ export const AppScreen: React.FC<{ title: string; eyebrow?: string; tab?: number
   const user = useUser();
   const tabs = [Home, Calendar, null, Bars, User];
   return (
-    <div style={{ position: "absolute", inset: 0, width: SCREEN_W, height: SCREEN_H, background: t.bg, color: t.ink, fontFamily: FONT, overflow: "hidden" }}>
+    <div style={{ position: "absolute", inset: 0, width: SCREEN_W, height: SCREEN_H, background: t.bg, color: t.ink, fontFamily: t.font ?? FONT, overflow: "hidden" }}>
       <div style={{ position: "absolute", top: 26, left: 40, right: 34, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <span style={{ fontSize: 17, fontWeight: 700 }}>9:41</span>
         <StatusIcons color={t.ink} />

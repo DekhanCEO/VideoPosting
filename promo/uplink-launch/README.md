@@ -1,6 +1,6 @@
 # Uplink — vidéos de présentation (Remotion)
 
-Cinq compositions verticales (1080×1920, 30 i/s) autour de l'interface réelle d'Uplink :
+Six compositions verticales (1080×1920, 30 i/s) autour de l'interface réelle d'Uplink :
 
 | Composition | Durée | Contenu |
 | --- | --- | --- |
@@ -31,25 +31,27 @@ seconde en plan fixe. Pas de voix ni de musique : les titres portent l'explicati
 
 ## La version TikTok (`TikTok`)
 
-Le contenu « essentiel » (une accroche, quatre messages courts, la fin) tourné en **un seul plan-séquence façon
-keynote** : fond clair #EEEEEC, encre presque noire, un seul point rouge, Inter Tight. Aucune coupe, aucun fondu :
-chaque état naît du précédent, ressorts à ~10 % de dépassement, flou de bougé proportionnel à la vitesse, ombres
-douces en couches, une seconde immobile à la fin.
+Le scénario de la version « essentiel » — mêmes plans, mêmes cadrages, même rythme — dans la **direction artistique
+keynote** : fond clair #EEEEEC, encre presque noire, Inter Tight (titres et écrans du téléphone), un seul point rouge
+par image (né des trois logos, puis point final de chaque titre), ombres douces en couches, ressorts à ~10 % de
+dépassement, flou de bougé proportionnel à la vitesse (téléphones, cartes, logos), transitions par mouvement (zoom,
+filé) sans fondu ni flash, une seconde immobile à la fin.
 
-| Temps | Texte | Ce qui se transforme |
+| Temps | Texte | Image |
 | --- | --- | --- |
-| 0–2,9 s | « Arrête de publier **3 fois** la même vidéo. » → « Publie-la **1 fois** partout. » | Le 3 est barré et bascule sur 1 ; les logos TikTok, YouTube, Instagram fusionnent en **point rouge**. |
-| 2,9–5,7 s | « 1 clic. » « 3 plateformes. » | Le point fait pousser le bouton « Publier », un pointeur le presse ; le bouton s'ouvre en carte qui **se divise en trois** (Publiée ✓). |
-| 5,7–7,9 s | « Programme. » « Uplink publie à ta place. » | Les trois cartes se rassemblent, prennent un cadre : un **téléphone** (l'application de Dekhan) ; « 19:00 » sort de l'écran et devient **géant**. |
-| 7,9–10,2 s | « Ta commu prévenue. » « Les liens partent sur Discord. » | Le 19:00 rentre ; le **message Discord sort du téléphone**. |
-| 10,2–12 s | « Tes stats. Tes revenus. » | Le message **se divise en trois chiffres** : +5 990 abonnés, 12,8 %, 4 918,98 €. |
-| 12–15 s | « Publie partout. » « Pilote tout. » | Les chiffres rentrent dans le téléphone, la caméra recule, le téléphone devient le **« o » de « partout »** et le point rouge vient se poser en **point final** ; « Uplink · www.dsociety.fr/uplink ». |
+| 0–2,8 s | « Arrête de publier **3 fois** la même vidéo. » → « Publie-la **1 fois** partout. » | Le 3 est barré et bascule sur 1 ; les logos TikTok, YouTube, Instagram (vignettes d'encre) fusionnent en point rouge, la caméra plonge dedans. |
+| 2,8–5,4 s | « 1 clic. 3 plateformes. » | Le téléphone arrive en tournoyant et se dédouble en trois, un logo sous chacun. |
+| 5,4–7,8 s | « Programme. » « Uplink publie à ta place. » | « 19:00 » géant au-dessus du calendrier, téléphone incliné. |
+| 7,8–10,2 s | « Ta commu prévenue. » « Les liens partent sur Discord. » | Contre-plongée ; le message Discord (carte blanche) sort de l'écran et vient vers nous. |
+| 10,2–12,6 s | « Tes stats. Tes revenus. » | Trois cartes : +5 990 abonnés, 12,8 % d'influence, 4 918,98 € ce mois. |
+| 12,6–15 s | « Uplink — Publie partout. Pilote tout. » | Adresse www.dsociety.fr/uplink ; le cadre recule, l'application passe en thème sombre. |
 
-Textes hors des zones couvertes par l'interface de TikTok. Chronologie et géométrie : `T`, `dev()`, `slices()`,
-`redDot()` dans `src/tiktok/OneTake.tsx` ; outils communs (ressorts, flou, ombres) dans `src/tiktok/motionKit.tsx`.
+Les écrans de l'application reprennent la direction artistique grâce aux thèmes `KEYNOTE_LIGHT` / `KEYNOTE_DARK`
+(`src/theme.tsx` : couleurs, police, largeur des chiffres). Plans et rythme : `SHOTS` dans
+`src/tiktok/NouvelleDA.tsx` ; outils communs (ressorts, flou, ombres) dans `src/tiktok/motionKit.tsx`.
 
-Variantes : `npm run render:tiktok-signal` (oscilloscope puis keynote, `src/tiktok/Scope.tsx` + `Keynote.tsx`) et
-`npm run render:tiktok-essentiel` (un plan par message, `src/tiktok/Essentiel.tsx`).
+Variantes : `npm run render:tiktok-plan-sequence` (un seul plan, `src/tiktok/OneTake.tsx`),
+`npm run render:tiktok-signal` (oscilloscope puis keynote) et `npm run render:tiktok-essentiel` (direction violette).
 
 ## Personnaliser
 
@@ -66,8 +68,9 @@ npm run studio                      # aperçu interactif
 npm run render                      # out/uplink-launch.mp4
 npm run render:tour                 # out/uplink-tour.mp4
 npm run render:tiktok               # out/uplink-tiktok.mp4
+npm run render:tiktok-plan-sequence # out/uplink-tiktok-plan-sequence.mp4 (variante plan-séquence)
 npm run render:tiktok-signal        # out/uplink-tiktok-signal.mp4 (variante oscilloscope)
-npm run render:tiktok-essentiel     # out/uplink-tiktok-essentiel.mp4 (variante un plan par message)
+npm run render:tiktok-essentiel     # out/uplink-tiktok-essentiel.mp4 (variante direction violette)
 npm run render:tour -- --browser-executable=/chemin/vers/chrome-headless-shell   # si Chrome ne peut pas être téléchargé
 ```
 
