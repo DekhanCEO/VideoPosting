@@ -47,6 +47,8 @@ export const PublishScreen: React.FC = () => {
         {rows.map((r, i) => {
           const ok = done(r.v);
           const isFail = r.p === "instagram" && failed;
+          // Hook appelé à chaque image (jamais sous condition), même avant la mise en ligne.
+          const okPop = usePop(r.p === "instagram" ? 117 : r.p === "tiktok" ? 59 : 71);
           return (
             <Card key={r.p} start={8 + i * 4} style={{ padding: "12px 14px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -56,7 +58,7 @@ export const PublishScreen: React.FC = () => {
                   <div style={{ fontSize: 12.5, fontWeight: 600, color: isFail ? t.ink : t.muted, marginTop: 2 }}>{ok ? r.url : r.step}</div>
                 </div>
                 {ok ? (
-                  <CheckBadge label="Publiée" scale={usePop(r.p === "instagram" ? 117 : r.p === "tiktok" ? 59 : 71)} />
+                  <CheckBadge label="Publiée" scale={okPop} />
                 ) : isFail ? (
                   <span style={{ transform: `scale(${1 - 0.12 * Math.sin(Math.min(1, retryPress) * Math.PI)})`, display: "inline-block" }}>
                     <Badge tone="solid" style={{ fontSize: 13, padding: "7px 11px" }}>↻ Relancer</Badge>
