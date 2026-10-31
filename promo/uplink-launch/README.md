@@ -30,19 +30,28 @@ seconde en plan fixe. Pas de voix ni de musique : les titres portent l'explicati
 
 ## La version TikTok (`TikTok`)
 
-- **0–2,8 s, accroche** sur fond sombre : « Arrête de publier **3 fois** la même vidéo. » (déjà en mouvement à
-  l'image 0). Les logos TikTok, YouTube et Instagram claquent, « 3 » est barré puis bascule sur « 1 » : « Publie-la
-  **1 fois** partout. » Les trois logos fusionnent dans le logo Uplink, qui s'ouvre en volet sur le téléphone.
-- **2,8–12,4 s, les 12 options**, 0,8 s chacune (compteur « 03/12 ») : comptes, création multi-plateforme,
-  réglages Short/Reel, photos, programmation, suivi en direct, Discord, statistiques, influence, audience, revenus,
-  accès. Les écrans de l'application sont accélérés pour montrer l'action complète dans le temps imparti, avec un
-  léger coup de zoom à chaque changement.
-- **12,4–15 s, fin** : « Uplink — Publie partout. Pilote tout. », www.dsociety.fr/uplink, le téléphone passe en thème
-  sombre et les trois cartes flottantes apparaissent.
+15 s, montage nerveux : un cadrage différent par option, enchaînés par des filés (avec flou de bougé), des coups de
+zoom et des flashs, et des changements de fond (clair, violet, lilas, bleu Discord, nuit).
+
+| Temps | Plan |
+| --- | --- |
+| 0–2,6 s | **Accroche** sur fond sombre : « Arrête de publier **3 fois** la même vidéo. » (déjà en mouvement à l'image 0), logos qui claquent, « 3 » barré qui bascule sur « 1 » : « Publie-la **1 fois** partout. » Les logos fusionnent dans le logo Uplink, qui s'ouvre en volet. |
+| 01 Comptes | Le téléphone sort du volet en tournoyant ; TikTok, YouTube, Instagram et Twitch se connectent autour. |
+| 02 Créer | Fond violet : le téléphone **se dédouble en trois**, un par plateforme. |
+| 03 Réglages | **Gros plan** sur le choix du format YouTube (Auto → Short). |
+| 04 Photos | **Vue de dessus**, téléphone posé à plat qui tourne, ombre sur la table. |
+| 05 Programmer | **« 19:00 » géant** au-dessus d'un téléphone incliné. |
+| 06 Publier | **Travelling avant** sur le suivi en direct : échec Instagram, relance, réussite et gerbe de particules. |
+| 07 Discord | Fond bleu Discord, **contre-plongée** : le message d'annonce sort de l'écran et vient vers nous. |
+| 08 Statistiques | Fond nuit : l'**interface plein cadre** en thème sombre, inclinée. |
+| 09 Influence | **Anneau géant** qui se remplit jusqu'à 12,8 %, formule autour. |
+| 10 Audience | **Orbite** autour du téléphone, les pays sortent de l'écran. |
+| 11 Revenus | Fond violet : **4 918,98 € géant** qui compte, sources qui arrivent une à une, « Objectif atteint ». |
+| 12 Accès | Le téléphone **fait un tour complet** et se pose sur l'administration. |
+| 12,8–15 s | **Fin** : le cadre recule, l'appli passe en sombre, trois cartes, « Publie partout. Pilote tout. », www.dsociety.fr/uplink. |
 
 Les textes restent hors des zones couvertes par l'interface de TikTok (onglets en haut, boutons à droite, légende en
-bas). Tutoiement, rythme calé sur 0,8 s par option : une musique autour de 150 BPM (2 temps par option) tombe juste.
-Contenu et rythme : `BEATS` dans `src/tiktok/TikTok.tsx`.
+bas). Les plans et leurs transitions : `SHOTS` dans `src/tiktok/TikTok.tsx` ; les cadrages : `src/tiktok/shots.tsx`.
 
 ## Personnaliser
 
