@@ -68,7 +68,7 @@ export const ChapterBar: React.FC<{ count: number; current: number; progress: nu
   </div>
 );
 
-const LogoMark: React.FC<{ size: number }> = ({ size }) => (
+export const LogoMark: React.FC<{ size: number }> = ({ size }) => (
   <div
     style={{
       width: size,

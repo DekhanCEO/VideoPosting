@@ -94,12 +94,12 @@ const InfluenceRing: React.FC = () => {
 };
 
 /** Écran d'accueil figé (construit) — avec bascule vers le thème sombre pour le chapitre « Confort ». */
-const HomeBuilt: React.FC = () => (
+export const HomeBuilt: React.FC = () => (
   <Freeze frame={130}>
     <HomeScreen />
   </Freeze>
 );
-const DarkReveal: React.FC = () => {
+export const DarkReveal: React.FC = () => {
   const frame = useCurrentFrame();
   const r = interpolate(frame, [12, 44], [0, 1250], { easing: Easing.inOut(Easing.cubic), extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   return (
