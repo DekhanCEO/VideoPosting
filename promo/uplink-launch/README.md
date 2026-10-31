@@ -50,6 +50,8 @@ Les écrans de l'application reprennent la direction artistique grâce aux thèm
 (`src/theme.tsx` : couleurs, police, largeur des chiffres). Plans et rythme : `SHOTS` dans
 `src/tiktok/NouvelleDA.tsx` ; outils communs (ressorts, flou, ombres) dans `src/tiktok/motionKit.tsx`.
 
+Le prompt complet pour reproduire cette vidéo est dans `prompts/tiktok-keynote.md`.
+
 Variantes : `npm run render:tiktok-plan-sequence` (un seul plan, `src/tiktok/OneTake.tsx`),
 `npm run render:tiktok-signal` (oscilloscope puis keynote) et `npm run render:tiktok-essentiel` (direction violette).
 
