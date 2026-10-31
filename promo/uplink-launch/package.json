@@ -8,11 +8,13 @@
     "render": "remotion render src/index.ts Launch out/uplink-launch.mp4",
     "render:tour": "remotion render src/index.ts Tour out/uplink-tour.mp4",
     "render:tiktok": "remotion render src/index.ts TikTok out/uplink-tiktok.mp4",
+    "render:tiktok-essentiel": "remotion render src/index.ts TikTokEssentiel out/uplink-tiktok-essentiel.mp4",
     "still": "remotion still src/index.ts Launch out/still.png --frame=149",
     "still:tour": "remotion still src/index.ts Tour out/tour.png --frame=1919",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@fontsource/inter-tight": "5.3.0",
     "@fontsource/plus-jakarta-sans": "5.3.0",
     "@remotion/cli": "4.0.539",
     "react": "19.3.1",

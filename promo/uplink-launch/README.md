@@ -1,12 +1,13 @@
 # Uplink — vidéos de présentation (Remotion)
 
-Trois compositions verticales (1080×1920, 30 i/s), même téléphone en 3D CSS, même interface réelle d'Uplink :
+Quatre compositions verticales (1080×1920, 30 i/s), même téléphone en 3D CSS, même interface réelle d'Uplink :
 
 | Composition | Durée | Contenu |
 | --- | --- | --- |
 | `Launch` | 5 s | Plan de lancement : le téléphone arrive incliné et pivote en trois quarts, l'écran d'accueil se construit, trois cartes flottantes, plan fixe final. |
 | `Tour` | 64 s | Visite guidée de toutes les options, avec l'utilisateur « Dekhan » : 14 chapitres titrés, un écran de l'application par chapitre, une carte flottante par option. |
-| `TikTok` | 15 s | Version courte pour TikTok, Reels et Shorts : accroche dès la première image, les 12 options en rafale, appel à l'action. |
+| `TikTok` | 15 s | Version courte pour TikTok, Reels et Shorts : « Signal » (oscilloscope) puis « Publier » (plan-séquence façon keynote). |
+| `TikTokEssentiel` | 15 s | Version précédente : accroche, quatre messages, un plan par message. |
 
 ## Les 14 chapitres de la visite (`Tour`)
 
@@ -30,21 +31,31 @@ seconde en plan fixe. Pas de voix ni de musique : les titres portent l'explicati
 
 ## La version TikTok (`TikTok`)
 
-15 s, réduite à l'essentiel : une accroche et quatre messages de 2 à 5 mots, chacun environ 2,4 s à l'écran pour
-avoir le temps de le lire, chacun illustré par une seule image forte.
+15 s en deux actes, un seul fil : le signal de ta vidéo devient la publication.
 
-| Temps | Texte | Image |
-| --- | --- | --- |
-| 0–2,8 s | « Arrête de publier **3 fois** la même vidéo. » → « Publie-la **1 fois** partout. » | Fond sombre, logos TikTok/YouTube/Instagram qui claquent puis fusionnent dans le logo Uplink, ouverture en volet. |
-| 2,8–5,4 s | « 1 clic. **3 plateformes.** » | Le téléphone arrive en tournoyant et se dédouble en trois, un logo de plateforme sous chacun. |
-| 5,4–7,8 s | « **Programme.** Uplink publie à ta place. » | « 19:00 » géant au-dessus du calendrier. |
-| 7,8–10,2 s | « Ta commu **prévenue.** Les liens partent sur Discord. » | Le message Discord sort de l'écran et vient vers nous. |
-| 10,2–12,6 s | « Tes **stats.** Tes **revenus.** » | Trois chiffres : +5 990 abonnés, 12,8 % d'influence, 4 918,98 € ce mois. |
-| 12,6–15 s | « Uplink — Publie partout. Pilote tout. » | Adresse www.dsociety.fr/uplink, l'application passe en thème sombre ; dernière demi-seconde fixe. |
+**Acte 1 — Signal (0–3,6 s), oscilloscope.** Écran vert-noir, graticule qui s'efface vers les bords, aucun cadre.
+Une seule trace de phosphore (cœur presque blanc, halo vert, courte rémanence des images précédentes), continue du
+début à la fin : sinusoïde qui défile puis se verrouille, se replie en figure de Lissajous 3:2 qui tourne lentement,
+se relâche en onde qui s'amortit jusqu'à une ligne plate, d'où montent de gauche à droite les capitales fines
+« UPLINK », posées sur la trace, chacune avec un léger dépassement. L'accroche « ARRÊTE DE POSTER / 3 FOIS / LA MÊME
+VIDÉO. » est lisible dès l'image 0. Un petit afficheur d'instrument (CH1 · …), pas d'inscription dans les coins, le
+cinquième inférieur vide. Extinction cathodique : l'image s'écrase en ligne, puis en point.
 
-Enchaînements : volet, filé, flash, zoom, filé. Textes en 112 px, hors des zones couvertes par l'interface de
-TikTok (onglets en haut, boutons à droite, légende en bas). Messages et plans : `SHOTS` dans
-`src/tiktok/TikTok.tsx` (« | » = retour à la ligne, `*mot*` = surligné) ; images : `src/tiktok/shots.tsx`.
+**Acte 2 — Publier (3,6–15 s), plan-séquence keynote.** Fond #EEEEEC, encre presque noire, un seul point rouge, Inter
+Tight ; aucune coupe, aucun fondu. Le point de l'oscilloscope devient rouge et le fond clair s'ouvre autour de lui. Le
+point fait pousser un bouton noir « Publier », un pointeur le presse (« 1 clic. ») ; le bouton s'ouvre en carte
+blanche « En ligne partout » — TikTok, YouTube, Instagram publiés (« 3 plateformes. ») ; la carte se dote d'un cadre
+et devient un téléphone avec l'application de Dekhan (« Programme. » 19:00, « Ta commu prévenue. » Discord, « Tes
+stats. Tes revenus. » +5 990 abonnés, 4 918 €). La caméra recule : le contour du téléphone se referme en « o » de
+« Publie partout. » et le point rouge vient se poser en point final. Signature « Uplink · www.dsociety.fr/uplink »,
+dernière seconde immobile.
+
+Chaque état naît du précédent : ressorts à ~10 % de dépassement (la forme du « o » sans dépassement, la caméra en
+zoom logarithmique), flou de bougé proportionnel à la vitesse (bouton, carte, pointeur, point rouge, recul), ombres
+douces en couches. Textes hors des zones couvertes par l'interface de TikTok.
+
+Fichiers : `src/tiktok/Scope.tsx` (acte 1), `src/tiktok/Keynote.tsx` (acte 2, chronologie `K`),
+`src/tiktok/TikTok.tsx` (assemblage). La version précédente reste disponible : `npm run render:tiktok-essentiel`.
 
 ## Personnaliser
 
@@ -61,6 +72,7 @@ npm run studio                      # aperçu interactif
 npm run render                      # out/uplink-launch.mp4
 npm run render:tour                 # out/uplink-tour.mp4
 npm run render:tiktok               # out/uplink-tiktok.mp4
+npm run render:tiktok-essentiel     # out/uplink-tiktok-essentiel.mp4 (version précédente)
 npm run render:tour -- --browser-executable=/chemin/vers/chrome-headless-shell   # si Chrome ne peut pas être téléchargé
 ```
 
