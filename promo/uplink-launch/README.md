@@ -1,6 +1,6 @@
 # Uplink — vidéos de présentation (Remotion)
 
-Quatre compositions verticales (1080×1920, 30 i/s), même téléphone en 3D CSS, même interface réelle d'Uplink :
+Quatre compositions verticales (1080×1920, 30 i/s) autour de l'interface réelle d'Uplink :
 
 | Composition | Durée | Contenu |
 | --- | --- | --- |
