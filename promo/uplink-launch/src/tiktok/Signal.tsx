@@ -1,5 +1,5 @@
 /**
- * Version TikTok (15 s, 9:16) : « Signal » puis « Publier ».
+ * Version TikTok « Signal » (15 s, 9:16) : oscilloscope puis plan-séquence keynote.
  * Acte 1 — oscilloscope : accroche lisible dès l'image 0, trace de phosphore continue (sinusoïde → Lissajous →
  * amortissement → ligne plate d'où sort « UPLINK »), extinction cathodique jusqu'à un point.
  * Acte 2 — plan-séquence keynote : le point devient rouge, fait pousser le bouton « Publier », qui devient carte,
@@ -11,8 +11,8 @@ import { useFonts } from "../fonts";
 import { KEYNOTE_LEN, Keynote } from "./Keynote";
 import { SCOPE_END, Scope } from "./Scope";
 
-export const TIKTOK_DURATION = SCOPE_END + KEYNOTE_LEN; // 450 = 15 s
-const HOLD_FROM = TIKTOK_DURATION - 30; // dernière seconde immobile
+export const SIGNAL_DURATION = SCOPE_END + KEYNOTE_LEN; // 450 = 15 s
+const HOLD_FROM = SIGNAL_DURATION - 30; // dernière seconde immobile
 
 const Film: React.FC = () => (
   <AbsoluteFill style={{ background: "#010302" }}>
@@ -25,7 +25,7 @@ const Film: React.FC = () => (
   </AbsoluteFill>
 );
 
-export const TikTok: React.FC = () => {
+export const TikTokSignal: React.FC = () => {
   useFonts();
   const frame = useCurrentFrame();
   return frame >= HOLD_FROM ? (

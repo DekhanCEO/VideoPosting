@@ -1,6 +1,6 @@
 # Uplink — vidéos de présentation (Remotion)
 
-Quatre compositions verticales (1080×1920, 30 i/s) autour de l'interface réelle d'Uplink :
+Cinq compositions verticales (1080×1920, 30 i/s) autour de l'interface réelle d'Uplink :
 
 | Composition | Durée | Contenu |
 | --- | --- | --- |
@@ -31,31 +31,25 @@ seconde en plan fixe. Pas de voix ni de musique : les titres portent l'explicati
 
 ## La version TikTok (`TikTok`)
 
-15 s en deux actes, un seul fil : le signal de ta vidéo devient la publication.
+Le contenu « essentiel » (une accroche, quatre messages courts, la fin) tourné en **un seul plan-séquence façon
+keynote** : fond clair #EEEEEC, encre presque noire, un seul point rouge, Inter Tight. Aucune coupe, aucun fondu :
+chaque état naît du précédent, ressorts à ~10 % de dépassement, flou de bougé proportionnel à la vitesse, ombres
+douces en couches, une seconde immobile à la fin.
 
-**Acte 1 — Signal (0–3,6 s), oscilloscope.** Écran vert-noir, graticule qui s'efface vers les bords, aucun cadre.
-Une seule trace de phosphore (cœur presque blanc, halo vert, courte rémanence des images précédentes), continue du
-début à la fin : sinusoïde qui défile puis se verrouille, se replie en figure de Lissajous 3:2 qui tourne lentement,
-se relâche en onde qui s'amortit jusqu'à une ligne plate, d'où montent de gauche à droite les capitales fines
-« UPLINK », posées sur la trace, chacune avec un léger dépassement. L'accroche « ARRÊTE DE POSTER / 3 FOIS / LA MÊME
-VIDÉO. » est lisible dès l'image 0. Un petit afficheur d'instrument (CH1 · …), pas d'inscription dans les coins, le
-cinquième inférieur vide. Extinction cathodique : l'image s'écrase en ligne, puis en point.
+| Temps | Texte | Ce qui se transforme |
+| --- | --- | --- |
+| 0–2,9 s | « Arrête de publier **3 fois** la même vidéo. » → « Publie-la **1 fois** partout. » | Le 3 est barré et bascule sur 1 ; les logos TikTok, YouTube, Instagram fusionnent en **point rouge**. |
+| 2,9–5,7 s | « 1 clic. » « 3 plateformes. » | Le point fait pousser le bouton « Publier », un pointeur le presse ; le bouton s'ouvre en carte qui **se divise en trois** (Publiée ✓). |
+| 5,7–7,9 s | « Programme. » « Uplink publie à ta place. » | Les trois cartes se rassemblent, prennent un cadre : un **téléphone** (l'application de Dekhan) ; « 19:00 » sort de l'écran et devient **géant**. |
+| 7,9–10,2 s | « Ta commu prévenue. » « Les liens partent sur Discord. » | Le 19:00 rentre ; le **message Discord sort du téléphone**. |
+| 10,2–12 s | « Tes stats. Tes revenus. » | Le message **se divise en trois chiffres** : +5 990 abonnés, 12,8 %, 4 918,98 €. |
+| 12–15 s | « Publie partout. » « Pilote tout. » | Les chiffres rentrent dans le téléphone, la caméra recule, le téléphone devient le **« o » de « partout »** et le point rouge vient se poser en **point final** ; « Uplink · www.dsociety.fr/uplink ». |
 
-**Acte 2 — Publier (3,6–15 s), plan-séquence keynote.** Fond #EEEEEC, encre presque noire, un seul point rouge, Inter
-Tight ; aucune coupe, aucun fondu. Le point de l'oscilloscope devient rouge et le fond clair s'ouvre autour de lui. Le
-point fait pousser un bouton noir « Publier », un pointeur le presse (« 1 clic. ») ; le bouton s'ouvre en carte
-blanche « En ligne partout » — TikTok, YouTube, Instagram publiés (« 3 plateformes. ») ; la carte se dote d'un cadre
-et devient un téléphone avec l'application de Dekhan (« Programme. » 19:00, « Ta commu prévenue. » Discord, « Tes
-stats. Tes revenus. » +5 990 abonnés, 4 918 €). La caméra recule : le contour du téléphone se referme en « o » de
-« Publie partout. » et le point rouge vient se poser en point final. Signature « Uplink · www.dsociety.fr/uplink »,
-dernière seconde immobile.
+Textes hors des zones couvertes par l'interface de TikTok. Chronologie et géométrie : `T`, `dev()`, `slices()`,
+`redDot()` dans `src/tiktok/OneTake.tsx` ; outils communs (ressorts, flou, ombres) dans `src/tiktok/motionKit.tsx`.
 
-Chaque état naît du précédent : ressorts à ~10 % de dépassement (la forme du « o » sans dépassement, la caméra en
-zoom logarithmique), flou de bougé proportionnel à la vitesse (bouton, carte, pointeur, point rouge, recul), ombres
-douces en couches. Textes hors des zones couvertes par l'interface de TikTok.
-
-Fichiers : `src/tiktok/Scope.tsx` (acte 1), `src/tiktok/Keynote.tsx` (acte 2, chronologie `K`),
-`src/tiktok/TikTok.tsx` (assemblage). La version précédente reste disponible : `npm run render:tiktok-essentiel`.
+Variantes : `npm run render:tiktok-signal` (oscilloscope puis keynote, `src/tiktok/Scope.tsx` + `Keynote.tsx`) et
+`npm run render:tiktok-essentiel` (un plan par message, `src/tiktok/Essentiel.tsx`).
 
 ## Personnaliser
 
@@ -72,7 +66,8 @@ npm run studio                      # aperçu interactif
 npm run render                      # out/uplink-launch.mp4
 npm run render:tour                 # out/uplink-tour.mp4
 npm run render:tiktok               # out/uplink-tiktok.mp4
-npm run render:tiktok-essentiel     # out/uplink-tiktok-essentiel.mp4 (version précédente)
+npm run render:tiktok-signal        # out/uplink-tiktok-signal.mp4 (variante oscilloscope)
+npm run render:tiktok-essentiel     # out/uplink-tiktok-essentiel.mp4 (variante un plan par message)
 npm run render:tour -- --browser-executable=/chemin/vers/chrome-headless-shell   # si Chrome ne peut pas être téléchargé
 ```
 
