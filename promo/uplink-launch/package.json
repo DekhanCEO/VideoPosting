@@ -2,11 +2,13 @@
   "name": "uplink-launch",
   "private": true,
   "version": "1.0.0",
-  "description": "Plan de lancement Uplink (Remotion) : téléphone en 3D CSS, écran d'accueil animé, cartes flottantes.",
+  "description": "Vidéos Uplink (Remotion) : plan de lancement de 5 s et visite guidée de 64 s, téléphone en 3D CSS.",
   "scripts": {
     "studio": "remotion studio src/index.ts",
     "render": "remotion render src/index.ts Launch out/uplink-launch.mp4",
+    "render:tour": "remotion render src/index.ts Tour out/uplink-tour.mp4",
     "still": "remotion still src/index.ts Launch out/still.png --frame=149",
+    "still:tour": "remotion still src/index.ts Tour out/tour.png --frame=1919",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

@@ -37,3 +37,10 @@ export const StatusIcons = ({ color }: { color: string }) => (
     <rect x="75.2" y="5" width="1.8" height="4" rx="0.9" opacity="0.45" />
   </svg>
 );
+
+export const Images = ({ size = 24, color = "currentColor", stroke = 2 }: P) =>
+  svg(size, <><rect x="3" y="5" width="15" height="14" rx="3" /><path d="M7 19l4.5-5 3 3L17 15M21 8v9a3 3 0 0 1-3 3H8" /><circle cx="8" cy="9.5" r="1.4" /></>, color, stroke);
+export const Moon = ({ size = 24, color = "currentColor", stroke = 2.2 }: P) => svg(size, <path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z" />, color, stroke);
+export const Shield = ({ size = 24, color = "currentColor", stroke = 2.2 }: P) =>
+  svg(size, <><path d="M12 3l7.5 3v5.5c0 4.6-3.2 8.3-7.5 9.5-4.3-1.2-7.5-4.9-7.5-9.5V6z" /><path d="M8.8 12.2l2.2 2.2 4.4-4.6" /></>, color, stroke);
+export const Clock = ({ size = 24, color = "currentColor", stroke = 2.2 }: P) => svg(size, <><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></>, color, stroke);

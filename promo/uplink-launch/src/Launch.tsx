@@ -1,10 +1,6 @@
-import "@fontsource/plus-jakarta-sans/400.css";
-import "@fontsource/plus-jakarta-sans/500.css";
-import "@fontsource/plus-jakarta-sans/600.css";
-import "@fontsource/plus-jakarta-sans/700.css";
-import "@fontsource/plus-jakarta-sans/800.css";
-import React, { useEffect, useState } from "react";
-import { AbsoluteFill, Freeze, continueRender, delayRender, useCurrentFrame, useVideoConfig } from "remotion";
+import React from "react";
+import { AbsoluteFill, Freeze, useCurrentFrame, useVideoConfig } from "remotion";
+import { useFonts } from "./fonts";
 import { T } from "./config";
 import { FloatingCard } from "./FloatingCard";
 import { HomeScreen } from "./HomeScreen";
@@ -13,14 +9,6 @@ import { Phone } from "./Phone";
 
 const CENTER_X = 540;
 const CENTER_Y = 900;
-
-/** Attend que Plus Jakarta Sans soit chargée avant de capturer la moindre image. */
-function useFonts() {
-  const [handle] = useState(() => delayRender("Chargement de Plus Jakarta Sans"));
-  useEffect(() => {
-    Promise.all(["400", "500", "600", "700", "800"].map((w) => document.fonts.load(`${w} 40px "Plus Jakarta Sans"`))).then(() => continueRender(handle));
-  }, [handle]);
-}
 
 /** Ombre portée au sol : plus large quand le téléphone se présente de trois quarts, plus nette quand il est posé. */
 const FloorShadow: React.FC<{ rotY: number; y: number; landed: number; drift: number }> = ({ rotY, y, landed, drift }) => {
