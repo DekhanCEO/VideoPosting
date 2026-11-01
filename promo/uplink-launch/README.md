@@ -1,11 +1,12 @@
 # Uplink — vidéos de présentation (Remotion)
 
-Six compositions verticales (1080×1920, 30 i/s) autour de l'interface réelle d'Uplink :
+Sept compositions verticales (1080×1920, 30 i/s) autour de l'interface réelle d'Uplink :
 
 | Composition | Durée | Contenu |
 | --- | --- | --- |
 | `Launch` | 5 s | Plan de lancement : le téléphone arrive incliné et pivote en trois quarts, l'écran d'accueil se construit, trois cartes flottantes, plan fixe final. |
 | `Tour` | 64 s | Visite guidée de toutes les options, avec l'utilisateur « Dekhan » : 14 chapitres titrés, un écran de l'application par chapitre, une carte flottante par option. |
+| `UplinkPub` | 15 s | Publicité premium sombre (accroche, révélation, produit, détail, appel à l'action), avec bruitages. |
 | `TikTok` | 15 s | Version courte pour TikTok, Reels et Shorts : « Signal » (oscilloscope) puis « Publier » (plan-séquence façon keynote). |
 | `TikTokEssentiel` | 15 s | Version précédente : accroche, quatre messages, un plan par message. |
 
@@ -28,6 +29,53 @@ Six compositions verticales (1080×1920, 30 i/s) autour de l'interface réelle d
 
 Ouverture (logo, « Bienvenue, Dekhan ») et fin (« Publiez partout. Pilotez tout. », www.dsociety.fr/uplink), dernière
 seconde en plan fixe. Pas de voix ni de musique : les titres portent l'explication.
+
+## La publicité premium (`UplinkPub`)
+
+15 s, ambiance sombre premium (#0B0B0F, texte #F5F5F7 / #8E8E93, accent violet d'Uplink #9B6BFF), Geist Sans 600 pour
+les titres (-2 %), Inter pour le corps. Un message par plan, au moins 40 % d'espace vide, jamais plus de 6 mots à
+l'écran, aucun texte sous 36 px, marges de 80 px en haut et en bas. Entrées en ease-out cubique, éléments produit en
+ressort (damping 20, stiffness 120), animations qui se chevauchent, lumière diagonale (blanc 8 %) aux transitions
+majeures, et passage d'un plan à l'autre par morphing.
+
+| Plan | Temps | Contenu | Morphing vers le plan suivant |
+| --- | --- | --- | --- |
+| 1 Accroche | 0–2,5 s | « Trois apps. Trois uploads. Épuisant. » mot par mot (fondu + 8 px, toutes les 6 images) ; « Épuisant. » est remplacé par « Fini. » à l'accent. | « Fini. » devient le logo. |
+| 2 Révélation | 2,5–5 s | Logo, « Uplink » en grand (ressort 0,85 → 1), « Une vidéo. Tous tes réseaux. » ; lumière diagonale. | Le logo devient l'écran du téléphone. |
+| 3 Produit | 5–10 s | Téléphone sobre qui pivote à 12° puis se redresse ; écran A « Un envoi. Partout. » (une vidéo reliée à TikTok, YouTube, Instagram), B « Programmé à l'heure. » (19:00), C « Communauté prévenue. » (notification Discord). | Bouton → carte horaire → notification → carte de résultat. |
+| 4 Détail | 10–13 s | Zoom lent 1 → 1,15 sur la publication : les trois barres se remplissent, « 0/3 » → « 3/3 en ligne » ; le zoom se fige et le fond s'assombrit sur la dernière demi-seconde. | La carte devient le bouton. |
+| 5 Appel à l'action | 13–15 s | Logo en petit en haut (lumière diagonale), « Publie partout. », bouton « Essayer maintenant », « dsociety.fr/uplink » ; fondu au noir sur les 10 dernières images. | — |
+
+Uplink est une application web (dsociety.fr/uplink), pas une application des stores : pas de badge App Store ou Google
+Play, pas de chiffre d'usage inventé (le seul chiffre affiché, 3/3, est le nombre de plateformes publiées).
+Bruitages synthétisés (`npm run sfx:pub` → `public/pub/sfx/`) : souffle à chaque morphing, clic à l'apparition du logo,
+carillon au bouton. Pas de musique intégrée : en ajouter une sous licence au montage final si besoin.
+
+```
+src/pub/
+├── timing.ts                 toutes les constantes de temps (images)
+├── layout.ts                 géométrie partagée par les morphings
+├── theme.ts                  couleurs et polices
+├── fonts.ts                  chargement de Geist Sans et Inter
+├── UplinkPub.tsx             la composition (fond, plans, lumière, fondu au noir, bruitages)
+├── components/               anim.ts, Background, LightSweep, UplinkMark, PhoneFrame
+└── scenes/
+    ├── 01-accroche/Accroche.tsx
+    ├── 02-revelation/Revelation.tsx
+    ├── 03-produit/Produit.tsx, EcranPublier.tsx, EcranProgrammer.tsx, EcranDiscord.tsx
+    ├── 04-detail/Detail.tsx
+    └── 05-cta/Cta.tsx
+```
+
+```bash
+npx remotion studio                                  # prévisualisation
+npx remotion render UplinkPub out/uplink-pub.mp4     # rendu (ou npm run render:pub)
+```
+
+À vérifier à l'œil après rendu : chaque titre lisible le temps de le lire (accroche ~1 s après le dernier mot, légendes
+~1 s) ; aucun chevauchement de textes pendant les morphings ; rien dans les 80 px du haut et du bas ; le compteur passe
+bien 0/3 → 3/3 au rythme des barres ; la lumière diagonale reste discrète ; le zoom du plan 4 se fige net ; dernière image
+entièrement noire ; bruitages au bon moment et à un volume discret.
 
 ## La version TikTok (`TikTok`)
 
