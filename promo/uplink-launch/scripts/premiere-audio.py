@@ -150,7 +150,7 @@ def boom(d=3.0):
 def reverse_swell(d, hi=True):
     n = int(SR * d)
     tt = np.arange(n) / SR
-    s = highpass(rng.standard_normal(n), 2500 if hi else 600) * (tt / d) ** 3
+    s = lowpass(highpass(rng.standard_normal(n), 2500 if hi else 600), 9000) * (tt / d) ** 3
     return s * 0.7
 
 
@@ -219,34 +219,33 @@ fx += rush * 0.35
 place(music, 0, pad([B2, D3, FS3, B3], fr(150) + 0.4, 1600, 0.05), 0.2)
 place(music, 0, subbass(B2 / 2, fr(150)), 0.25)
 place(fx, fr(-6) + 0.2, marimba(B3 * 2), 0.18)  # « Publie une fois. »
-place(fx, fr(14), marimba(FS4 * 2), 0.2)  # « Diffuse partout. »
+place(fx, fr(14), marimba(FS4 * 2), 0.28)  # « Diffuse partout. »
 place(fx, fr(64), tick(1800), 0.35)  # le mur se pose
-place(fx, fr(62), whoosh(1.1, True, 300, 3500), 0.4)  # l'affiche sort du mur
+place(fx, fr(62), whoosh(1.1, True, 400, 6500), 0.75)  # l'affiche sort du mur
 for k, f in enumerate((96, 100, 104, 108)):
-    place(fx, fr(f), tick(3000 + 300 * k), 0.22)
+    place(fx, fr(f), tick(3000 + 300 * k), 0.32)
 place(fx, fr(122), click(), 0.6)  # appui
 place(fx, fr(125), glide(330, 990, fr(16), 0.6), 0.1)  # publication
 for i, f in enumerate((129, 133, 137)):
-    place(fx, fr(f), marimba([FS4 * 2, A3 * 4, B3 * 4][i], 0.7), 0.26)
+    place(fx, fr(f), marimba([FS4 * 2, A3 * 4, B3 * 4][i], 0.7), 0.34)
 place(fx, fr(141), bell(B3 * 4, 1.6), 0.2)
 place(fx, fr(141) + 0.004, bell(FS4 * 2, 1.4), 0.12)
 
 # Générique (150–256)
-place(fx, fr(150), whoosh(0.22, False, 200, 6000), 0.45)  # la fiche s'éteint
-place(fx, fr(157), shimmer(fr(30)), 0.6)  # les rubans
-place(fx, fr(157), whoosh(fr(31), True, 300, 6000), 0.3)  # montée sous les rubans
-place(fx, fr(157), reverse_swell(fr(39), hi=False), 0.25)
-place(music, fr(157), pad([B2, FS3, B3, D4], fr(40), 2600, 0.3), 0.14)
-place(fx, fr(188), reverse_swell(fr(8)), 0.8)  # aspiration
+place(fx, fr(150), whoosh(0.22, False, 300, 7000), 0.85)  # la fiche s'éteint
+place(fx, fr(157), shimmer(fr(30), 900, 5000, 18), 1.0)  # les rubans
+place(fx, fr(157), whoosh(fr(31), True, 300, 6000), 0.55)  # montée sous les rubans
+place(music, fr(157), pad([B2, FS3, B3, D4], fr(40), 1400, 0.3), 0.1)
+place(fx, fr(188), reverse_swell(fr(8)), 1.1)  # aspiration
 place(fx, fr(196), boom(3.0), 1.0)  # IMPACT
 place(music, fr(196), pad([D3, FS3, A3, D4, FS4], fr(44) + 0.6, 3200, 0.02), 0.22)
 for i, f in enumerate((204, 208, 212)):  # « Uplink »
     place(fx, fr(f), marimba([D4 * 2, FS4 * 2, A3 * 4][i], 0.9), 0.16)
 place(fx, fr(214), bell(D4 * 2, 2.0), 0.08)
 place(fx, fr(238), whoosh(fr(18) + 0.1, True, 200, 7000), 0.55)  # plongeon
-place(fx, fr(256), tick(1500), 0.3)
+place(fx, fr(256), tick(2200), 1.0)
 for k, f in enumerate((260, 264, 268, 272)):
-    place(fx, fr(f), tick(2600 + 250 * k), 0.16)
+    place(fx, fr(f), tick(2600 + 250 * k), 0.45)
 place(fx, fr(276), marimba(B3 * 2, 0.4), 0.12)
 place(fx, fr(285), click(), 0.5)
 place(fx, fr(290), whoosh(0.5, True, 300, 4500), 0.4)
@@ -275,11 +274,11 @@ subbuf = np.zeros(N)
 for bar in range(int(np.ceil(nbeats / 4))):
     st = g0 + bar * 4 * BEAT
     d = min(4 * BEAT, g1 - st)
-    place(padbuf, st, pad(CHORDS[bar % 4], d + 0.3, 1800, 0.2), 0.11)
+    place(padbuf, st, pad(CHORDS[bar % 4], d + 0.3, 1800, 0.2), 0.08)
     place(subbuf, st, subbass(CHORDS[bar % 4][0] / 2, d), 0.35)
 music += (padbuf + subbuf) * duck
 for f in (384, 474, 564):  # glissés d'un épisode à l'autre
-    place(fx, fr(f), whoosh(0.42, True, 300, 4200), 0.38)
+    place(fx, fr(f), whoosh(0.42, True, 400, 6000), 0.7)
 for i, f in enumerate((336, 341, 346)):  # notifications
     place(fx, fr(f), marimba([B3 * 4, D4 * 4, FS4 * 4][i] / 2, 0.6), 0.22)
     place(fx, fr(f) + 0.08, marimba([B3 * 4, D4 * 4, FS4 * 4][i], 0.6), 0.14)
@@ -289,12 +288,12 @@ for d_, n_ in [(0, 7), (2, 8), (5, 5), (7, 7)]:
     k = np.floor(bezier_ease(fine / 20, 0.22, 1, 0.36, 1) * (n_ - 1) + 1e-6)
     for j in range(1, len(fine)):
         if k[j] > k[j - 1]:
-            place(fx, fr(390 + 10 + d_ + fine[j]), tick(3400), 0.2)
-place(fx, fr(494), whoosh(0.35, True, 300, 4000), 0.3)  # le message Discord sort
+            place(fx, fr(390 + 10 + d_ + fine[j]), tick(4200), 0.7)
+place(fx, fr(494), whoosh(0.35, True, 400, 6000), 0.55)  # le message Discord sort
 place(fx, fr(506), marimba(1318.5, 0.6), 0.2)
 place(fx, fr(511), marimba(1760.0, 0.7), 0.18)
 for i, f in enumerate((580, 584, 588)):
-    place(fx, fr(f), tick(2400 + 400 * i), 0.2)
+    place(fx, fr(f), tick(2400 + 400 * i), 0.4)
 place(fx, fr(596), glide(440, 1320, fr(26), 0.4), 0.06)  # la courbe se trace
 place(fx, fr(618), marimba(FS4 * 2, 0.6), 0.16)
 
@@ -302,12 +301,18 @@ place(fx, fr(618), marimba(FS4 * 2, 0.6), 0.16)
 place(music, fr(652), pad([D3, FS3, A3, D4, E3 * 2, FS4], DUR - fr(652), 3000, 0.4), 0.2)
 place(music, fr(660), subbass(D3 / 2, DUR - fr(660)), 0.3)
 place(fx, fr(660), boom(2.2), 0.45)
-place(fx, fr(682), shimmer(0.8, 1200, 5000, 8), 0.15)  # reflet sur le logo
+place(fx, fr(682), shimmer(0.8, 1200, 5000, 8), 0.22)  # reflet sur le logo
 place(fx, fr(668), marimba(D4 * 2, 0.9), 0.12)
 place(fx, fr(696), bell(A3 * 4, 2.0), 0.16)  # l'adresse
 place(fx, fr(718), shimmer(0.7, 1500, 6000, 6), 0.1)
 
 # --- mixage ---------------------------------------------------------------------------------------------------------
+# La musique s'efface de 5 dB au plus sous chaque effet, pour que tous les bruitages ressortent.
+fx_env = lowpass(np.abs(fx), 12.0)
+fx_env /= np.max(fx_env) + 1e-9
+side = 1 - 0.44 * np.clip(fx_env * 4, 0, 1)
+music = music * side
+drums = drums * side
 music = reverb(music, 2.4, 0.26)
 fx = reverb(fx, 1.6, 0.18)
 drums = reverb(drums, 0.9, 0.08)
