@@ -29,7 +29,7 @@ import { At, CAMERA, DUR, ENTER, INK, LEAVE, LiftSwap, MUTED, PANEL, Poster, SPE
 export const PREMIERE_DURATION = 750;
 const CINE = Easing.bezier(0.4, 0, 0.2, 1);
 
-const T = {
+export const T = {
   textOut: 52,
   settle: 64,
   hover: 58,
@@ -113,7 +113,7 @@ const Row: React.FC<{ f: number; r: number }> = ({ f, r }) => {
   );
 };
 
-const PLATS: { b: Brand; name: string }[] = [
+export const PLATS: { b: Brand; name: string }[] = [
   { b: "tiktok", name: "TikTok" },
   { b: "youtube", name: "YouTube" },
   { b: "instagram", name: "Instagram" },
@@ -305,7 +305,7 @@ const SPRAY = Array.from({ length: 38 }, (_, k) => ({
 const spectrumAt = (u: number) => interpolateColors(u, SPECTRUM.map((s) => s[0]), SPECTRUM.map((s) => s[1]));
 const IMPACT: SpringCfg = { mass: 1, stiffness: 300, damping: 15 };
 
-const TitleScene: React.FC<{ f: number }> = ({ f }) => {
+export const TitleScene: React.FC<{ f: number; credit?: boolean }> = ({ f, credit = true }) => {
   const zoomE = ez(f, T.zoom, T.zoom + 16, Easing.bezier(0.6, 0, 0.9, 0.45));
   const zs = Math.exp(Math.log(22) * zoomE);
   const zsPrev = Math.exp(Math.log(22) * ez(f - 1, T.zoom, T.zoom + 16, Easing.bezier(0.6, 0, 0.9, 0.45)));
@@ -384,7 +384,7 @@ const TitleScene: React.FC<{ f: number }> = ({ f }) => {
             )}
           </g>
         </svg>
-        <div style={{ position: "absolute", left: 0, right: 0, top: 604, textAlign: "center", fontFamily: IT, fontSize: 28, fontWeight: 600, letterSpacing: "0.34em", color: "rgba(255,255,255,0.62)", ...appear(f, T.credit, DUR.m, 20, 6) }}>UNE CRÉATION DSOCIETY</div>
+        {credit && <div style={{ position: "absolute", left: 0, right: 0, top: 604, textAlign: "center", fontFamily: IT, fontSize: 28, fontWeight: 600, letterSpacing: "0.34em", color: "rgba(255,255,255,0.62)", ...appear(f, T.credit, DUR.m, 20, 6) }}>UNE CRÉATION DSOCIETY</div>}
         <div style={{ position: "absolute", left: 0, right: 0, top: 1170, display: "flex", justifyContent: "center", fontFamily: IT, fontSize: 156, fontWeight: 800, letterSpacing: "-0.05em", color: "#fff", lineHeight: 1 }}>
           {"Uplink".split("").map((ch, i) => (
             <span key={i} style={{ display: "inline-block", ...appear(f, T.word + i * 2, DUR.m, 34, 10) }}>
@@ -526,7 +526,7 @@ const Chrome: React.FC<{ t: number; k: number }> = ({ t: tt, k }) => {
   );
 };
 
-interface Pose {
+export interface Pose {
   rotY: number;
   rotX: number;
   rotZ: number;
@@ -535,7 +535,7 @@ interface Pose {
   scale: number;
 }
 /** Téléphone en studio : halo, reflet au sol, flou de bougé, écran en thème sombre. */
-const StudioPhone: React.FC<{ p: Pose; q: Pose; id: string; children: React.ReactNode }> = ({ p, q, id, children }) => {
+export const StudioPhone: React.FC<{ p: Pose; q: Pose; id: string; children: React.ReactNode }> = ({ p, q, id, children }) => {
   const b = blurOf(Math.abs(p.x - q.x) + Math.abs(p.rotY - q.rotY) * 3, Math.abs(p.y - q.y) + Math.abs(p.rotX - q.rotX) * 3, 0.3, 10);
   const cx = 540 + p.x;
   const cy = 1110 + p.y;
@@ -558,7 +558,7 @@ const StudioPhone: React.FC<{ p: Pose; q: Pose; id: string; children: React.Reac
 };
 
 /* --- Épisode 1 : publier partout (bandeaux de notification façon iOS) */
-const Banner: React.FC<{ t: number; at: number; y: number; p: { b: Brand; name: string } }> = ({ t, at, y, p }) => {
+export const Banner: React.FC<{ t: number; at: number; y: number; p: { b: Brand; name: string } }> = ({ t, at, y, p }) => {
   if (t < at) return null;
   const e = sp(t, at, SNAP);
   const draw = ez(t, at + 6, at + 11, ENTER);
@@ -683,7 +683,7 @@ const discFly = (t: number) => {
   const e = sp(t, 14, { mass: 1, stiffness: 120, damping: 16 }); // ≈ 3 % : à peine un dépassement
   return { x: mix(720, 450, e), y: mix(1300, 1060, e), z: mix(-20, 220, e), ry: mix(-28, -8, e), s: mix(0.32, 1, e) };
 };
-const DiscordCard: React.FC<{ t: number }> = ({ t }) => {
+export const DiscordCard: React.FC<{ t: number }> = ({ t }) => {
   const link = (s: string) => <span style={{ color: "#00A8FC" }}>{s}</span>;
   const b = (s: string) => <b style={{ color: "#fff", fontWeight: 700 }}>{s}</b>;
   const lines: React.ReactNode[] = [
@@ -744,7 +744,7 @@ const Ep3: React.FC<{ t: number }> = ({ t }) => {
 };
 
 /* --- Épisode 4 : le « Top 3 » et la courbe des revenus */
-const TOP = [
+export const TOP = [
   { title: "Live 12h", pal: 0 },
   { title: "Dreamhack", pal: 1 },
   { title: "Clutch 1v4", pal: 6 },
@@ -770,7 +770,7 @@ const smoothPath = (pts: [number, number][]) => {
   }
   return d;
 };
-const REV_D = smoothPath(REV);
+export const REV_D = smoothPath(REV);
 const Ep4: React.FC<{ t: number }> = ({ t }) => {
   const draw = ez(t, 26, 52, ENTER);
   const dot = sp(t, 48, SNAP);
@@ -908,7 +908,7 @@ const EndScene: React.FC<{ f: number }> = ({ f }) => {
 
 /* ================================================================== Montage */
 /** Lumière de studio : douche douce en haut, lueur violette au sol (couche ambiante). */
-const Spotlight: React.FC<{ f: number }> = ({ f }) => (
+export const Spotlight: React.FC<{ f: number }> = ({ f }) => (
   <AbsoluteFill
     style={{
       background: `radial-gradient(60% 38% at ${50 + wave(f, 420) * 3}% ${16 + wave(f, 300) * 2}%, rgba(255,255,255,0.075), rgba(255,255,255,0) 70%), radial-gradient(60% 28% at 50% 94%, rgba(124,58,237,${0.16 + 0.03 * wave(f, 240)}), rgba(124,58,237,0) 70%)`,

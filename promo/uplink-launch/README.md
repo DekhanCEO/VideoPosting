@@ -1,6 +1,6 @@
 # Uplink — vidéos de présentation (Remotion)
 
-Neuf compositions verticales (1080×1920, 30 i/s) autour de l'interface réelle d'Uplink :
+Dix compositions verticales (1080×1920, 30 i/s) autour de l'interface réelle d'Uplink :
 
 | Composition | Durée | Contenu |
 | --- | --- | --- |
@@ -11,6 +11,7 @@ Neuf compositions verticales (1080×1920, 30 i/s) autour de l'interface réelle 
 | `TikTokEssentiel` | 15 s | Version précédente : accroche, quatre messages, un plan par message. |
 | `TikTokElan` | 15 s | « Élan » : version motion design (skill LottieFiles), violet Uplink, volets chevron, bande-son synthétisée. |
 | `TikTokPremiere` | 25 s | « Première » : film style Apple × Netflix (mur d'affiches, générique en rubans, épisodes), bande-son synthétisée. |
+| `TikTokSuspense` | 15 s | « Suspense » : teaser construit comme une bande-annonce (la corvée, le silence, la révélation, la preuve, la chute). |
 
 ## Les 14 chapitres de la visite (`Tour`)
 
@@ -155,6 +156,22 @@ images ; une seule entrée (monter, passer de 98 à 100 %, sortir d'un léger fl
 
 Bande-son : `npm run audio:premiere` (synthèse, `scripts/premiere-audio.py`) ; rendu : `npm run render:premiere`.
 
+## Le teaser « Suspense » (`TikTokSuspense`)
+
+15 s pour tenir en haleine et donner le sentiment qu'Uplink est indispensable : on vit d'abord la corvée, on
+s'arrête, puis on découvre la solution. Même univers que « Première » (dont il réutilise le générique, le téléphone en
+studio, les bandeaux et la carte Discord).
+
+| Temps | Acte | Image et son |
+| --- | --- | --- |
+| 0–4 s | La corvée | « Importer. Réécrire. Régler. » pour TikTok, puis YouTube, puis Instagram, de plus en plus vite ; les fiches s'empilent ; « Recommencer. » ; le compteur « ×3 » envahit l'écran : « Pour chaque vidéo. » Battement de cœur qui accélère, horloge, nappe dissonante. |
+| 4–5,3 s | Le silence | Noir et silence total (coupure nette) : « Et si une fois suffisait ? » |
+| 5,3–8 s | La révélation | Trait de lumière, rubans, logo, impact, « Uplink ». |
+| 8–12,6 s | La preuve | Montage sur le temps : « 1 clic. 3 réseaux. », « Programmé. », « Ta commu prévenue. », « Tes revenus suivis. » |
+| 12,6–15 s | La chute | « Comment tu faisais avant ? », le logo, « ▶ dsociety.fr/uplink ». |
+
+Bande-son : `npm run audio:suspense` (`scripts/suspense-audio.py`) ; rendu : `npm run render:suspense`.
+
 ## Personnaliser
 
 - Plan de lancement : `src/config.ts` (nom, accent, chiffre principal, courbe, lignes, cartes, rythme en images).
@@ -175,6 +192,7 @@ npm run render:tiktok-signal        # out/uplink-tiktok-signal.mp4 (variante osc
 npm run render:tiktok-essentiel     # out/uplink-tiktok-essentiel.mp4 (variante direction violette)
 npm run render:elan                 # out/uplink-elan.mp4 (version motion design, avec bande-son)
 npm run render:premiere             # out/uplink-premiere.mp4 (film Apple × Netflix, 25 s, avec bande-son)
+npm run render:suspense             # out/uplink-suspense.mp4 (teaser « bande-annonce », 15 s, avec bande-son)
 npm run render:tour -- --browser-executable=/chemin/vers/chrome-headless-shell   # si Chrome ne peut pas être téléchargé
 ```
 
