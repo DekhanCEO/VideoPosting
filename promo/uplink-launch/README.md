@@ -1,6 +1,6 @@
 # Uplink — vidéos de présentation (Remotion)
 
-Huit compositions verticales (1080×1920, 30 i/s) autour de l'interface réelle d'Uplink :
+Neuf compositions verticales (1080×1920, 30 i/s) autour de l'interface réelle d'Uplink :
 
 | Composition | Durée | Contenu |
 | --- | --- | --- |
@@ -10,6 +10,7 @@ Huit compositions verticales (1080×1920, 30 i/s) autour de l'interface réelle 
 | `TikTok` | 15 s | Version courte pour TikTok, Reels et Shorts : « Signal » (oscilloscope) puis « Publier » (plan-séquence façon keynote). |
 | `TikTokEssentiel` | 15 s | Version précédente : accroche, quatre messages, un plan par message. |
 | `TikTokElan` | 15 s | « Élan » : version motion design (skill LottieFiles), violet Uplink, volets chevron, bande-son synthétisée. |
+| `TikTokPremiere` | 25 s | « Première » : film style Apple × Netflix (mur d'affiches, générique en rubans, épisodes), bande-son synthétisée. |
 
 ## Les 14 chapitres de la visite (`Tour`)
 
@@ -132,6 +133,28 @@ Construite en appliquant le skill [motion-design de LottieFiles](https://github.
 La bande-son (150 BPM, calée sur les temps forts) est synthétisée par `scripts/elan-audio.py` puis encodée dans
 `public/elan/elan.m4a` : `npm run audio:elan`. Rendu : `npm run render:elan`.
 
+## Le film « Première » (`TikTokPremiere`)
+
+25 s dans un style **Apple × Netflix** : noir cinéma, spectre violet → corail, typographie keynote, téléphone en
+studio, interface de plateforme de streaming (mur d'affiches, fiche aperçu, liste d'épisodes, barre de lecture,
+« Suivant », Top 3). Inspiration de style uniquement : ni logo, ni nom, ni son de marque tiers.
+
+Identité de mouvement (skill motion-design de LottieFiles, `src/premiere/parts.tsx`) : personnalité premium à ~90 %
+(décélérations longues, aucun dépassement, temps de pause), énergie empruntée à trois moments (le mur qui défile,
+l'impact du générique, le clic) ; courbe signature `cubic-bezier(0.22, 1, 0.36, 1)` ; durées 11 / 15 / 24 / 36
+images ; une seule entrée (monter, passer de 98 à 100 %, sortir d'un léger flou).
+
+| Temps | Séquence | Image |
+| --- | --- | --- |
+| 0–2,2 s | Le mur | Des dizaines d'affiches défilent en perspective, puis ralentissent ; « Publie une fois. Diffuse partout. » |
+| 2,2–5 s | L'aperçu | Une affiche sort du mur, se tourne vers nous et devient une fiche (titre, formats, TikTok / YouTube / Instagram) ; appui sur « ▶ Publier partout », la publication se remplit, les trois réseaux sont cochés. |
+| 5–8,5 s | Le générique | La fiche s'éteint en un trait de lumière ; des rubans en jaillissent et dessinent le logo ; compression, impact, « Uplink », « Une création dsociety » ; plongeon dans le triangle du bouton lecture. |
+| 8,5–10 s | Les épisodes | Liste des quatre épisodes ; la vignette du premier s'agrandit jusqu'au plein écran. |
+| 10–22 s | Épisodes 1 à 4 | « Publie partout. » (bandeaux de notification), « Programme. » (« 19:00 » d'écran verrouillé), « Ta commu prévenue. » (message Discord), « Tes stats. Tes revenus. » (Top 3 de tes vidéos, courbe des revenus). |
+| 22–25 s | Fin | Logo, « Uplink », « Publie partout. Pilote tout. », « ▶ dsociety.fr/uplink », « Une création dsociety ». |
+
+Bande-son : `npm run audio:premiere` (synthèse, `scripts/premiere-audio.py`) ; rendu : `npm run render:premiere`.
+
 ## Personnaliser
 
 - Plan de lancement : `src/config.ts` (nom, accent, chiffre principal, courbe, lignes, cartes, rythme en images).
@@ -151,6 +174,7 @@ npm run render:tiktok-plan-sequence # out/uplink-tiktok-plan-sequence.mp4 (varia
 npm run render:tiktok-signal        # out/uplink-tiktok-signal.mp4 (variante oscilloscope)
 npm run render:tiktok-essentiel     # out/uplink-tiktok-essentiel.mp4 (variante direction violette)
 npm run render:elan                 # out/uplink-elan.mp4 (version motion design, avec bande-son)
+npm run render:premiere             # out/uplink-premiere.mp4 (film Apple × Netflix, 25 s, avec bande-son)
 npm run render:tour -- --browser-executable=/chemin/vers/chrome-headless-shell   # si Chrome ne peut pas être téléchargé
 ```
 
