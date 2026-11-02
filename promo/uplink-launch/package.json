@@ -11,11 +11,13 @@
     "render:tiktok-plan-sequence": "remotion render src/index.ts TikTokPlanSequence out/uplink-tiktok-plan-sequence.mp4",
     "render:tiktok-signal": "remotion render src/index.ts TikTokSignal out/uplink-tiktok-signal.mp4",
     "render:tiktok-essentiel": "remotion render src/index.ts TikTokEssentiel out/uplink-tiktok-essentiel.mp4",
+    "render:elan": "remotion render src/index.ts TikTokElan out/uplink-elan.mp4 --codec=h264 --crf=17 --audio-codec=aac --audio-bitrate=256k",
     "still": "remotion still src/index.ts Launch out/still.png --frame=149",
     "still:tour": "remotion still src/index.ts Tour out/tour.png --frame=1919",
     "typecheck": "tsc --noEmit",
     "render:pub": "remotion render UplinkPub out/uplink-pub.mp4",
-    "sfx:pub": "python3 scripts/pub-sfx.py"
+    "sfx:pub": "python3 scripts/pub-sfx.py",
+    "audio:elan": "python3 scripts/elan-audio.py out/elan.wav && ffmpeg -y -loglevel error -i out/elan.wav -c:a aac -b:a 256k public/elan/elan.m4a"
   },
   "dependencies": {
     "@fontsource/geist-sans": "5.3.0",

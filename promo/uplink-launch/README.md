@@ -1,6 +1,6 @@
 # Uplink — vidéos de présentation (Remotion)
 
-Sept compositions verticales (1080×1920, 30 i/s) autour de l'interface réelle d'Uplink :
+Huit compositions verticales (1080×1920, 30 i/s) autour de l'interface réelle d'Uplink :
 
 | Composition | Durée | Contenu |
 | --- | --- | --- |
@@ -9,6 +9,7 @@ Sept compositions verticales (1080×1920, 30 i/s) autour de l'interface réelle 
 | `UplinkPub` | 15 s | Publicité premium sombre (accroche, révélation, produit, détail, appel à l'action), avec bruitages. |
 | `TikTok` | 15 s | Version courte pour TikTok, Reels et Shorts : « Signal » (oscilloscope) puis « Publier » (plan-séquence façon keynote). |
 | `TikTokEssentiel` | 15 s | Version précédente : accroche, quatre messages, un plan par message. |
+| `TikTokElan` | 15 s | « Élan » : version motion design (skill LottieFiles), violet Uplink, volets chevron, bande-son synthétisée. |
 
 ## Les 14 chapitres de la visite (`Tour`)
 
@@ -103,6 +104,34 @@ Le prompt complet pour reproduire cette vidéo est dans `prompts/tiktok-keynote.
 Variantes : `npm run render:tiktok-plan-sequence` (un seul plan, `src/tiktok/OneTake.tsx`),
 `npm run render:tiktok-signal` (oscilloscope puis keynote) et `npm run render:tiktok-essentiel` (direction violette).
 
+## La version « Élan » (`TikTokElan`)
+
+Construite en appliquant le skill [motion-design de LottieFiles](https://github.com/LottieFiles/motion-design-skill)
+(intention émotionnelle, récit, savoir-faire). L'identité de mouvement est définie une fois dans `src/elan/kit.tsx` :
+
+- **Personnalité** : énergique à ~90 % (ease-out-expo, ressorts à ~20 %, éclats de particules, écrasement/étirement à
+  l'impact), premium pour la résolution (courbe douce, sans dépassement, 400–800 ms, respiration).
+- **Courbe signature** `cubic-bezier(0.16, 1, 0.3, 1)` pour les entrées, sorties en accélération à ~70 % de la durée
+  d'entrée, déplacements à l'écran en ease-in-out ; **durées** 4 / 6 / 9 images (+ 20 pour la révélation).
+- **Entrée unique** : tout monte depuis le bas (texte sorti d'un masque, objets qui montent et grossissent) ;
+  **transition** de marque : le volet chevron « ^ » à trois bandes.
+- **Trois couches** partout : primaire (le héros), secondaire (2–3 images plus tard : libellés, lueurs, ondes,
+  particules), ambiante (aurore violette, grille en contre-mouvement, poussières, flottement du téléphone).
+- Décalages sous 500 ms, un seul héros par temps fort (le téléphone recule et s'assombrit quand les cartes arrivent),
+  aucune trajectoire de plus d'un tiers d'écran sans étape intermédiaire.
+
+| Temps | Acte | Texte | Image |
+| --- | --- | --- | --- |
+| 0–2,1 s | Anticipation → impact | « 1 vidéo. » → « 3 réseaux. » → « 1 clic. » | Chiffre géant en odomètre, les trois logos jaillissent du « 3 » puis sont aspirés ; on tape sur le « 1 » : compression, onde, éclat, il décolle. Volet chevron. |
+| 2,1–4,9 s | Action | « Publie partout. » « TikTok, YouTube, Instagram. » | Le téléphone monte avec le volet ; bouton « Publier partout » pressé ; trois cartes « Publiée » sortent de l'écran (motif de succès : conteneur, coche tracée, couleur, lueur). |
+| 4,9–7,2 s | Action | « Programme. » « Uplink publie à ta place. » | « 19:00 » en odomètre au-dessus du calendrier. |
+| 7,2–9,6 s | Action | « Ta commu prévenue. » « Les liens partent sur Discord. » | Le message Discord sort de l'écran et vient vers nous, onde de notification. |
+| 9,6–11,3 s | Réaction | « Tes stats. Tes revenus. » | Ondes depuis le téléphone, courbe « Abonnés » qui se trace, barres « Revenus » qui montent (sans chiffres inventés). |
+| 11,3–15 s | Résolution | « Uplink » « Publie partout. Pilote tout. » | Volet violet ; le chevron pivote et devient le bouton lecture du logo ; nom, promesse, adresse dsociety.fr/uplink ; une seconde de calme. |
+
+La bande-son (150 BPM, calée sur les temps forts) est synthétisée par `scripts/elan-audio.py` puis encodée dans
+`public/elan/elan.m4a` : `npm run audio:elan`. Rendu : `npm run render:elan`.
+
 ## Personnaliser
 
 - Plan de lancement : `src/config.ts` (nom, accent, chiffre principal, courbe, lignes, cartes, rythme en images).
@@ -121,6 +150,7 @@ npm run render:tiktok               # out/uplink-tiktok.mp4
 npm run render:tiktok-plan-sequence # out/uplink-tiktok-plan-sequence.mp4 (variante plan-séquence)
 npm run render:tiktok-signal        # out/uplink-tiktok-signal.mp4 (variante oscilloscope)
 npm run render:tiktok-essentiel     # out/uplink-tiktok-essentiel.mp4 (variante direction violette)
+npm run render:elan                 # out/uplink-elan.mp4 (version motion design, avec bande-son)
 npm run render:tour -- --browser-executable=/chemin/vers/chrome-headless-shell   # si Chrome ne peut pas être téléchargé
 ```
 
