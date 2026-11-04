@@ -1,0 +1,32 @@
+{
+  "name": "ia-dev-55s",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "description": "Vidéo verticale 55 s (Remotion) : à quoi sert l'IA dans le développement applicatif. Personnages Pixo et Léa.",
+  "scripts": {
+    "models": "bash scripts/fetch-models.sh",
+    "voice": "python3 scripts/voice.py",
+    "audio": "python3 scripts/soundtrack.py",
+    "studio": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts IaDev55 output/video_9x16_1080p.mp4",
+    "thumbnail": "remotion still src/index.ts Thumbnail output/thumbnail.png",
+    "verify": "python3 scripts/verify.py",
+    "build:all": "npm run voice && npm run audio && npm run render && npm run thumbnail && npm run audit && npm run verify && cp brief.md script.md storyboard.md README.md output/",
+    "typecheck": "tsc --noEmit",
+    "audit": "node scripts/audit.mjs 3",
+    "stills": "node scripts/stills.mjs build/stills IaDev55"
+  },
+  "dependencies": {
+    "@fontsource/inter": "5.3.0",
+    "@fontsource/poppins": "5.2.7",
+    "@remotion/cli": "4.0.539",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "remotion": "4.0.539"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "typescript": "5.9.3"
+  }
+}
